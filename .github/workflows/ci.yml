@@ -1,0 +1,32 @@
+# Integração contínua: roda sozinha em cada push/PR, sem nenhuma credencial externa.
+# Não faz deploy, não acessa banco, não sobe imagens. O teste de fumaça (navegador + modelo de IA de 224 MB)
+# fica de fora: roda no computador com `npm run smoke`.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

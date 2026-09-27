@@ -59,7 +59,10 @@ for (const [i, k] of KINDS.entries()) {
     const a = (x: number, y: number) => data[(y * info.width + x) * 4 + 3];
     let top = info.height;
     let bottom = 0;
-    for (let y = 0; y < info.height; y += 2) for (let x = 0; x < info.width; x += 8) if (a(x, y) > 128) ((top = Math.min(top, y)), (bottom = Math.max(bottom, y)));
+    for (let y = 0; y < info.height; y += 2) for (let x = 0; x < info.width; x += 8) if (a(x, y) > 128) {
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
     alpha = { transparentCorners: [a(0, 0), a(info.width - 1, 0), a(0, info.height - 1), a(info.width - 1, info.height - 1)].every((v) => v === 0), baseRow: bottom / info.height, heightShare: (bottom - top) / info.height };
     tiles.push({ input: await sharp(checker).composite([{ input: await sharp(p.image.bottle.large).resize(300, 300).toBuffer() }]).png().toBuffer(), left: tiles.length * 310 + 5, top: 5 });
   }

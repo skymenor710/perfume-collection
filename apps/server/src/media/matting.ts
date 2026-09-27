@@ -1,9 +1,13 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import type { InferenceSession as Session } from 'onnxruntime-node';
 import sharp from 'sharp';
 import { config } from '../config';
+import { event } from '../log';
+import { egress } from '../net/egress';
+import { USER_AGENT } from '../net/safe-fetch';
 
 /**
  * Recorte por IA: BiRefNet-lite (licença MIT; ZhengPeng7/BiRefNet via onnx-community), rodando local na CPU.
@@ -11,58 +15,102 @@ import { config } from '../config';
  * tampas metálicas, vidro e sombras melhor que a inundação por cor. Devolve só a máscara (alfa 0–255);
  * quem decide entre este recorte e o por cor é a avaliação de qualidade.
  *
- * O modelo (224 MB) é baixado uma vez para data/models na primeira necessidade.
+ * O modelo (224 MB) é baixado uma vez para data/models na primeira necessidade, e conferido pelo SHA-256.
  */
 
-const MODEL_URL = 'https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/main/onnx/model.onnx';
-const MODEL_SIZE = 224_005_088;
+/**
+ * Modelo fixado: URL num commit específico do repositório (não em "main", que pode mudar) e SHA-256 conferido
+ * antes de carregar. O hash é o que o próprio Hugging Face publica para o arquivo (X-Linked-ETag), conferido com
+ * o arquivo local em 27/09/2026. Se o arquivo não bater — corrompido, trocado ou outra versão — ele NÃO é carregado:
+ * baixa de novo uma vez e, se ainda não bater, o app segue só com o recorte por cor.
+ */
+export const MODEL_COMMIT = 'de15b22ba131738a16dff04aab8bdf8dc32e3ac1';
+const MODEL_URL = `https://huggingface.co/onnx-community/BiRefNet_lite-ONNX/resolve/${MODEL_COMMIT}/onnx/model.onnx`;
+export const MODEL_SHA256 = '5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333';
+export const MODEL_SIZE = 224_005_088;
 const SIDE = 1024;
 const MEAN = [0.485, 0.456, 0.406];
 const STD = [0.229, 0.224, 0.225];
 
 const modelPath = () => path.join(config.modelsDir, 'birefnet-lite.onnx');
 
-function download(url: string, dest: string, redirects = 5): Promise<void> {
+/** SHA-256 de um arquivo, em fluxo (não carrega 224 MB na memória). */
+export function sha256File(file: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    https
-      .get(url, (res) => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
-          res.resume();
-          download(new URL(res.headers.location, url).toString(), dest, redirects - 1).then(resolve, reject);
-          return;
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-        const tmp = `${dest}.part`;
-        const out = createWriteStream(tmp);
-        res.pipe(out);
-        out.on('finish', () => out.close(() => (renameSync(tmp, dest), resolve())));
-        out.on('error', reject);
-      })
+    const hash = createHash('sha256');
+    createReadStream(file)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('end', () => resolve(hash.digest('hex')))
       .on('error', reject);
   });
 }
 
+/** O arquivo é exatamente o modelo esperado? (tamanho primeiro, que é barato; depois o hash). */
+export async function verifyModelFile(file: string, expected = { sha256: MODEL_SHA256, size: MODEL_SIZE }): Promise<boolean> {
+  if (!existsSync(file) || statSync(file).size !== expected.size) return false;
+  return (await sha256File(file)) === expected.sha256;
+}
+
+/** Download só por https (inclusive nos redirecionamentos para a CDN), dentro do teto global de saída. */
+function download(url: string, dest: string, redirects = 5): Promise<void> {
+  return egress.run(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        if (!url.startsWith('https://')) return reject(new Error('download do modelo só por https'));
+        https
+          .get(url, { headers: { 'User-Agent': USER_AGENT } }, (res) => {
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+              res.resume();
+              download(new URL(res.headers.location, url).toString(), dest, redirects - 1).then(resolve, reject);
+              return;
+            }
+            if (res.statusCode !== 200) {
+              res.resume();
+              reject(new Error(`HTTP ${res.statusCode}`));
+              return;
+            }
+            const out = createWriteStream(dest);
+            res.pipe(out);
+            out.on('finish', () => out.close(() => resolve()));
+            out.on('error', reject);
+          })
+          .on('error', reject);
+      }),
+  );
+}
+
+/** Baixa para um .part, confere o hash e só então põe no lugar. Arquivo que não bate é apagado. */
+async function downloadVerified(file: string): Promise<boolean> {
+  const tmp = `${file}.part`;
+  event('model.downloading', { model: 'birefnet-lite', commit: MODEL_COMMIT });
+  await download(MODEL_URL, tmp);
+  if (!(await verifyModelFile(tmp))) {
+    rmSync(tmp, { force: true });
+    return false;
+  }
+  renameSync(tmp, file);
+  return true;
+}
+
 let session: Promise<Session | null> | null = null;
 
-/** Sessão do modelo, ou nulo se não der para baixar/carregar (aí só o recorte por cor funciona). */
+/** Sessão do modelo, ou nulo se não der para baixar/carregar/conferir (aí só o recorte por cor funciona). */
 export function matting(): Promise<Session | null> {
   if (!session) {
     session = (async () => {
       const file = modelPath();
       try {
-        if (!existsSync(file) || statSync(file).size !== MODEL_SIZE) {
+        if (!(await verifyModelFile(file))) {
           mkdirSync(path.dirname(file), { recursive: true });
-          console.log('[imagem] Baixando o modelo de recorte (BiRefNet-lite, 224 MB) — só desta vez…');
-          await download(MODEL_URL, file);
+          if (!(await downloadVerified(file))) {
+            event('model.unavailable', { model: 'birefnet-lite', reason: 'checksum_mismatch' }, 'error');
+            return null;
+          }
         }
         const ort = await import('onnxruntime-node');
         return await ort.InferenceSession.create(file, { graphOptimizationLevel: 'all' });
       } catch (error) {
-        console.warn(`[imagem] Recorte por IA indisponível (${(error as Error).message}); seguindo com o recorte por cor.`);
+        event('model.unavailable', { model: 'birefnet-lite', reason: (error as Error).message }, 'warn');
         return null;
       }
     })();

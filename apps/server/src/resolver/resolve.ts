@@ -7,6 +7,7 @@ import { fetchShopifyVariants, meaningfulVariants, pageCurrency, parseJsonLdVari
 import { processBottleOffThread } from '../media/offthread';
 import { isAllowedByRobots, waitTurn } from '../net/polite';
 import { safeFetch, safeFetchImage } from '../net/safe-fetch';
+import { event, hostOf } from '../log';
 import { identifyFromCatalog } from '../research/parfumo';
 import { researchPerfume, type ChosenImage, type ImageCandidate, type ResearchResult } from '../research/perfume';
 import { findInStores, type StoreMatch } from '../research/stores';
@@ -92,7 +93,8 @@ async function variantThumb(url: string): Promise<string | null> {
     const image = await safeFetchImage(url, { timeoutMs: 12_000, maxBytes: 12 * 1024 * 1024 });
     const bottle = await processBottleOffThread(image.buffer, { noAi: true });
     return `data:image/webp;base64,${bottle.small.toString('base64')}`;
-  } catch {
+  } catch (error) {
+    event('image.error', { host: hostOf(url), origin: 'variant-thumb', code: (error as { code?: string }).code ?? 'erro' }, 'warn');
     return null;
   }
 }
@@ -153,7 +155,8 @@ export async function readPage(url: string): Promise<{ draft: ProductDraft | nul
     const draft = extractProduct(page.body, page.url);
     if (draft?.name && NOT_A_PRODUCT.test(draft.name)) return { draft: null, blocked: true };
     return { draft, blocked: false, html: page.body };
-  } catch {
+  } catch (error) {
+    event('source.error', { source: 'product-page', host: u.host, code: (error as { code?: string }).code ?? 'erro' }, 'warn');
     return { draft: null, blocked: true };
   }
 }

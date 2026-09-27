@@ -3,6 +3,9 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import zlib from 'node:zlib';
+import { isAllowedPort, isPrivateAddress } from './address';
+import { EgressAbortedError, egress } from './egress';
+import { checkImageBytes } from './sniff';
 
 export type FetchErrorCode =
   | 'invalid_url'
@@ -38,34 +41,11 @@ export interface SafeFetchOptions {
   accept?: 'html' | 'json' | 'image';
   /** Aceita 4xx/5xx e devolve a página (útil para detectar bloqueio). */
   allowErrorStatus?: boolean;
+  /** Cancelamento de fora (ex.: a importação foi cancelada). */
+  signal?: AbortSignal;
 }
 
-/** Endereços que nunca podem ser buscados a partir do servidor (SSRF). */
-export function isPrivateAddress(address: string): boolean {
-  if (net.isIPv4(address)) {
-    const [a = 0, b = 0] = address.split('.').map(Number);
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && (b === 168 || b === 0)) ||
-      (a === 198 && (b === 18 || b === 19)) ||
-      a >= 224
-    );
-  }
-  if (net.isIPv6(address)) {
-    const lower = address.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-    if (mapped?.[1]) return isPrivateAddress(mapped[1]);
-    if (lower.startsWith('::ffff:')) return true;
-    return /^(?:f[cd]|fe[89ab]|ff)/.test(lower) || lower.startsWith('64:ff9b:') || lower.startsWith('2001:db8');
-  }
-  return true;
-}
+export { isPrivateAddress };
 
 /** Resolve o DNS e recusa a conexão se qualquer endereço for interno — também contra DNS rebinding. */
 const guardedLookup = ((hostname: string, options: dns.LookupOptions, callback: (...args: unknown[]) => void) => {
@@ -89,7 +69,11 @@ const guardedLookup = ((hostname: string, options: dns.LookupOptions, callback: 
  */
 export const USER_AGENT = 'MeusPerfumes/1.0 (personal perfume collection; polite reader; respects robots.txt)';
 
-function validateUrl(raw: string): URL {
+/**
+ * Só http/https, sem usuário/senha na URL, só portas 80/443, e nunca IP interno escrito direto no link.
+ * Vale para o link inicial E para cada redirecionamento (quem chama revalida a cada salto).
+ */
+export function validateUrl(raw: string): URL {
   let url: URL;
   try {
     url = new URL(raw);
@@ -98,11 +82,21 @@ function validateUrl(raw: string): URL {
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new FetchError('invalid_url', 'Protocolo não suportado');
   if (url.username || url.password) throw new FetchError('invalid_url', 'URL com credenciais');
-  if (url.port && url.port !== '80' && url.port !== '443') throw new FetchError('invalid_url', 'Porta não suportada');
-  if (net.isIP(url.hostname.replace(/^\[|\]$/g, '')) && isPrivateAddress(url.hostname.replace(/^\[|\]$/g, ''))) {
-    throw new FetchError('private_address', 'Endereço interno bloqueado');
-  }
+  if (!isAllowedPort(url)) throw new FetchError('invalid_url', 'Porta não suportada');
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host) && isPrivateAddress(host)) throw new FetchError('private_address', 'Endereço interno bloqueado');
   return url;
+}
+
+/** Destino de um redirecionamento, com as MESMAS regras do link inicial (SSRF, portas, protocolo, credenciais). */
+export function nextHop(location: string, current: URL): URL {
+  let target: string;
+  try {
+    target = new URL(location, current).toString();
+  } catch {
+    throw new FetchError('invalid_url', 'Redirecionamento inválido');
+  }
+  return validateUrl(target);
 }
 
 function charsetOf(contentType: string, head: Buffer): string {
@@ -127,7 +121,7 @@ interface RawResponse {
   body: Buffer;
 }
 
-function requestOnce(url: URL, options: Required<Pick<SafeFetchOptions, 'maxBytes' | 'accept'>>, signal: AbortSignal): Promise<RawResponse> {
+function requestOnce(url: URL, options: { maxBytes: number; accept: 'html' | 'json' | 'image' }, signal: AbortSignal): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
     const request = client.request(
@@ -176,87 +170,97 @@ function requestOnce(url: URL, options: Required<Pick<SafeFetchOptions, 'maxByte
   });
 }
 
+interface FetchPlan {
+  timeoutMs: number;
+  maxBytes: number;
+  maxRedirects: number;
+  accept: 'html' | 'json' | 'image';
+  signal?: AbortSignal;
+  /** Texto do erro de tempo (página × imagem). */
+  what: string;
+}
+
+/**
+ * Um GET com todas as proteções: URL validada a cada salto, DNS vigiado na conexão, tempo e tamanho limitados,
+ * e cada salto passa pelo teto global de saída (`egress`).
+ */
+async function fetchGuarded(rawUrl: string, plan: FetchPlan): Promise<{ url: URL; response: RawResponse }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), plan.timeoutMs);
+  const onOuterAbort = () => controller.abort();
+  plan.signal?.addEventListener('abort', onOuterAbort, { once: true });
+  if (plan.signal?.aborted) controller.abort();
+  try {
+    let url = validateUrl(rawUrl);
+    for (let hop = 0; hop <= plan.maxRedirects; hop++) {
+      let response: RawResponse;
+      try {
+        response = await egress.run(() => requestOnce(url, { maxBytes: plan.maxBytes, accept: plan.accept }, controller.signal), controller.signal);
+      } catch (error) {
+        if (error instanceof FetchError) throw error;
+        const code = (error as { code?: string }).code;
+        if (error instanceof EgressAbortedError || controller.signal.aborted || code === 'ABORT_ERR') throw new FetchError('timeout', `${plan.what} demorou demais`);
+        if (code === 'EPRIVATE') throw new FetchError('private_address', 'Endereço interno bloqueado');
+        throw new FetchError('network', (error as Error).message ?? 'Falha de rede');
+      }
+      if (response.status >= 300 && response.status < 400 && response.headers.location) {
+        url = nextHop(response.headers.location, url);
+        continue;
+      }
+      return { url, response };
+    }
+    throw new FetchError('too_many_redirects', 'Redirecionamentos demais');
+  } finally {
+    clearTimeout(timer);
+    plan.signal?.removeEventListener('abort', onOuterAbort);
+  }
+}
+
 /**
  * GET seguro para páginas públicas de produto: só http/https em portas padrão,
  * nunca endereços internos, redirecionamentos revalidados, tempo e tamanho limitados.
  * Não envia cookies e não tenta contornar verificações anti-robô.
  */
 export async function safeFetch(rawUrl: string, options: SafeFetchOptions = {}): Promise<FetchedPage> {
-  const timeoutMs = options.timeoutMs ?? 12_000;
-  const maxBytes = options.maxBytes ?? 4 * 1024 * 1024;
-  const maxRedirects = options.maxRedirects ?? 5;
-  const accept = options.accept ?? 'html';
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    let url = validateUrl(rawUrl);
-    for (let hop = 0; hop <= maxRedirects; hop++) {
-      let response: RawResponse;
-      try {
-        response = await requestOnce(url, { maxBytes, accept }, controller.signal);
-      } catch (error) {
-        if (error instanceof FetchError) throw error;
-        const code = (error as { code?: string }).code;
-        if (controller.signal.aborted || code === 'ABORT_ERR') throw new FetchError('timeout', 'A página demorou demais');
-        if (code === 'EPRIVATE') throw new FetchError('private_address', 'Endereço interno bloqueado');
-        throw new FetchError('network', (error as Error).message ?? 'Falha de rede');
-      }
-
-      if (response.status >= 300 && response.status < 400 && response.headers.location) {
-        url = validateUrl(new URL(response.headers.location, url).toString());
-        continue;
-      }
-
-      const contentType = String(response.headers['content-type'] ?? '');
-      const textual = /text\/|json|javascript|xml/i.test(contentType) || contentType === '';
-      if (!textual) throw new FetchError('unsupported_content', 'O link não é uma página');
-      if (response.status >= 400 && !options.allowErrorStatus) {
-        throw new FetchError('http_error', `HTTP ${response.status}`, response.status);
-      }
-      return { url: url.toString(), status: response.status, contentType, body: decode(response.body, contentType) };
-    }
-    throw new FetchError('too_many_redirects', 'Redirecionamentos demais');
-  } finally {
-    clearTimeout(timer);
-  }
+  const { url, response } = await fetchGuarded(rawUrl, {
+    timeoutMs: options.timeoutMs ?? 12_000,
+    maxBytes: options.maxBytes ?? 4 * 1024 * 1024,
+    maxRedirects: options.maxRedirects ?? 5,
+    accept: options.accept ?? 'html',
+    signal: options.signal,
+    what: 'A página',
+  });
+  const contentType = String(response.headers['content-type'] ?? '');
+  const textual = /text\/|json|javascript|xml/i.test(contentType) || contentType === '';
+  if (!textual) throw new FetchError('unsupported_content', 'O link não é uma página');
+  if (response.status >= 400 && !options.allowErrorStatus) throw new FetchError('http_error', `HTTP ${response.status}`, response.status);
+  return { url: url.toString(), status: response.status, contentType, body: decode(response.body, contentType) };
 }
 
 export interface FetchedImage {
   url: string;
+  /** Tipo REAL, detectado pelos bytes (não o que o servidor da loja declarou). */
   contentType: string;
   buffer: Buffer;
 }
 
-/** Baixa uma imagem pública com as mesmas proteções (SSRF, tempo, tamanho). Usada para a foto do frasco. */
-export async function safeFetchImage(rawUrl: string, options: { timeoutMs?: number; maxBytes?: number } = {}): Promise<FetchedImage> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 10_000);
-  try {
-    let url = validateUrl(rawUrl);
-    for (let hop = 0; hop <= 4; hop++) {
-      let response: RawResponse;
-      try {
-        response = await requestOnce(url, { maxBytes: options.maxBytes ?? 8 * 1024 * 1024, accept: 'image' }, controller.signal);
-      } catch (error) {
-        if (error instanceof FetchError) throw error;
-        const code = (error as { code?: string }).code;
-        if (controller.signal.aborted || code === 'ABORT_ERR') throw new FetchError('timeout', 'A imagem demorou demais');
-        if (code === 'EPRIVATE') throw new FetchError('private_address', 'Endereço interno bloqueado');
-        throw new FetchError('network', 'Falha de rede');
-      }
-      if (response.status >= 300 && response.status < 400 && response.headers.location) {
-        url = validateUrl(new URL(response.headers.location, url).toString());
-        continue;
-      }
-      const contentType = String(response.headers['content-type'] ?? '');
-      if (response.status >= 400) throw new FetchError('http_error', `HTTP ${response.status}`, response.status);
-      if (!/^image\/(png|jpe?g|webp|gif|avif)/i.test(contentType)) throw new FetchError('unsupported_content', 'Não é imagem');
-      return { url: url.toString(), contentType, buffer: response.body };
-    }
-    throw new FetchError('too_many_redirects', 'Redirecionamentos demais');
-  } finally {
-    clearTimeout(timer);
-  }
+/**
+ * Baixa uma imagem pública com as mesmas proteções (SSRF, tempo, tamanho, teto global). Usada para a foto do frasco.
+ * SVG nunca passa; o tipo é conferido pelo conteúdo, não só pelo Content-Type.
+ */
+export async function safeFetchImage(rawUrl: string, options: { timeoutMs?: number; maxBytes?: number; signal?: AbortSignal } = {}): Promise<FetchedImage> {
+  const { url, response } = await fetchGuarded(rawUrl, {
+    timeoutMs: options.timeoutMs ?? 10_000,
+    maxBytes: options.maxBytes ?? 8 * 1024 * 1024,
+    maxRedirects: 4,
+    accept: 'image',
+    signal: options.signal,
+    what: 'A imagem',
+  });
+  const declared = String(response.headers['content-type'] ?? '');
+  if (response.status >= 400) throw new FetchError('http_error', `HTTP ${response.status}`, response.status);
+  if (!/^image\/(png|jpe?g|webp|gif|avif)/i.test(declared)) throw new FetchError('unsupported_content', 'Não é imagem');
+  const check = checkImageBytes(response.body, declared);
+  if (!check.ok) throw new FetchError('unsupported_content', check.reason === 'svg' ? 'SVG não é aceito' : 'O conteúdo não é uma imagem');
+  return { url: url.toString(), contentType: check.mime, buffer: response.body };
 }

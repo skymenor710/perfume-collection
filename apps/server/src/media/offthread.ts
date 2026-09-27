@@ -1,5 +1,6 @@
 import { Worker } from 'node:worker_threads';
 import { processBottleImage, type ProcessedBottle, type ProcessOptions } from './process';
+import { event } from '../log';
 
 /**
  * `processBottleImage` fora da linha principal. Um único trabalhador, persistente (o modelo de recorte é carregado
@@ -48,7 +49,7 @@ function spawn(): Worker | null {
     worker = w;
     return w;
   } catch (error) {
-    console.warn('[imagem] sem trabalhador separado; processando na linha principal:', (error as Error).message);
+    event('image.worker_unavailable', { reason: (error as Error).message }, 'warn');
     broken = true;
     return null;
   }

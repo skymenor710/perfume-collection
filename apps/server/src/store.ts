@@ -15,12 +15,13 @@ import {
   type Entry,
   type Library,
   type ListKind,
-  type Privacy,
   type Product,
   type User,
 } from '@perfumes/core/library';
 import { sanitizePerfume, sortPerfumes, type Perfume } from '@perfumes/core/perfume';
 import { config } from './config';
+import { event } from './log';
+import type { LibraryRepository, OwnerPatch } from './repositories/library';
 
 /**
  * Armazenamento: biblioteca em três entidades (usuários · produtos · entradas) num JSON gravado de forma atômica
@@ -63,12 +64,12 @@ export function loadStore() {
     try {
       const { library: loaded, dropped } = sanitizeLibrary(JSON.parse(readFileSync(target, 'utf8')));
       library = loaded;
-      if (dropped) console.warn(`[coleção] ${dropped} entradas inválidas ignoradas em data/library.json.`);
+      if (dropped) event('library.invalid_entries', { dropped }, 'warn');
     } catch (error) {
       // Arquivo corrompido: guarda uma cópia e recomeça do arquivo antigo (se houver) ou da planilha.
       const backup = `${target}.corrompido-${Date.now()}`;
       renameSync(target, backup);
-      console.error(`[coleção] data/library.json ilegível (${(error as Error).message}); cópia em ${backup}.`);
+      event('library.unreadable', { reason: (error as Error).message, backup: path.basename(backup) }, 'error');
       library = fromViews(existsSync(legacyFile()) ? readPerfumes(legacyFile()) : readPerfumes(config.seedFile), newOwner());
     }
   } else if (existsSync(legacyFile())) {
@@ -79,7 +80,7 @@ export function loadStore() {
     copyFileSync(legacyFile(), path.join(config.dataDir, `perfumes.v1-${stamp}.json`));
     writeLibrary();
     renameSync(legacyFile(), path.join(config.dataDir, `perfumes.v1-migrado.json`));
-    console.log(`[coleção] migrada para o schema ${LIBRARY_SCHEMA}: ${library.products.length} produtos, ${library.entries.length} entradas, usuário "${library.users[0].username}".`);
+    event('library.migrated', { schema: LIBRARY_SCHEMA, products: library.products.length, entries: library.entries.length });
   } else {
     library = fromViews(readPerfumes(config.seedFile), newOwner());
   }
@@ -150,7 +151,7 @@ function upgradeFromSeed() {
     write(next);
     upgraded++;
   }
-  if (upgraded) console.log(`[coleção] ${upgraded} perfumes da planilha atualizados para a versão ${seed[0]?.assetVersion} das fotos e do perfil olfativo.`);
+  if (upgraded) event('library.upgraded', { upgraded, assetVersion: seed[0]?.assetVersion });
 }
 
 /** Grava uma visão: separa em produto + entrada do dono. */
@@ -178,9 +179,10 @@ function persist() {
   for (const listener of listeners) listener(revision);
 }
 
-export type OwnerPatch = Partial<Pick<User, 'username' | 'displayName' | 'bio'>> & { privacy?: Partial<Privacy> };
+export type { OwnerPatch };
 
-export const store = {
+/** Implementação em arquivo (data/library.json) da porta LibraryRepository — a fonte de verdade nesta etapa. */
+export const store: LibraryRepository = {
   /** A coleção do dono, como a interface usa (visões). */
   list: ownerViews,
   revision: () => revision,

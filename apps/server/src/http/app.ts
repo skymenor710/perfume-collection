@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
+import { createReadStream, readFileSync, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { z } from 'zod';
@@ -6,11 +6,22 @@ import { ASSET_VERSION, sanitizePerfume } from '@perfumes/core/perfume';
 import { config } from '../config';
 import { importFromUrl } from '../import/pipeline';
 import { processBottleOffThread as processBottleImage } from '../media/offthread';
+import { getRequestListener } from '@hono/node-server';
+import { ImportJobRunner } from '../jobs/runner';
+import { MemoryImportJobStore } from '../jobs/memory-store';
+import { researchSlots } from '../jobs/slots';
 import { saveBottleMedia } from '../media/store';
+import { checkImageBytes } from '../net/sniff';
+import type { LibraryRepository } from '../repositories/library';
+import { mediaStorage } from '../storage/local';
+import type { StorageProvider } from '../storage/types';
 import { store } from '../store';
 import type { ListKind, User } from '@perfumes/core/library';
-import { HttpError, checkHost, checkSameOrigin, isAuthorized, pairDevice, requireAuthorized } from './guard';
+import { HttpError, checkHost, checkSameOrigin, isAuthorized, isLoopback, pairDevice, requireAuthorized } from './guard';
+import { decodePath, inside } from './paths';
+import { createV1, type Authorizer } from './v1';
 import { originFor, parsePublicRoute, publicPageMeta, renderIndex, type PageMeta } from './seo';
+import { event, log, safePath } from '../log';
 
 /**
  * Rotas do servidor local. Toda resposta de erro é uma frase para a pessoa + um código;
@@ -106,19 +117,14 @@ function limitPublic(req: IncomingMessage) {
   if (entry.count > 120) throw new HttpError(429, 'rate_limited', 'Muitos acessos seguidos. Tente de novo em um minuto.');
 }
 
-/** Pesquisas pesadas (baixar fotos, recorte por IA) ao mesmo tempo: no máximo duas. */
-let activeResearch = 0;
-/** Reserva uma vaga ANTES de abrir a resposta em fluxo (a recusa chega como erro JSON normal). */
+/**
+ * Pesquisas pesadas (baixar fotos, recorte por IA) ao mesmo tempo: no máximo duas, somando os jobs da API v1.
+ * Reserva uma vaga ANTES de abrir a resposta em fluxo (a recusa chega como erro JSON normal).
+ */
 function acquireResearch(): () => void {
-  if (activeResearch >= 2) throw new HttpError(429, 'busy', 'Já estou pesquisando dois perfumes. Espere um deles terminar.');
-  activeResearch++;
-  let released = false;
-  return () => {
-    if (!released) {
-      released = true;
-      activeResearch--;
-    }
-  };
+  const release = researchSlots.tryAcquire();
+  if (!release) throw new HttpError(429, 'busy', 'Já estou pesquisando dois perfumes. Espere um deles terminar.');
+  return release;
 }
 
 const meSchema = z.object({
@@ -132,6 +138,11 @@ const meSchema = z.object({
 
 const publicUser = (u: User) => ({ username: u.username, displayName: u.displayName, bio: u.bio, avatarUrl: u.avatarUrl });
 
+function serveBuffer(res: ServerResponse, body: Buffer, contentType: string, cache: string) {
+  res.writeHead(200, { ...PAGE_HEADERS, 'Content-Type': contentType, 'Content-Length': body.length, 'Cache-Control': cache });
+  res.end(body);
+}
+
 function serveFile(res: ServerResponse, filePath: string, cache: string) {
   const stat = statSync(filePath);
   res.writeHead(200, {
@@ -143,11 +154,6 @@ function serveFile(res: ServerResponse, filePath: string, cache: string) {
   createReadStream(filePath).pipe(res);
 }
 
-/** Resolve um caminho dentro de `root` sem permitir sair dele (../). */
-function inside(root: string, rel: string): string | null {
-  const target = path.resolve(root, `.${path.posix.normalize(`/${rel}`)}`);
-  return target.startsWith(path.resolve(root) + path.sep) && existsSync(target) && statSync(target).isFile() ? target : null;
-}
 
 const importSchema = z.object({
   url: z.string().min(4).max(2048),
@@ -165,7 +171,22 @@ async function readOptionalJson<T>(req: IncomingMessage, schema: z.ZodType<T>): 
 }
 const pairSchema = z.object({ code: z.string().min(4).max(20) });
 
-export function createHandler() {
+export interface HandlerDeps {
+  repo?: LibraryRepository;
+  media?: StorageProvider;
+  jobs?: ImportJobRunner;
+  authorize?: Authorizer;
+}
+
+export function createHandler(deps: HandlerDeps = {}) {
+  const repo = deps.repo ?? store;
+  const media = deps.media ?? mediaStorage;
+  // Jobs em memória nesta etapa (sem banco): reiniciar o servidor esquece jobs, nunca a coleção.
+  const jobs = deps.jobs ?? new ImportJobRunner(new MemoryImportJobStore());
+  // Hoje há um usuário só: quem passou pela proteção (este computador ou aparelho pareado) age como ele.
+  const authorize: Authorizer = deps.authorize ?? ((req) => (isAuthorized(req) ? { userId: repo.me().id, via: isLoopback(req) ? 'loopback' : 'device' } : null));
+  const v1 = getRequestListener(createV1({ repo, jobs, authorize }).fetch);
+
   return async function handle(req: IncomingMessage, res: ServerResponse) {
     try {
       checkHost(req);
@@ -174,6 +195,8 @@ export function createHandler() {
 
       if (url.pathname.startsWith('/api/')) {
         checkSameOrigin(req);
+        // API v1 (Hono): mesmas proteções de Host e origem acima; autorização dentro dela.
+        if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) return await v1(req, res);
         if (route === 'GET /api/status') return sendJson(res, 200, { app: 'perfume-collection', authorized: isAuthorized(req) });
         if (route === 'POST /api/pair') {
           const { code } = await readJson(req, pairSchema);
@@ -184,39 +207,39 @@ export function createHandler() {
         const pub = /^\/api\/public\/([a-z0-9._]{3,30})(?:\/(wishlist|collection))?$/i.exec(url.pathname);
         if (pub && req.method === 'GET') {
           limitPublic(req);
-          const profile = store.publicProfile(pub[1]);
+          const profile = repo.publicProfile(pub[1]);
           if (!profile) throw new HttpError(404, 'not_public', 'Esta página não é pública.');
           const lists: ListKind[] = pub[2] ? [pub[2].toLowerCase() as ListKind] : profile.lists;
           if (pub[2] && !profile.lists.includes(lists[0])) throw new HttpError(404, 'not_public', 'Esta lista não é pública.');
-          const perfumes = lists.flatMap((l) => store.publicList(pub[1], l) ?? []);
+          const perfumes = lists.flatMap((l) => repo.publicList(pub[1], l) ?? []);
           return sendJson(res, 200, { user: publicUser(profile.user), lists: profile.lists, perfumes }, { 'Cache-Control': 'no-cache' });
         }
 
         requireAuthorized(req);
 
         // PERFIL do dono desta instalação (enquanto não há contas: quem passou pelo código de acesso).
-        if (route === 'GET /api/me') return sendJson(res, 200, { user: store.me() });
+        if (route === 'GET /api/me') return sendJson(res, 200, { user: repo.me() });
         if (route === 'PATCH /api/me') {
           const patch = await readJson(req, meSchema);
           try {
-            return sendJson(res, 200, { user: store.updateMe(patch) });
+            return sendJson(res, 200, { user: repo.updateMe(patch) });
           } catch (error) {
             throw new HttpError(422, 'invalid', (error as Error).message);
           }
         }
 
-        if (route === 'GET /api/perfumes') return sendJson(res, 200, { revision: store.revision(), perfumes: store.list() });
+        if (route === 'GET /api/perfumes') return sendJson(res, 200, { revision: repo.revision(), perfumes: repo.list() });
 
         const one = /^\/api\/perfumes\/([\w-]{1,80})$/.exec(url.pathname);
         if (one && req.method === 'PUT') {
           const body = await readJson(req, z.record(z.string(), z.unknown()), 256 * 1024);
           const perfume = sanitizePerfume({ ...body, id: one[1], updatedAt: new Date().toISOString() });
           if (!perfume) throw new HttpError(422, 'invalid', 'O perfume precisa de um nome.');
-          return sendJson(res, 200, { perfume: store.upsert(perfume) });
+          return sendJson(res, 200, { perfume: repo.upsert(perfume) });
         }
         const refresh = /^\/api\/perfumes\/([\w-]{1,80})\/refresh$/.exec(url.pathname);
         if (refresh && req.method === 'POST') {
-          const current = store.list().find((p) => p.id === refresh[1]);
+          const current = repo.list().find((p) => p.id === refresh[1]);
           if (!current) throw new HttpError(404, 'not_found', 'Esse perfume não está mais na coleção.');
           if (!current.brand) throw new HttpError(422, 'invalid', 'Preciso da marca para pesquisar esse perfume.');
           const { variantId } = await readOptionalJson(req, refreshSchema);
@@ -273,12 +296,12 @@ export function createHandler() {
             assetVersion: ASSET_VERSION,
             updatedAt: new Date().toISOString(),
           });
-          if (updated) store.upsert(updated);
+          if (updated) repo.upsert(updated);
           res.end(`${JSON.stringify({ perfume: updated, notes: outcome.ok === true ? outcome.notes : outcome.ok === false ? [outcome.message] : [] })}\n`);
           return;
         }
         if (one && req.method === 'DELETE') {
-          await store.remove(one[1]);
+          await repo.remove(one[1]);
           return sendJson(res, 200, { ok: true });
         }
 
@@ -300,20 +323,24 @@ export function createHandler() {
             throw new HttpError(415, 'unsupported', 'Envie uma foto em JPG, PNG ou WebP.');
           }
           const buffer = await readBody(req, 15 * 1024 * 1024);
+          // O tipo declarado pode mentir: vale o conteúdo. SVG nunca.
+          if (!checkImageBytes(buffer, String(req.headers['content-type'] ?? '')).ok) {
+            throw new HttpError(415, 'unsupported', 'Envie uma foto em JPG, PNG ou WebP.');
+          }
           try {
             const release = acquireResearch();
             const media = await saveBottleMedia(await processBottleImage(buffer)).finally(release);
             return sendJson(res, 200, { media });
           } catch (error) {
-            console.warn('[foto]', (error as Error).message);
+            event('image.error', { origin: 'upload', reason: (error as Error).message }, 'warn');
             throw new HttpError(422, 'bad_image', 'Não consegui abrir essa imagem. Tente outra foto.');
           }
         }
 
         if (route === 'GET /api/events') {
           res.writeHead(200, { ...API_HEADERS, 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
-          res.write(`event: revision\ndata: ${store.revision()}\n\n`);
-          const off = store.subscribe((revision) => res.write(`event: revision\ndata: ${revision}\n\n`));
+          res.write(`event: revision\ndata: ${repo.revision()}\n\n`);
+          const off = repo.subscribe((revision) => res.write(`event: revision\ndata: ${revision}\n\n`));
           const ping = setInterval(() => res.write(': ping\n\n'), 25_000);
           req.on('close', () => {
             off();
@@ -329,11 +356,12 @@ export function createHandler() {
       if (url.pathname.startsWith('/media/')) {
         const rel = url.pathname.slice('/media/'.length);
         // Foto de perfume de uma lista pública pode ser vista sem código de acesso; o resto, não.
-        const isPublic = store.isPublicMedia(`media/${rel}`);
+        const isPublic = repo.isPublicMedia(`media/${rel}`);
         if (!isPublic) requireAuthorized(req);
-        const file = inside(config.mediaDir, rel);
-        if (!file) throw new HttpError(404, 'not_found', 'Imagem não encontrada.');
-        return serveFile(res, file, `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`);
+        // O armazenamento recusa chave com "..", barra inicial ou caractere estranho, e confere a pasta de novo.
+        const object = await media.get(rel);
+        if (!object) throw new HttpError(404, 'not_found', 'Imagem não encontrada.');
+        return serveBuffer(res, object.body, object.contentType, `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`);
       }
 
       // index.html é servido pelo próprio app, com uma marca: a página sabe que tem servidor e nunca "desce" para o
@@ -342,13 +370,14 @@ export function createHandler() {
       // Endereços públicos (/username, /username/wishlist, /username/collection): mesmo app, com metadados da página.
       const publicRoute = parsePublicRoute(url.pathname);
       if (publicRoute) return serveIndex(res, publicPageMeta(publicRoute, originFor(req.headers.host)));
-      const asset = url.pathname !== '/' && inside(config.distDir, decodeURIComponent(url.pathname));
+      const decoded = decodePath(url.pathname);
+      const asset = url.pathname !== '/' && decoded !== null && inside(config.distDir, decoded);
       // sw.js sem cache longo: uma versão nova do service worker precisa chegar no próximo acesso.
       if (asset) return serveFile(res, asset, url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600');
       return serveIndex(res);
     } catch (error) {
       if (error instanceof HttpError) return sendJson(res, error.status, { error: { code: error.code, message: error.message } });
-      console.error('[servidor]', error);
+      log.error({ event: 'server.error', err: error, route: `${req.method} ${safePath(req.url)}` });
       return sendJson(res, 500, { error: { code: 'internal', message: 'Algo deu errado aqui. Tente de novo.' } });
     }
   };

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { brandMatches, concentrationAdjust, nameSimilarity } from '@perfumes/core/match';
 import { isAllowedByRobots, waitTurn } from '../net/polite';
 import { safeFetch } from '../net/safe-fetch';
+import { acquireSource, pauseSource, reportSourceFailure, source, sourceAvailable, sourceBreaker } from '../sources/registry';
 import { cached, DAY } from './cache';
 
 /**
@@ -28,24 +29,31 @@ export interface FragranticaPerfume {
   image: string | null;
 }
 
-/** Se o site responde com desafio anti-robô, ele fica em pausa por 6 h: não se insiste, e não se contorna. */
-let pausedUntil = 0;
-
+/**
+ * Se o site responde com desafio anti-robô, ele fica em pausa por 6 h (disjuntor da fonte): não se insiste,
+ * e não se contorna.
+ */
 async function get(url: string): Promise<string | null> {
-  if (Date.now() < pausedUntil) return null;
+  if (!sourceAvailable('fragrantica')) return null;
   const u = new URL(url);
   if (!(await isAllowedByRobots(u))) return null;
   await waitTurn(u.host);
+  if (!acquireSource('fragrantica')) return null;
   try {
-    const res = await safeFetch(url, { timeoutMs: 15_000, maxBytes: 6 * 1024 * 1024, allowErrorStatus: true });
+    const res = await safeFetch(url, { timeoutMs: source('fragrantica').timeoutMs, maxBytes: 6 * 1024 * 1024, allowErrorStatus: true });
     if (/just a moment|cf-chl/i.test(res.body.slice(0, 4000))) {
-      pausedUntil = Date.now() + 6 * 60 * 60_000;
-      console.warn('[pesquisa] Fragrantica pediu verificação anti-robô; pausado por 6 h (usando outras fontes).');
+      pauseSource('fragrantica', 6 * 60 * 60_000, 'verificação anti-robô');
       return null;
     }
+    if (res.status >= 500) {
+      reportSourceFailure('fragrantica', `http_${res.status}`);
+      return null;
+    }
+    sourceBreaker('fragrantica').recordSuccess();
     if (res.status >= 400) return null;
     return res.body;
-  } catch {
+  } catch (error) {
+    reportSourceFailure('fragrantica', (error as { code?: string }).code ?? 'erro');
     return null;
   }
 }

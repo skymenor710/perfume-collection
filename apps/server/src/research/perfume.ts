@@ -7,6 +7,7 @@ import { type ProcessedBottle } from '../media/process';
 import { processBottleOffThread as processBottleImage } from '../media/offthread';
 import { waitTurn } from '../net/polite';
 import { safeFetchImage } from '../net/safe-fetch';
+import { event, hostOf } from '../log';
 import { findOnFragrantica, type FragranticaPerfume } from './fragrantica';
 import { findOnParfumo } from './parfumo';
 import { findInStores, type StoreMatch } from './stores';
@@ -160,6 +161,7 @@ export async function chooseBestImage(candidates: ImageCandidate[], onStage: (s:
       const pre = score + (reasons.length - structural.length) * 18;
       pool.push({ candidate: { ...candidate, url }, buffer: image.buffer, pre });
     } catch (error) {
+      event('image.error', { host: hostOf(url), origin: candidate.origin, code: (error as { code?: string }).code ?? 'erro' }, 'warn');
       report.push({ url, origin: candidate.origin, score: 0, reasons: [`não baixou (${(error as Error).message.slice(0, 60)})`] });
     }
   }

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { brandMatches, concentrationAdjust, nameSimilarity } from '@perfumes/core/match';
 import { isAllowedByRobots, waitTurn } from '../net/polite';
 import { safeFetch } from '../net/safe-fetch';
+import { acquireSource, pauseSource, reportSourceFailure, source, sourceAvailable, sourceBreaker } from '../sources/registry';
 import { cached, DAY } from './cache';
 import type { FragranticaPerfume } from './fragrantica';
 
@@ -14,14 +15,27 @@ import type { FragranticaPerfume } from './fragrantica';
 const BASE = 'https://www.parfumo.com';
 
 async function get(url: string): Promise<{ body: string; url: string } | null> {
+  if (!sourceAvailable('parfumo')) return null;
   const u = new URL(url);
   if (!(await isAllowedByRobots(u))) return null;
   await waitTurn(u.host);
+  if (!acquireSource('parfumo')) return null;
   try {
-    const res = await safeFetch(url, { timeoutMs: 15_000, maxBytes: 8 * 1024 * 1024, allowErrorStatus: true });
-    if (res.status >= 400 || /\/404$/.test(new URL(res.url).pathname) || /just a moment/i.test(res.body.slice(0, 3000))) return null;
+    const res = await safeFetch(url, { timeoutMs: source('parfumo').timeoutMs, maxBytes: 8 * 1024 * 1024, allowErrorStatus: true });
+    if (/just a moment/i.test(res.body.slice(0, 3000))) {
+      pauseSource('parfumo', 30 * 60_000, 'verificação anti-robô');
+      return null;
+    }
+    // 404 é normal aqui (o nome da marca é testado em algumas grafias): não conta como falha da fonte.
+    if (res.status >= 500) {
+      reportSourceFailure('parfumo', `http_${res.status}`);
+      return null;
+    }
+    sourceBreaker('parfumo').recordSuccess();
+    if (res.status >= 400 || /\/404$/.test(new URL(res.url).pathname)) return null;
     return { body: res.body, url: res.url };
-  } catch {
+  } catch (error) {
+    reportSourceFailure('parfumo', (error as { code?: string }).code ?? 'erro');
     return null;
   }
 }

@@ -2,6 +2,7 @@ import { oklabToRgb, rgbToHex } from '@perfumes/core/color';
 import type { OlfactoryProfile } from '@perfumes/core/olfactory';
 import type { Gender, ImageSource } from '@perfumes/core/perfume';
 import { accentFor } from '@perfumes/core/accent';
+import { event, hostOf, log, safeUrl } from '../log';
 import { saveBottleMedia, type SavedMedia } from '../media/store';
 import type { VariantInfo } from './variants';
 import { resolveProduct, type FieldSource, type Identity, type ResolveStage, type VariantChoice } from '../resolver/resolve';
@@ -59,10 +60,77 @@ export function accentHexes(dominant: string | null) {
   return { accentColor: hex, accentGlow: `${hex}52` };
 }
 
-export async function importFromUrl(rawUrl: string, identity: Partial<Identity> | null, onStage: (stage: ImportStage) => void = () => {}, variantId: string | null = null): Promise<ImportOutcome> {
+/** A importação foi cancelada (job cancelado ou conexão fechada). */
+export class ImportCancelledError extends Error {
+  readonly code = 'cancelled';
+  constructor() {
+    super('Importação cancelada');
+  }
+}
+
+export interface ImportContext {
+  /** Correlação nos logs (job da API v1). */
+  jobId?: string;
+  /** Cancelamento cooperativo: conferido a cada etapa. */
+  signal?: AbortSignal;
+  via?: 'job' | 'legacy';
+}
+
+/**
+ * Link → perfume, com os eventos estruturados de importação (início, fim, falha, cancelamento).
+ * O link aparece nos logs só como origem + caminho (sem query string).
+ */
+export async function importFromUrl(
+  rawUrl: string,
+  identity: Partial<Identity> | null,
+  onStage: (stage: ImportStage) => void = () => {},
+  variantId: string | null = null,
+  context: ImportContext = {},
+): Promise<ImportOutcome> {
+  const started = Date.now();
+  const base = { jobId: context.jobId, via: context.via ?? 'legacy', url: safeUrl(rawUrl), withIdentity: Boolean(identity?.name), withVariant: Boolean(variantId) };
+  const cancelled = () => context.signal?.aborted === true;
+  event('import.started', base);
+  try {
+    const outcome = await runImport(
+      rawUrl,
+      identity,
+      (stage) => {
+        if (cancelled()) throw new ImportCancelledError();
+        onStage(stage);
+      },
+      variantId,
+    );
+    if (cancelled()) throw new ImportCancelledError();
+    const durationMs = Date.now() - started;
+    if (outcome.ok === true) {
+      const p = outcome.perfume;
+      event('import.completed', {
+        ...base,
+        durationMs,
+        brand: p.brand,
+        name: p.name,
+        confidence: p.confidence,
+        image: p.imageSource ? { origin: p.imageSource.origin, host: hostOf(p.imageSource.url), score: p.imageSource.score } : null,
+        sources: [...new Set(Object.values(p.fieldSources).map((f) => f.label))],
+      });
+    } else if (outcome.ok === 'choose') {
+      event('import.choose_variant', { ...base, durationMs, brand: outcome.brand, name: outcome.name, variants: outcome.variants.length });
+    } else {
+      event('import.failed', { ...base, durationMs, code: outcome.code }, 'warn');
+    }
+    return outcome;
+  } catch (error) {
+    const durationMs = Date.now() - started;
+    if (error instanceof ImportCancelledError) event('import.cancelled', { ...base, durationMs });
+    else log.error({ event: 'import.failed', ...base, durationMs, code: 'internal', err: error });
+    throw error;
+  }
+}
+
+async function runImport(rawUrl: string, identity: Partial<Identity> | null, onStage: (stage: ImportStage) => void, variantId: string | null): Promise<ImportOutcome> {
   const outcome = await resolveProduct({ url: rawUrl, identity, variantId }, onStage);
   if (outcome.ok === 'choose') {
-    console.log(`[importar] ${outcome.identity.brand} · ${outcome.identity.name} — escolher: ${outcome.variants.map((v) => v.volume ?? v.label).join(' / ')}`);
     return {
       ok: 'choose',
       brand: outcome.identity.brand,
@@ -74,11 +142,11 @@ export async function importFromUrl(rawUrl: string, identity: Partial<Identity> 
     };
   }
   if (!outcome.ok) {
-    console.warn(`[importar] ${outcome.reason}: ${outcome.evidence.join(' | ')}`);
+    log.debug({ event: 'import.evidence', reason: outcome.reason, evidence: outcome.evidence });
     return { ok: false, code: outcome.reason, message: outcome.message, guess: outcome.guess };
   }
   const p = outcome.product;
-  console.log(`[importar] ${p.identity.brand} · ${p.identity.name} — ${p.evidence.join(' | ')}`);
+  log.debug({ event: 'import.evidence', brand: p.identity.brand, name: p.identity.name, evidence: p.evidence });
   const notes: string[] = [];
   let media: SavedMedia | null = null;
   let imageSource: ImageSource | null = null;

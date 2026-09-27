@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { config } from '../config';
+import { mediaStorage } from '../storage/local';
+import type { StorageProvider } from '../storage/types';
 import type { ProcessedBottle } from './process';
 
 export interface SavedMedia {
@@ -14,18 +13,24 @@ export interface SavedMedia {
   cutout: boolean;
 }
 
-/** Guarda o frasco processado em data/media, com nome aleatório (nada vindo da loja vira nome de arquivo). */
-export async function saveBottleMedia(bottle: ProcessedBottle): Promise<SavedMedia> {
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+/**
+ * Guarda o frasco processado no armazenamento de mídia, com nome aleatório (nada vindo da loja vira nome de
+ * arquivo). As referências devolvidas ("media/…") são as que ficam gravadas na biblioteca.
+ */
+export async function saveBottleMedia(bottle: ProcessedBottle, storage: StorageProvider = mediaStorage): Promise<SavedMedia> {
   const id = `${Date.now().toString(36)}-${randomBytes(5).toString('hex')}`;
+  const keys = { master: `${id}.png`, large: `${id}-lg.webp`, small: `${id}-sm.webp` };
   await Promise.all([
-    writeFile(path.join(config.mediaDir, `${id}.png`), bottle.master),
-    writeFile(path.join(config.mediaDir, `${id}-lg.webp`), bottle.large),
-    writeFile(path.join(config.mediaDir, `${id}-sm.webp`), bottle.small),
+    storage.put(keys.master, bottle.master, { contentType: 'image/png', cacheControl: IMMUTABLE }),
+    storage.put(keys.large, bottle.large, { contentType: 'image/webp', cacheControl: IMMUTABLE }),
+    storage.put(keys.small, bottle.small, { contentType: 'image/webp', cacheControl: IMMUTABLE }),
   ]);
   return {
-    imageUrl: `media/${id}-lg.webp`,
-    thumbUrl: `media/${id}-sm.webp`,
-    masterUrl: `media/${id}.png`,
+    imageUrl: storage.publicUrl(keys.large),
+    thumbUrl: storage.publicUrl(keys.small),
+    masterUrl: storage.publicUrl(keys.master),
     dominantColor: bottle.color.hex,
     neutral: bottle.color.neutral,
     cutout: bottle.cutout,

@@ -4,6 +4,8 @@ import { dominantColor, rgbToOklab, type DominantColor } from '@perfumes/core/co
 import { opaqueBounds, removeBackground, type CutoutOptions } from '@perfumes/core/cutout';
 import { assessCutout, type QualityReport } from '@perfumes/core/quality';
 import { predictMask } from './matting';
+import { config } from '../config';
+import { log } from '../log';
 
 /**
  * Foto de produto (JPG, WebP, PNG, AVIF…) → frasco isolado, pronto para o palco:
@@ -277,7 +279,7 @@ export async function processBottleImage(input: Buffer, options: ProcessOptions 
   if (!options.noAi) {
     const raw = await predictMask(original, W, H).catch(() => null);
     const grounded = raw && colorCut && background ? groundMask(raw, original, colorCut, background, W, H, near) : null;
-    if (process.env.DEBUG_CUTOUT && grounded) console.log(`  [ai] névoa sem evidência removida: ${grounded.cleared} px (mantidos por evidência: ${grounded.kept} px)`);
+    if (config.debugCutout && grounded) log.debug({ event: 'cutout.haze', cleared: grounded.cleared, kept: grounded.kept });
     const mask = grounded?.mask ?? raw;
     if (mask) {
       const ai = new Uint8ClampedArray(original);
@@ -322,7 +324,7 @@ export async function processBottleImage(input: Buffer, options: ProcessOptions 
   // Desempate a favor da IA/fusão: com a mesma nota, elas tiram sombra e reflexo que a nota não enxerga.
   const rank = { fusion: 3, ai: 2, alpha: 2, color: 1, none: 0 } as const;
   variants.sort((a, b) => b.quality.score - a.quality.score || rank[b.method] - rank[a.method]);
-  if (process.env.DEBUG_CUTOUT) for (const v of variants) console.log(`  [${v.method}] ${v.quality.score} apoio=${v.quality.metrics.edgeSupport ?? "-"} ${JSON.stringify(v.quality.metrics).slice(0, 0)} ${v.quality.reasons.join("; ")}`);
+  if (config.debugCutout) for (const v of variants) log.debug({ event: 'cutout.variant', method: v.method, score: v.quality.score, edgeSupport: v.quality.metrics.edgeSupport ?? null, reasons: v.quality.reasons });
   const best = variants[0];
   const { pixels, removed, quality } = best;
 

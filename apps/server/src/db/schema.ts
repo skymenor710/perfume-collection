@@ -29,7 +29,7 @@ const timestamps = {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 };
 
-/** Pessoas. Autenticação (Better Auth, FASE 3) cria as próprias tabelas de sessão/conta ligadas a este id. */
+/** Pessoas. Autenticação (Better Auth, FASE 6) cria as próprias tabelas de sessão/conta ligadas a este id. */
 export const users = pgTable(
   'users',
   {

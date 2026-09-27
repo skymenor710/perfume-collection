@@ -1,217 +1,223 @@
-# Arquitetura — auditoria e plano (27/09/2026)
+# Arquitetura — Meus Perfumes
 
-Documento vivo. A seção "Auditoria" descreve o estado ENCONTRADO antes desta etapa; "Implementado" diz o que
-mudou; "Plano" traz as fases seguintes, que esperam aprovação antes de qualquer mudança visual grande ou nativa.
+> Estado em **27/09/2026**, depois das FASES 0 e 1 da preparação para produção.
+> Plano de produção: [PRODUCTION.md](PRODUCTION.md) · Decisões: [ADR/](ADR/) · Auditoria original (antes da reorganização):
+> [history/2026-09-27-auditoria-arquitetura.md](history/2026-09-27-auditoria-arquitetura.md).
+
+O app roda **inteiro neste computador** (servidor Node na porta 3100, atalho "Meus Perfumes"). A reorganização trocou
+peças por dentro — pastas, API versionada, jobs, fontes, segurança, configuração, logs, interfaces de persistência —
+**sem mudar o que a pessoa vê**: o build do web saiu byte a byte igual ao anterior, e a coleção (15 perfumes, Reflection
+50 ml, 32 imagens) confere com o baseline por SHA-256.
 
 ---
 
-## 1. Auditoria
+## 1. Estrutura
 
-### 1.1 Stack
+```
+perfume-collection/
+├─ apps/
+│  ├─ web/                 @perfumes/web — Vite + React 19 (a interface; nada mudou nela)
+│  │  ├─ src/              app.tsx, components/, gl/ (galáxia), design/accent.ts (animação da cor), data/, lib/, styles/
+│  │  ├─ public/           bottles/, icons/, manifest.webmanifest, sw.js
+│  │  └─ index.html, vite.config.ts   (build em apps/web/dist; variante claude.ai em dist-artifact/)
+│  └─ server/              @perfumes/server — Node (tsx)
+│     └─ src/
+│        ├─ main.ts        partida: config → biblioteca → limpeza de mídia → HTTP
+│        ├─ config.ts      ambiente validado (zod)
+│        ├─ log.ts         logs estruturados (pino) com redação
+│        ├─ store.ts       biblioteca em data/library.json (implementa LibraryRepository)
+│        ├─ http/          app.ts (rotas atuais + montagem da v1), v1.ts (Hono), guard.ts, seo.ts, paths.ts
+│        ├─ jobs/          importação como job: types, memory-store, runner, slots
+│        ├─ sources/       registro de fontes + disjuntor
+│        ├─ repositories/  porta LibraryRepository
+│        ├─ storage/       porta StorageProvider + LocalStorageProvider
+│        ├─ db/            schema.ts — Postgres preliminar (Drizzle), sem conexão
+│        ├─ net/           safe-fetch, address (SSRF), egress (teto global), sniff (tipo real da imagem), polite (robots/ritmo)
+│        ├─ import/        pipeline (link → perfume), variants, extract
+│        ├─ resolver/      resolvedor "produto primeiro", busca, leitura de URL
+│        ├─ research/      Parfumo, lojas oficiais, Fragrantica, escolha de foto, cache
+│        └─ media/         recorte (IA + cor), worker, gravação, limpeza
+├─ packages/
+│  └─ core/                @perfumes/core — domínio puro: perfume, biblioteca, cor, accent, notas, recorte, qualidade, correspondência
+├─ scripts/                launch.ps1 (atalho), smoke, verify-state, build-artifact, laboratório
+├─ tests/                  vitest (274 testes)
+├─ docs/                   ARCHITECTURE, PRODUCTION, ADR/, state/ (baseline), history/
+└─ data/                   (fora do Git) library.json, media/, cache/, models/, logs/
+```
 
-| Camada | Hoje | Observação |
+Regras de dependência (verificadas por teste e lint):
+
+| Pacote | Pode importar | Não pode |
 |---|---|---|
-| Front | Vite 8 + React 19 + TypeScript 5.9, CSS próprio (tokens em `src/styles/tokens.css`), WebGL2 próprio (`src/gl/galaxy.ts`), three.js só para modelo 3D real (carregado sob demanda; nenhum perfume tem hoje) | Sem framework de rotas: uma tela só, estado em `src/app.tsx` |
-| Domínio compartilhado | `src/core/*` (TS puro: modelo, cor, recorte, correspondência de nomes, notas, qualidade) | **Bom para nativo**: não depende do DOM (exceto `photo.ts`, em `src/lib`) |
-| Acesso a dados no front | `src/data/repository.ts` — interface `Repository` com 3 implementações: servidor, claude.ai (db do artifact), navegador (localStorage) | **Bom**: a UI não sabe onde os dados moram |
-| Back | Node (tsx) HTTP puro em `server/` — API JSON + NDJSON (progresso) + SSE (sincronização entre aparelhos) | Sem framework; pequeno e auditável |
-| Banco | **Arquivo JSON** `data/perfumes.json` (lista plana), gravação atômica (tmp + rename) | Ver 1.2 |
-| Imagens | `data/media/<aleatório>.{png,webp}` (importadas) e `public/bottles/*` (planilha) | Ver 1.4 |
-| Autenticação | Nenhuma conta. Localhost sempre liberado; outro aparelho da rede com **código de acesso** (cookie HttpOnly, SameSite=Strict) | Um dono implícito; ver 1.5 |
-| Pesquisa | `server/resolver` (produto primeiro), `server/research` (lojas Shopify, Parfumo, Fragrantica), `server/import` (extração, variantes), `server/media` (recorte BiRefNet via onnxruntime + controle de qualidade, num worker) | Toda no servidor — correto |
-| Execução | `npm run app` / atalho: servidor como processo próprio do Windows, `http://localhost:3100` | Só neste PC e na Wi-Fi de casa |
-| Link do claude.ai | Mesmo front, compilado num arquivo, dados no `db` do artifact | Sem internet (regra da plataforma); coleção **separada** |
+| `packages/core` | só arquivos do próprio pacote | DOM, `window`, `document`, `fetch`, React, three, `node:*`, `process` |
+| `apps/web` | `@perfumes/core`, React, three | o servidor |
+| `apps/server` | `@perfumes/core`, bibliotecas Node | a interface |
 
-### 1.2 Banco / modelo de dados — o que está errado para a nova direção
-
-1. **Produto e relação da pessoa estão misturados num registro só.** Cada item de `perfumes.json` tem dados do
-   PERFUME (marca, nome, notas, foto, variantes) e da PESSOA (`status` wishlist/coleção, `personalRating`,
-   `acquiredAt`, `order`). Com dois usuários, o mesmo perfume teria de ser duplicado inteiro — e uma correção de
-   foto num não chegaria ao outro.
-2. **Wishlist e coleção são um campo (`status`)**, não relações. Não há posição por lista nem observação.
-3. **Nenhuma entidade de usuário**: não há username, nome, avatar, bio nem privacidade. Não há como montar
-   `/username/wishlist`.
-4. **Variantes existem desde a V4** (`variants[]`, `selectedVariantId`, `variantUrl`), mas presas ao registro da
-   pessoa; `volume` ainda é texto livre e aparece "50/100 ml" em itens antigos (Empire).
-5. **Uma imagem por perfume** (`imageUrl`/`thumbUrl`/`masterUrl` + `imageSource`): não há imagens alternativas,
-   nem ligação imagem ↔ variante no registro guardado (a pesquisa já liga, mas descarta a ligação ao salvar).
-6. IDs: estáveis (`marca-nome-xxxxxx`), sem colisão — **podem ser preservados**. Sem duplicados por marca+nome.
-7. **Duas fontes de verdade**: `data/perfumes.json` (computador) e o `db` do link do claude.ai. Não sincronizam.
-8. Versão do arquivo `version: 1` existe mas não havia migração por versão (só "upgrade da planilha").
-
-### 1.3 Por que funcionava no Claude e falhava no Chrome (corrigido na V4, registrado aqui)
-
-- O servidor era **processo filho do app do Claude** (painel de pré-visualização): fechar o Claude o matava.
-- O recorte rodava na **linha principal** e travava o servidor até 4 s; a página aberta nesse instante concluía
-  "sem servidor" e **caía silenciosamente** no modo só-navegador, que não abre links.
-- Correções: worker de imagem, marca `perfumes-server` no index (a página nunca rebaixa), atalho que sobe o
-  servidor como processo próprio. Teste no Google Chrome real: 10/10.
-- **Nada do produto depende de ferramentas de desenvolvimento** (Claude, MCP, Playwright, extensão). Playwright e
-  o Edge/Chrome headless são usados **só nos testes** (`scripts/smoke.mjs`, `scripts/chrome-real.mjs`).
-
-### 1.4 Imagens — auditoria
-
-| Tema | Estado |
-|---|---|
-| Formato final | PNG mestre 2048² transparente + WebP 1024/384 com alfa, quadro padrão (base a 92%) — bom |
-| Controle de qualidade | Nota por recorte (IA, cor, fusão), **apoio de borda** (contorno precisa seguir bordas reais), névoa sem evidência removida, laço que troca de fonte — bom |
-| Variante ↔ imagem | Pesquisa respeita o tamanho; **o vínculo não é guardado** |
-| Alternativas | **Não guardadas** (só a vencedora) |
-| Proveniência | `imageSource` (origem, URL, página, rótulo, nota) — bom, falta tipo/transparência/confiança explícitos |
-| **Arquivos órfãos** | **17 de 23 arquivos em `data/media` não eram usados** (cada "pesquisar de novo" e cada prévia cancelada deixava arquivos; a remoção apagava os WebP mas nunca o PNG mestre) — **crítico, corrigido** |
-| Imagens em página pública | `/media/*` exige estar autorizado — **uma página pública não mostraria as fotos** (corrigido para itens públicos) |
-
-### 1.5 Segurança — auditoria
-
-| Tema | Estado |
-|---|---|
-| SSRF | **Bom**: só http(s), IP privado bloqueado na resolução DNS da conexão (contra rebinding), a cada redirecionamento, limite de tamanho e tempo |
-| Host / DNS rebinding | Host conferido em toda requisição — mas **só aceita endereços locais**: um domínio público seria recusado (421). Precisa de lista configurável para produção |
-| CSRF | Mudanças exigem mesma origem (Origin / Sec-Fetch-Site) + cookie SameSite=Strict — bom |
-| Autenticação | Código de acesso por aparelho, comparação em tempo constante, 6 tentativas/15 min — bom para uso doméstico; **não é conta de usuário** |
-| Entrada | Zod nas rotas, `sanitizePerfume` em tudo que entra, HTML nunca injetado — bom |
-| Abuso | **Importação sem limite de concorrência**: um aparelho pareado podia enfileirar pesquisas pesadas sem fim — corrigido |
-| Identificação na web | O leitor de páginas **se apresentava como Chrome** (User-Agent de navegador). Para um app que respeita robots.txt e termos, isso é disfarce — corrigido para um User-Agent honesto |
-| Segredos | `.env.local` (código de acesso, chave opcional da Brave) fora do front — bom |
-| Dependências | `npm audit`: 0 vulnerabilidades |
-
-### 1.6 Chrome / mobile
-
-- Galáxia com 3 níveis de qualidade, DPR limitado, pausa quando a aba some — bom.
-- Alvos de toque 44 pt, áreas seguras do iPhone (`env(safe-area-inset-*)`), `viewport-fit=cover` — bom.
-- **Caminhos relativos em tudo** (`base: './'`, `fetch('api/…')`, `bottles/…`, `media/…`): funciona em `/`,
-  mas **quebra em `/guilherme/wishlist`** (arquivos e API seriam pedidos em `/guilherme/api/…`) — bloqueava URLs
-  públicas; corrigido no modo servidor (o link do claude.ai continua relativo, como precisa).
-- **PWA inexistente**: sem manifest, sem ícones de instalação, sem service worker, sem apple-touch-icon.
-- iPhone/Android pela Wi-Fi usam `http://192.168…` — **service worker e instalação completa exigem HTTPS**
-  (o navegador só libera em `localhost` ou HTTPS). Ver Riscos.
-
-### 1.7 Futuro app nativo — o que reaproveita e o que prende ao navegador
-
-| Reaproveita | Preso ao navegador (isolar antes de ir para nativo) |
-|---|---|
-| `src/core/*` inteiro (modelo, cor, correspondência, notas, qualidade) | `src/gl/galaxy.ts` (WebGL2 direto) → num app nativo vira expo-gl/Skia com o mesmo shader |
-| Toda a pesquisa e processamento (servidor) → já é "API" | `Stage.tsx` (CSS 3D + ponteiro) → reescrever com Reanimated/Skia mantendo a matemática da mola |
-| Contrato da API (`/api/...` JSON + NDJSON) | `src/lib/photo.ts` (canvas) — só usado no modo sem servidor |
-| Interface `Repository` | `src/data/claude.ts` (específico do claude.ai) |
-| Tokens de design (`tokens.css`) → exportáveis para JSON | CSS de componentes (reescrito em nativo; tokens compartilhados) |
-
-**Conclusão**: não migrar agora. O que mais ajuda o nativo é (a) o domínio em `src/core` sem DOM, (b) a API como
-fronteira única, (c) tokens de design exportáveis. As duas primeiras já existem; a terceira entra no plano.
-
-### 1.8 O que NÃO deve ser alterado
-
-A estética (galáxia, tipografia Archivo larga, sotaque vindo do frasco, palco 3D, close-up com pirâmide), o
-resolvedor produto-primeiro, o controle de qualidade de imagem, o contrato visual dos componentes, os IDs dos
-perfumes existentes, e os dados da pessoa (status, veredito, datas, ordem).
+O core compila com `lib: ["ES2023"]` e `types: []` (o único global declarado é `URL`, que existe no navegador, no Node e
+no React Native): usar DOM ali quebra o `typecheck`. É o que permite reaproveitá-lo no app nativo.
 
 ---
 
-## 2. Arquitetura proposta
-
-### 2.1 Entidades (contextos: Catálogo · Biblioteca · Identidade · Aquisição)
+## 2. Caminho de uma requisição
 
 ```
-USER (Identidade)                      PRODUCT (Catálogo) — o perfume, compartilhável entre usuários
-  id, username (único), displayName      id, brand, name, concentration, gender, description
-  avatarUrl?, bio?                        olfactoryProfile, fieldSources, model3DUrl
-  privacy { profile, wishlist,            variants[]  ─┐  VARIANT: id, label, volume, volumeMl?, price,
-            collection: public|private }               │  currency, sku, available, url
-                                                       │
-ENTRY (Biblioteca) — a relação da pessoa com o produto  images[] ─┐  IMAGE: id, url(lg), thumbUrl(sm), masterUrl(PNG),
-  id, userId, productId, list: wishlist|collection   │         role main|alternate, variantId?, transparent,
-  variantId? (a versão escolhida)                    │         dominantColor, colorOverride?, accent,
-  position, notes?, rating?, addedAt, acquiredAt?    │         source{origin,url,pageUrl,label}, score, confidence
-  sourceUrl (o link que a pessoa colou), variantUrl?
-  price snapshot (o preço que ela viu)
+HTTP ─► checkHost (Host deste PC / domínio público — contra DNS rebinding)
+        │
+        ├─ /api/* ─► checkSameOrigin (escrita só da mesma origem — contra CSRF)
+        │            │
+        │            ├─ /api/v1/* ─► Hono: cabeçalhos, limite de corpo 64 KB, /health público,
+        │            │               Authorizer → Principal {userId}, rotas, erros como frase + código
+        │            │
+        │            └─ rotas atuais (inalteradas): /api/status, /api/pair, /api/public/…, /api/me,
+        │               /api/perfumes[/:id][/refresh], /api/import, /api/perfumes/resolve (NDJSON),
+        │               /api/photo, /api/events (SSE)
+        │
+        ├─ /media/*  ─► pública só se a foto estiver numa lista pública; senão exige acesso;
+        │               lida pelo StorageProvider (chave validada + pasta conferida)
+        └─ páginas   ─► index.html com metadados (Open Graph nas rotas /username…), arquivos do build via inside()
 ```
 
-- **PRODUCT ≠ VARIANT ≠ ENTRY.** O 50 ml e o 100 ml são variantes do mesmo produto; a entrada da pessoa aponta
-  para UMA variante. Foto, preço e link da variante andam juntos.
-- A **API continua entregando a "visão" antiga** (`Perfume` = entrada + produto + imagem principal), montada no
-  servidor. Assim a interface atual não muda nada, e a troca de armazenamento é invisível.
-- **Presentes (futuro)**: tabela `reservations { id, entryId, tokenHash, createdAt, message? }` — quem reserva
-  recebe um token secreto; o dono vê "reservado", nunca quem. Entradas têm ID estável desde já, que é o que essa
-  funcionalidade precisa. **Não implementado** (depende de contas/hospedagem pública).
-
-### 2.2 URLs públicas
-
-`/{username}`, `/{username}/wishlist`, `/{username}/collection` — servidas pelo MESMO app (mesma galáxia, palco e
-tipografia), só leitura. O servidor monta `<title>`, description, canonical, Open Graph e Twitter card por página,
-e só expõe o que a privacidade permite (padrão: **tudo privado**).
-
-### 2.3 Produção real (o que falta para "dominio.com/guilherme")
-
-Hoje o app roda neste PC. Para links abertos por qualquer pessoa na internet é preciso **hospedagem** (servidor
-Node com disco persistente, ou banco gerenciado + armazenamento de imagens), **HTTPS**, e **contas** (login real).
-Nada disso é simulável: está no plano como fase própria e depende de escolhas suas (provedor, domínio, custo).
+**Quem é quem (autorização).** Hoje há um usuário só. `Authorizer(req)` devolve `Principal { userId, via }` quando o
+pedido vem deste computador (`loopback`) ou de um aparelho pareado pelo código (`device`); senão, `401`. Toda rota da v1
+usa `principal.userId` — quando o Better Auth entrar (FASE 6), só a função muda ([ADR 0010](ADR/0010-autorizacao-por-principal.md)).
 
 ---
 
-## 3. Plano por fases
+## 3. API v1
 
-Cada fase preserva o que funciona: a API mantém a "visão" `Perfume`, testes (unitários, smoke no Edge, Chrome real)
-rodam a cada fase, e toda migração de dados é versionada, com cópia do arquivo antigo.
+| Método e rota | Faz | Observações |
+|---|---|---|
+| `GET /api/v1/health` | `{ ok, api: "v1" }` | público; não fala da coleção |
+| `GET /api/v1/me` · `PATCH /api/v1/me` | perfil do dono | mesma validação das rotas atuais |
+| `GET /api/v1/perfumes` · `/perfumes/:id` | coleção inteira / um perfume | mesma visão `Perfume` das rotas atuais |
+| `GET /api/v1/wishlist` · `/collection` | cada lista | partição exata de `/perfumes` |
+| `POST /api/v1/imports` `{url, identity?, variantId?}` | cria job → `202` + `Location` | mesmo link em andamento → devolve o job existente (`deduplicated`) |
+| `GET /api/v1/imports` · `/imports/:id` | lista / estado do job | job de outro dono = 404 |
+| `GET /api/v1/imports/:id/events` | progresso ao vivo (SSE) | estado atual na hora; fecha quando termina |
+| `DELETE /api/v1/imports/:id` | cancela | cooperativo: conferido a cada etapa |
+| `POST /api/v1/imports/:id/retry` `{variantId?}` | nova tentativa | de `failed`, `cancelled` ou `waiting_choice` (escolha de versão) |
+| `GET /api/v1/sources` | retrato das fontes e disjuntores | sem chaves |
 
-| Fase | O quê | Arquivos | Banco | API | Riscos / dependências |
+Escrita da coleção (PUT/DELETE de perfume) continua nas rotas atuais — a interface não mudou e não precisa da v1 ainda.
+Um job **só pesquisa**: quem grava o perfume é o cliente, como hoje.
+
+---
+
+## 4. Importação como job
+
+```
+POST /imports ─► ImportJobRunner.create ─► ImportJobStore (memória hoje; Postgres na FASE 2)
+                     │
+                     ▼ fila: researchSlots (2 vagas, divididas com as rotas antigas; elas recusam com 429, o job espera)
+               queued ─► running ─► succeeded
+                            │    ├─► waiting_choice (loja vende 50 ml e 100 ml: para e espera a escolha → retry {variantId})
+                            │    ├─► failed (código + frase; erro técnico nunca vai cru)
+                            └────┴─► cancelled (DELETE; o trabalho em andamento não sobrescreve o cancelamento)
+```
+
+- Progresso: etapa do resolvedor → percentual (`link 5 … notes 90 … done 100`).
+- `importFromUrl(url, identity, onStage, variantId, { jobId, signal })` é o mesmo motor das rotas antigas; ganhou
+  cancelamento cooperativo e os eventos de log `import.started / completed / failed / cancelled / choose_variant`.
+- `MemoryImportJobStore` é **declaradamente não persistente** (`persistent = false`): reiniciar o servidor esquece os
+  jobs, nunca a coleção. Limpeza: terminados somem em 1 h; teto de 500.
+
+---
+
+## 5. Fontes de dados
+
+`sources/registry.ts` descreve o motor **atual** (nenhuma fonte nova, nenhum scraping novo):
+
+| id | tipo | prioridade | timeout | cache | disjuntor |
 |---|---|---|---|---|---|
-| **1 · Arquitetura** (feita nesta etapa) | Caminhos absolutos no modo servidor; limpeza de mídia órfã; limite de importações; User-Agent honesto; hosts públicos configuráveis | `vite.config.ts`, `src/data/repository.ts`, `src/lib/refs.ts`, `server/media/gc.ts`, `server/net/safe-fetch.ts`, `server/http/*` | — | — | Baixo; coberto pelo smoke |
-| **2 · Usuário** (base feita) | Entidade USER com username único, perfil e privacidade; `GET/PATCH /api/me` | `src/core/library.ts`, `server/store.ts`, `server/http/app.ts` | `data/library.json` (schema 2) | `/api/me` | Sem login real ainda: o dono é quem passa no código de acesso |
-| **3 · Produto / versões** (base feita) | PRODUCT com `variants[]` e `images[]` (principal + alternativas ligadas a variante) | `src/core/library.ts`, `server/import/pipeline.ts` | produtos | visão `Perfume` inalterada | Itens antigos "50/100 ml" continuam pedindo "Escolher versão" |
-| **4 · Listas por usuário** (base feita) | ENTRY (wishlist/coleção, posição, observação, variante) | idem | entradas | idem | Edição de dados do produto por um usuário afeta o produto — com vários usuários vira sobrescrita por entrada (pendente) |
-| **5 · URLs públicas** (base feita, local) | `/{username}[/wishlist\|/collection]` só leitura, metadados OG, fotos públicas | `server/http/app.ts`, `server/http/seo.ts`, `src/data/repository.ts` | — | `/api/public/...` | Só alcança quem está na mesma rede até existir hospedagem |
-| **6 · Compartilhar** | Botão "Compartilhar" (Web Share API no celular, copiar link no desktop), escolher o que tornar público | `Nameplate`/`Chrome`, folha nova | privacidade | `PATCH /api/me` (já existe) | **Espera aprovação visual** |
-| **7 · PWA** (base feita) | Manifest, ícones, service worker (cache de app e fotos; leitura offline da última lista), instalação | `public/manifest.webmanifest`, `public/sw.js`, `index.html`, `src/main.tsx` | — | — | Instalação completa em celular exige HTTPS (fase 7b com hospedagem) |
-| **8 · Nativo** | Tokens de design exportados, contrato da API documentado (OpenAPI), cliente de API sem DOM, decisão Expo × PWA com dados reais de uso | `src/core`, `docs/api.md` | — | versão da API | Não migrar antes de a PWA estar em uso |
+| `product-page` | productPage | 1 | 15 s | — | não (cada link é um site) |
+| `parfumo` | catalog | 2 | 15 s | 7 d | 5 falhas → 30 min; verificação → 30 min |
+| `official-stores` | officialStore | 3 | 15 s | 1 d | não (vários sites) |
+| `fragrantica` | perfumeDatabase | 4 | 15 s | 30 d | verificação anti-robô → 6 h |
+| `brave` | searchAPI | 5 | 10 s | 7 d | 3 falhas → 15 min; só com chave |
+| `duckduckgo` | searchAPI | 6 | 12 s | 7 d | verificação → 30 min |
+| `resellers` | reseller | 7 | 15 s | — | não |
 
-### Próxima fase recomendada
-**Hospedagem + contas** (pré-requisito de URLs públicas de verdade, PWA instalável e presentes), seguida do
-**botão Compartilhar** com a sua aprovação visual.
+Cada fonte: prioridade, timeout, ritmo (1,5 s por site em `polite.ts`; DuckDuckGo +3,5 s), validade de cache, qualidade
+(0–1), ligada/desligada (`SOURCES_DISABLED`) e disjuntor (fechado → aberto → meia-abertura com um pedido de teste).
+As pausas do DuckDuckGo e da Fragrantica, que eram variáveis soltas, agora são o disjuntor dessas fontes.
+O disjuntor é por processo (memória); na FASE 4 vai para o Postgres para valer entre instâncias.
 
 ---
 
-## 4. Implementado nesta etapa (27/09/2026)
+## 6. Segurança
 
-Sem mudança visual: a interface continua recebendo a mesma "visão" `Perfume`. Verificação: 66 testes unitários,
-smoke 56/56 (Edge: fluxos, celular, versões, PWA, página pública), variante do claude.ai, Chrome real (service
-worker ativo e **app abrindo sem rede**).
-
-| Tema | O que mudou | Arquivos |
+| Camada | Onde | O quê |
 |---|---|---|
-| Modelo | USER / PRODUCT (com `variants[]`, `images[]`, `appearance`) / ENTRY (lista, versão, posição, veredito, observação, link, preço visto) | `src/core/library.ts` (novo) |
-| Armazenamento | Biblioteca normalizada; API entrega a visão antiga; seed upgrade por visão; remoção apaga produto órfão | `server/store.ts` (reescrito) |
-| **Migração 1 → 2** | `data/perfumes.json` → `data/library.json`; original guardado em `data/perfumes.v1-migrado.json` e `data/perfumes.v1-<data>.json`. Ensaio numa cópia e na real: **15/15 perfumes idênticos, mesma ordem** | automático na partida |
-| Usuário | `GET/PATCH /api/me` (username único validado, nomes reservados, nome, bio, privacidade) — padrão **tudo privado** | `server/http/app.ts`, `src/core/library.ts` |
-| URLs públicas | `/{username}`, `/{username}/wishlist`, `/{username}/collection`: mesmo palco, só leitura; `GET /api/public/...` com limite por endereço; fotos de itens públicos servidas sem código; título, description, canonical, Open Graph e Twitter card montados no servidor; 404 quando privado | `server/http/seo.ts` (novo), `server/http/app.ts`, `src/data/repository.ts`, `src/app.tsx`, `src/components/Chrome.tsx` |
-| Caminhos | Base absoluta no modo servidor (`/api`, `/bottles`, `/media`); relativa no claude.ai | `vite.config.ts`, `src/lib/refs.ts` (novo), `Bottle.tsx`, `AddPerfume.tsx` |
-| PWA | Manifest, ícones 192/512/maskable/apple-touch, tags de instalação do iPhone, service worker (cache do app e fotos, leitura offline da última coleção) | `public/manifest.webmanifest`, `public/sw.js`, `public/icons/*`, `scripts/make-icon.mjs`, `src/main.tsx`, `server/http/seo.ts` |
-| Mídia órfã | Limpeza na partida e a cada 6 h (carência de 6 h) — já removeu 3 arquivos antigos | `server/media/gc.ts` (novo), `server/main.ts` |
-| Abuso | No máximo 2 pesquisas pesadas simultâneas (resposta clara); vaga liberada ao terminar | `server/http/app.ts` |
-| Identificação honesta | User-Agent do app em vez de disfarce de navegador (fontes testadas aceitam) | `server/net/safe-fetch.ts` |
-| Resiliência da pesquisa | Buscador pausado ainda usa o que está em cache; página com nome e sem marca identifica pelo catálogo da base (sem buscador) | `server/resolver/search.ts`, `server/resolver/resolve.ts` |
-| Produção | Domínio público configurável (`PERFUMES_PUBLIC_ORIGIN`) aceito no Host e usado nos links canônicos | `server/config.ts`, `server/http/guard.ts` |
+| Host | `guard.checkHost` | só os nomes deste PC (e o domínio público, se configurado) na porta do app |
+| Mesma origem | `guard.checkSameOrigin` | escrita só com `Origin` igual ou `Sec-Fetch-Site: same-origin` |
+| Acesso | `guard.isAuthorized` / `Authorizer` | este PC ou aparelho pareado (cookie HttpOnly, SameSite=Strict; 6 tentativas/15 min) |
+| Público | `store.publicProfile/publicList` | tudo privado por padrão; privado e inexistente respondem igual (404); visão pública sem campos pessoais |
+| SSRF | `net/address`, `net/safe-fetch` | http/https, sem credenciais, **só portas 80/443**, IP interno recusado no link, **na conexão (DNS vigiado)** e **em cada redirecionamento**; IPv6 expandido antes de comparar: loopback, mapeado, compatível, NAT64, **6to4**, **Teredo**, ULA, link-local, multicast, documentação |
+| Teto de saída | `net/egress` | todas as fontes somadas: 6 conexões simultâneas e 120 pedidos/min (configurável); quem passa espera a vez |
+| Imagens | `net/sniff` | **SVG recusado sempre**; tipo conferido **pelos bytes** (PNG, JPEG, WebP, GIF, AVIF), no download e no envio de foto |
+| Modelo de IA | `media/matting` | URL fixada no commit do repositório; **SHA-256 conferido** antes de carregar; download só por https e para `.part`; não bate → não carrega (recorte por cor segue) |
+| Arquivos | `http/paths.inside`, `storage/local` | caminho resolvido e conferido dentro da pasta; chave de armazenamento sem `..`, barra inicial ou caractere estranho |
+| Corpo | `readBody`, `bodyLimit` | limites de tamanho enquanto chega |
+| Página | CSP, `X-Frame-Options: DENY`, `nosniff`, `no-referrer` | inalterados |
+| Segredos | `.gitignore`, `config.describeConfig`, `log.ts` | `.env*` fora do Git; log diz **quais** segredos existem, nunca o valor; redação de senha/token/cookie/autorização/chave; links sem query string; código de acesso fora do arquivo de log |
 
-Cópia de segurança antes de tudo: `Desktop/perfume-collection-backup-20260927-170950`.
+Testes específicos: `tests/security.test.ts` (116 casos), mais os de API (401, 403, 421, 413, travessia, SVG, lista
+privada) em `tests/api-v1.test.ts`.
 
-## 5. Pendente (não implementado — de propósito)
+---
 
-- **Contas e login** (senha/Apple/Google): hoje o dono é quem passa pelo código de acesso. Sem isso, não existe
-  segundo usuário de verdade. Não foi simulado.
-- **Hospedagem pública + HTTPS**: `dominio.com/guilherme` para qualquer pessoa; instalação PWA completa no celular
-  (hoje só em `localhost`); prévias no WhatsApp (o robô do WhatsApp precisa alcançar o endereço).
-- **Botão "Compartilhar" e tela de privacidade** — a API existe (`PATCH /api/me`); a UI espera sua aprovação.
-- **Presentes** — modelo descrito em 2.1; depende de contas/hospedagem.
-- **Imagens alternativas preenchidas pela pesquisa** — o modelo guarda; o resolvedor ainda salva só a vencedora.
-- **Imagem de prévia própria (1200×630)** com o frasco sobre a galáxia — hoje a prévia usa a foto quadrada.
-- **Sobrescritas por usuário** (corrigir nome/foto só para si quando vários usuários compartilham um produto).
-- **Link do claude.ai**: continua com o formato antigo no banco do artifact (coleção separada, só vitrine).
-- **Git**: o projeto não tem controle de versão; recomendado antes da próxima fase.
+## 7. Configuração e logs
 
-## 6. Riscos
+- `config.ts`: todas as variáveis passam por um schema zod. Valor inválido para a partida com a lista do que corrigir
+  (sem repetir valores). `.env.example` documenta tudo, sem valores; o `.env.local` deste PC continua sendo lido.
+  As variáveis de produção (`DATABASE_URL`, `R2_*`, `AUTH_SECRET`, `EMAIL_PROVIDER_KEY`, `SENTRY_DSN`) já são
+  validadas, mas **não usadas** nesta etapa.
+- `log.ts`: pino, uma linha JSON por evento, com `event` de uma lista fechada (`server.started`, `import.*`,
+  `source.used/error/paused`, `search.completed`, `image.error`, `model.*`, `media.gc`, `library.*`, `egress.throttled`).
+  O quadro com o endereço e o código de acesso só aparece num terminal interativo.
 
-- Iniciar com Windows não instalado: se o PC reiniciar, o app só volta pelo atalho.
-- Celular pela Wi-Fi (`http://192.168…`): sem service worker (exigência do navegador); funciona, mas não offline.
-- DuckDuckGo pede verificação depois de poucas buscas; a identificação não depende mais dele, mas links sem marca
-  escrita ainda ganham com uma chave da Brave.
-- Imagens de páginas públicas: servidas pelo seu PC — expor à internet sem hospedagem exigiria abrir porta no roteador
-  (não recomendado).
+---
+
+## 8. Persistência — portas e implementações
+
+| Porta | Hoje | FASE 2+ |
+|---|---|---|
+| `LibraryRepository` (`repositories/library.ts`) | `store` → `data/library.json` (**fonte de verdade**) | Postgres (Neon + Drizzle) pelo mesmo contrato |
+| `StorageProvider` (`storage/types.ts`) | `LocalStorageProvider` → `data/media` | `R2StorageProvider` (chaves por conteúdo, `img.` subdomínio) |
+| `ImportJobStore` (`jobs/types.ts`) | `MemoryImportJobStore` (não persistente) | tabela `import_jobs` + pg-boss |
+
+`db/schema.ts` é o schema **preliminar** (users, products, product_variants, product_images, entries, import_jobs).
+Não há conexão, driver, migration nem leitura. Um teste confere que cada campo do domínio atual tem coluna.
+Os testes usam a implementação real da biblioteca numa pasta temporária — não existe banco falso.
+
+---
+
+## 9. Domínio (packages/core)
+
+`Library` (schema 2) = `users` + `products` (catálogo: identidade, versões, imagens, aparência, pirâmide) + `entries`
+(relação pessoal: lista, versão escolhida, posição, veredito, observação, links, preço visto). A API entrega a visão
+achatada `Perfume` (`toPerfumeView` / `fromPerfume` / `applyPerfumeView`, ida e volta sem perda — testado).
+`accentFor`/`SILVER` (regra da cor do frasco) passaram do web para o core: o servidor usa a mesma regra; o
+`AccentController` (animação no DOM) ficou no web.
+
+---
+
+## 10. Verificação
+
+| Comando | O quê |
+|---|---|
+| `npm run check` | typecheck (core, web, server, scripts/testes) + lint + 274 testes + build — o mesmo do CI |
+| `npm run smoke` | servidor com dados temporários + Edge headless: 56 verificações, incluindo importação real pelo link |
+| `npm run build:artifact && npm run smoke:artifact` | variante do link do claude.ai |
+| `npm run state:verify` | coleção real × `docs/state/baseline.json` (campos + SHA-256 de cada foto) |
+
+CI (`.github/workflows/ci.yml`): `npm ci`, typecheck, lint, test, build. Sem segredos, sem deploy. (Não há remoto
+configurado; nada foi enviado.)
+
+---
+
+## 11. O que foi preservado de propósito
+
+Galáxia, cores, tipografia, `Bottle`, animações, layout, cards, pirâmide olfativa, 3D, microcópia, PWA, rotas antigas
+e seus formatos, NDJSON de importação, SSE de sincronização, código de acesso do celular, lançador do Windows,
+variante do claude.ai, `data/` inteiro.

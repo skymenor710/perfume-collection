@@ -34,7 +34,7 @@ npm install
 npm run app
 ```
 
-## Versões (50 ml × 100 ml) — `server/import/variants.ts`
+## Versões (50 ml × 100 ml) — `apps/server/src/import/variants.ts`
 
 Produto ≠ variante. O perfume guardado é UMA variante real: tamanho + preço + moeda + SKU + link da variante +
 FOTO da variante, sempre juntos (nunca "50 ml com a foto do 100 ml"). Fontes: JSON público da Shopify
@@ -46,7 +46,7 @@ FOTO da variante, sempre juntos (nunca "50 ml com a foto do 100 ml"). Fontes: JS
   levam o tamanho ("Mykonos Reflection 50ml"). O ↗ abre o link da variante (ex.: `?variant=58518844047705`).
 - Perfumes antigos com várias versões e nenhuma escolhida mostram "Escolher versão"; o menu tem "Trocar versão".
 
-## Controle de qualidade da foto — `server/media/process.ts`, `server/research/perfume.ts`
+## Controle de qualidade da foto — `apps/server/src/media/process.ts`, `apps/server/src/research/perfume.ts`
 
 - Candidatas de várias fontes (loja oficial — inclusive descoberta: `marca.com` que vende perfume —, página do
   link, variante, base de perfumes, revendedoras, busca de PNG); triagem rápida em todas, recorte completo (IA +
@@ -57,7 +57,7 @@ FOTO da variante, sempre juntos (nunca "50 ml com a foto do 100 ml"). Fontes: JS
 - **Névoa inventada pela IA** (fantasma branco acima da tampa): sai só a região cujo contorno não tem borda na foto
   — frasco branco no branco fica, porque o contorno dele existe na imagem.
 
-## Resolvedor "produto primeiro" (servidor) — `server/resolver/`
+## Resolvedor "produto primeiro" (servidor) — `apps/server/src/resolver/`
 
 O link colado é **uma pista**, não a fonte da verdade. Nenhuma etapa derruba o processo sozinha.
 
@@ -75,7 +75,7 @@ link → normalização (sem rastreadores; o original fica guardado para o ↗)
          notas:      oficial → Fragrantica/Parfumo → revendedora
          fotos:      oficial → PNG transparente → revendedora → busca de imagem
      → fotos candidatas → recorte (IA BiRefNet + cor, fusão) → nota de qualidade → outra candidata se reprovar
-     → quadro padrão: PNG 2048² transparente, frasco ≤72%×84%, base na linha de 92% (src/core/canvas.ts)
+     → quadro padrão: PNG 2048² transparente, frasco ≤72%×84%, base na linha de 92% (packages/core/src/canvas.ts)
      → cor dominante → sotaque da galáxia → pirâmide olfativa com fonte
 ```
 
@@ -83,11 +83,11 @@ link → normalização (sem rastreadores; o original fica guardado para o ↗)
   onnxruntime; o recorte por cor entra como segunda opinião e a fusão devolve partes claras que a IA perde. Sombra
   e halo do fundo são descontados; se uma variante "come" parte do frasco, ela perde para as outras.
 
-- **Qualidade da foto** (`src/core/quality.ts`): recusa frasco cortado, caixa/objetos ao lado (a tampa separada não conta),
+- **Qualidade da foto** (`packages/core/src/quality.ts`): recusa frasco cortado, caixa/objetos ao lado (a tampa separada não conta),
   fundo escuro de campanha, névoa/brilho, contorno corroído, halo, baixa resolução; compara cor e silhueta com a foto do
   produto exato (pega variante errada, como Precieux I × IV). Preferência pela loja oficial só desempata fotos sem defeito.
-- **Notas** (`src/core/olfactory.ts`): oficial → base de perfumes → revendedora. Texto de marketing não vira nota; nada de porcentagem.
-- **Correspondência** (`src/core/match.ts`): variantes (Noir, Intense, Elixir, IV…) e concentração (EDT × EDP) contam.
+- **Notas** (`packages/core/src/olfactory.ts`): oficial → base de perfumes → revendedora. Texto de marketing não vira nota; nada de porcentagem.
+- **Correspondência** (`packages/core/src/match.ts`): variantes (Noir, Intense, Elixir, IV…) e concentração (EDT × EDP) contam.
 - **Sem ponto único de falha**: página que redireciona para outro produto ou devolve 404 é descartada (o endereço
   vale mais); o catálogo da marca identifica links legíveis mesmo com o buscador fora do ar; ambiguidade
   (Man × Woman) nunca entra sozinha — vira a prévia "É este o perfume?".
@@ -102,7 +102,7 @@ link → normalização (sem rastreadores; o original fica guardado para o ↗)
 ## Migração da coleção
 
 `npm run seed:research` reprocessa os 14 da planilha pelo mesmo resolvedor (a foto antiga entra só como candidata).
-Webp do palco em `public/bottles/`, PNG mestre 2048² em `assets/masters/` (fora do site, para não pesar no link).
+Webp do palco em `apps/web/public/bottles/`, PNG mestre 2048² em `assets/masters/` (fora do site, para não pesar no link).
 Relatório por perfume em `scripts/.shots/research-report.json` e prancha sobre xadrez (transparência e piso visíveis)
 em `research-sheet.png`. Os sete tipos de link do pedido: `npx tsx scripts/url-kinds.ts` → `scripts/.shots/url-kinds.{json,png}`.
 Quem já tem `data/perfumes.json` recebe as fotos e perfis novos no próximo `npm start` (status e vereditos preservados).
@@ -114,11 +114,17 @@ Quem já tem `data/perfumes.json` recebe as fotos e perfis novos no próximo `np
 - **DuckDuckGo** pede verificação depois de poucas buscas seguidas vindas do mesmo PC: a busca pausa 30 min (sem contornar),
   o cache continua valendo e o catálogo da base de perfumes segue identificando. Links sem marca escrita
   (ex.: sephora.fr/p/good-girl…-P3372018) precisam do buscador — sem ele, o app pergunta "Qual perfume é este?".
-  Uma chave gratuita da Brave (`BRAVE_SEARCH_API_KEY`) resolve de vez.
+  Uma chave gratuita da Brave (`SEARCH_PROVIDER_KEY` no `.env.local`; o nome antigo `BRAVE_SEARCH_API_KEY` ainda vale) resolve de vez.
 - Marcas sem loja Shopify (ex.: Dior) podem ficar sem foto aprovada; aí fica a foto enviada.
 - Tradução de notas cobre as mais comuns; as demais aparecem como na fonte.
 
 ## Verificação
+
+```bash
+npm run check
+```
+
+`check` = typecheck dos 4 projetos + lint + testes + build (o mesmo que o CI roda). Separados:
 
 ```bash
 npm test
@@ -126,6 +132,15 @@ npm test
 ```bash
 npm run typecheck
 ```
+```bash
+npm run lint
+```
+```bash
+npm run state:verify
+```
+
+`state:verify` compara a coleção real (`data/library.json` + cada foto pelo SHA-256) com `docs/state/baseline.json`.
+
 ```bash
 npm run build && npm run smoke
 ```
@@ -136,11 +151,26 @@ npm run build:artifact && npm run smoke:artifact
 `smoke` sobe um servidor com dados temporários e percorre os fluxos no Edge headless, incluindo uma
 importação real só pelo link e o close-up com a pirâmide (capturas em `scripts/.shots/`).
 
+## Estrutura
+
+Monorepo (npm workspaces) — detalhes em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), plano de produção em
+[docs/PRODUCTION.md](docs/PRODUCTION.md), decisões em [docs/ADR/](docs/ADR/).
+
+```
+apps/web        interface (Vite + React 19): galáxia, carrossel 3D, pirâmide, PWA
+apps/server     servidor Node: /api (rotas atuais) + /api/v1 (Hono), importação, fotos, páginas públicas
+packages/core   domínio puro (sem DOM, sem Node): perfume, biblioteca, cor, notas, qualidade de foto
+scripts/        lançador, smoke, estado, laboratório
+tests/          vitest
+```
+
+Configuração: copie `.env.example` para `.env.local` (nunca vai para o Git) e preencha só o que usar.
+
 ## Inicialização
 
 - **Meus Perfumes** (atalho na Área de Trabalho) ou `npm run app`: sobe o servidor se preciso e abre o navegador.
 - `npm run app:autostart`: o servidor passa a subir sozinho ao entrar no Windows (atalho na pasta Inicializar do
   seu usuário; sem administrador). `npm run app:autostart -- -Remove` desfaz.
 - `npm run app:stop`: encerra o servidor.
-- Testes: `npm test`, `npm run smoke` (48 verificações, Edge headless), `node scripts/chrome-real.mjs <link>`
+- Testes: `npm test`, `npm run smoke` (56 verificações, Edge headless), `node scripts/chrome-real.mjs <link>`
   (Google Chrome instalado, perfil limpo, contra o app rodando sozinho — inclui abrir outra aba no meio de uma importação).

@@ -16,7 +16,7 @@ import { HttpError } from './guard';
  * foram conferidos antes de chegar aqui, e as rotas antigas (/api/…) continuam idênticas.
  *
  * Autorização passa por uma função (`Authorizer`) que devolve QUEM está pedindo. Hoje: o computador (localhost) ou
- * um aparelho pareado pelo código — sempre o único usuário. Com contas (FASE 3), o Better Auth entra aqui e cada
+ * um aparelho pareado pelo código — sempre o único usuário. Com contas (FASE 6), o Better Auth entra aqui e cada
  * rota já usa `principal.userId`: nenhuma rota lê "o usuário" de outro lugar.
  */
 

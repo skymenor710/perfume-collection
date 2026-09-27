@@ -7,7 +7,7 @@ import type { Perfume } from '@perfumes/core/perfume';
  * Hoje há UMA implementação: `store` (store.ts), que guarda tudo em data/library.json — é a fonte de verdade
  * nesta etapa. A implementação Postgres (Neon + Drizzle, schema em db/schema.ts) entra na FASE 2 cumprindo este
  * mesmo contrato; as rotas não mudam. Por isso o contrato fala em visões `Perfume` (o que a API entrega hoje)
- * e já recebe o usuário implicitamente: com contas (FASE 3), cada método ganha `userId` vindo da sessão.
+ * e já recebe o usuário implicitamente: com contas (FASE 6), cada método ganha `userId` vindo da sessão.
  *
  * Não existe implementação "de mentira" que finja ser banco: os testes usam a implementação real com uma pasta
  * de dados temporária.

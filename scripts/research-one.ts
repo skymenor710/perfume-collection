@@ -5,8 +5,8 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { accentHexes } from '../server/import/pipeline';
-import { researchPerfume } from '../server/research/perfume';
+import { accentHexes } from '../apps/server/src/import/pipeline';
+import { researchPerfume } from '../apps/server/src/research/perfume';
 
 const [brand, name, concentration = '', pageUrl = '', outDir = 'scripts/.shots/one'] = process.argv.slice(2);
 if (!brand || !name) throw new Error('Uso: research-one "<marca>" "<nome>" [concentração] [url] [pasta]');

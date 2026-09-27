@@ -7,9 +7,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { BOTTLE_CANVAS } from '../src/core/canvas';
-import { accentHexes } from '../server/import/pipeline';
-import { resolveProduct } from '../server/resolver/resolve';
+import { BOTTLE_CANVAS } from '@perfumes/core/canvas';
+import { accentHexes } from '../apps/server/src/import/pipeline';
+import { resolveProduct } from '../apps/server/src/resolver/resolve';
 
 const KINDS: { kind: string; url: string }[] = [
   { kind: 'revendedora que abre', url: 'https://royaloudleicester.com/products/rasasi-hawas-fire-eau-de-parfum-100ml' },

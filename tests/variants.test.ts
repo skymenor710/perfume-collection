@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { meaningfulVariants, parseJsonLdVariants, parseShopifyProductJs, parseWooVariations, preselectedVariant, shopifyHandle, volumeFromText } from '../server/import/variants';
+import { meaningfulVariants, parseJsonLdVariants, parseShopifyProductJs, parseWooVariations, preselectedVariant, shopifyHandle, volumeFromText } from '../apps/server/src/import/variants';
 
 // Como a Royal Oud publica o Mykonos Reflection (ids e preços reais, fotos encurtadas).
 const REFLECTION = {
@@ -78,8 +78,8 @@ describe('WooCommerce e JSON-LD', () => {
 });
 
 describe('tamanho no nome do arquivo e nome sem prefixo de marca', async () => {
-  const { sizeFromFilename } = await import('../server/research/perfume');
-  const { cleanName } = await import('../src/core/normalize');
+  const { sizeFromFilename } = await import('../apps/server/src/research/perfume');
+  const { cleanName } = await import('@perfumes/core/normalize');
 
   it('lê um tamanho do nome do arquivo; dois tamanhos não dizem nada', () => {
     expect(sizeFromFilename('https://cdn.shopify.com/files/empire_100ml_sku_1.jpg?v=1')).toBe(100);

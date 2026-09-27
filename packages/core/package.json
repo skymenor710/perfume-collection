@@ -1,0 +1,14 @@
+{
+  "name": "@perfumes/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Domínio puro (perfume, biblioteca, cor, notas, qualidade de foto): sem DOM, sem Node, sem React — roda no servidor, no navegador e, no futuro, no celular.",
+  "sideEffects": false,
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

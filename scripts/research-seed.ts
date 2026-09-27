@@ -4,20 +4,20 @@
  * quadrado padrão → cor → perfil olfativo. A foto antiga não tem autoridade: é só mais uma candidata.
  *
  * Saída: public/bottles/<id>.<hash>-{lg,sm}.webp (derivados do quadro), assets/masters/<id>.<hash>.png
- * (PNG 2048² transparente, fora do site), src/data/seed.json e scripts/.shots/research-{report.json,sheet.png}.
+ * (PNG 2048² transparente, fora do site), apps/web/src/data/seed.json e scripts/.shots/research-{report.json,sheet.png}.
  * Uso: npm run seed:research
  */
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import sharp, { type OverlayOptions } from 'sharp';
-import { ASSET_VERSION, sanitizePerfume, type Perfume } from '../src/core/perfume';
-import { accentHexes } from '../server/import/pipeline';
-import { resolveProduct } from '../server/resolver/resolve';
+import { ASSET_VERSION, sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
+import { accentHexes } from '../apps/server/src/import/pipeline';
+import { resolveProduct } from '../apps/server/src/resolver/resolve';
 import { SEED } from './seed-source';
 
 const ROOT = process.cwd();
-const BOTTLES = path.join(ROOT, 'public', 'bottles');
+const BOTTLES = path.join(ROOT, 'apps', 'web', 'public', 'bottles');
 const REPORT = path.join(ROOT, 'scripts', '.shots');
 const MASTERS = path.join(ROOT, 'assets', 'masters');
 mkdirSync(BOTTLES, { recursive: true });
@@ -42,7 +42,7 @@ const COLOR_OVERRIDES: Record<string, string> = {
   'khadlaj-island-dreams': '#5f9fb3',
 };
 
-const seedPath = path.join(ROOT, 'src', 'data', 'seed.json');
+const seedPath = path.join(ROOT, 'apps', 'web', 'src', 'data', 'seed.json');
 const current = (JSON.parse(readFileSync(seedPath, 'utf8')) as unknown[]).map(sanitizePerfume).filter((p): p is Perfume => p !== null);
 const bySheet = new Map(SEED.map((s) => [s.sourceUrl, s]));
 const only = process.argv.slice(2);
@@ -164,4 +164,4 @@ if (sheet.length) {
 const used = new Set(out.flatMap((p) => [p.imageUrl, p.thumbUrl]).filter(Boolean).map((u) => path.basename(u!)));
 // A proveniência de cada foto fica num arquivo .json ao lado (embed-prompt); ela sai junto com a foto.
 for (const f of readdirSync(BOTTLES)) if (!used.has(f.replace(/\.json$/, ''))) rmSync(path.join(BOTTLES, f));
-console.log(`\n${out.length} perfumes → src/data/seed.json (assetVersion ${ASSET_VERSION}). Relatório: scripts/.shots/research-report.json`);
+console.log(`\n${out.length} perfumes → apps/web/src/data/seed.json (assetVersion ${ASSET_VERSION}). Relatório: scripts/.shots/research-report.json`);

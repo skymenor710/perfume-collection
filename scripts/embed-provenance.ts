@@ -5,10 +5,10 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { sanitizePerfume, type Perfume } from '../src/core/perfume';
+import { sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
 
 const ROOT = process.cwd();
-const seed = (JSON.parse(readFileSync(path.join(ROOT, 'src', 'data', 'seed.json'), 'utf8')) as unknown[]).map(sanitizePerfume).filter((p): p is Perfume => p !== null);
+const seed = (JSON.parse(readFileSync(path.join(ROOT, 'apps', 'web', 'src', 'data', 'seed.json'), 'utf8')) as unknown[]).map(sanitizePerfume).filter((p): p is Perfume => p !== null);
 let written = 0;
 for (const p of seed) {
   const s = p.imageSource;
@@ -21,7 +21,7 @@ for (const p of seed) {
     'Nenhum pixel do frasco foi gerado por IA.';
   for (const ref of [p.imageUrl, p.thumbUrl]) {
     if (!ref?.startsWith('bottles/')) continue;
-    const file = path.join(ROOT, 'public', `${ref}.json`);
+    const file = path.join(ROOT, 'apps', 'web', 'public', `${ref}.json`);
     if (existsSync(file)) continue;
     writeFileSync(file, `${JSON.stringify({ prompt, createdAt: p.updatedAt }, null, 2)}\n`);
     written++;

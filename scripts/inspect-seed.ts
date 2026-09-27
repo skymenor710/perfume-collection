@@ -5,7 +5,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import sharp, { type OverlayOptions } from 'sharp';
-import { processBottleImage } from '../server/media/process';
+import { processBottleImage } from '../apps/server/src/media/process';
 import { SEED } from './seed-source';
 
 const out = process.argv[2] ?? 'seed-sheet.png';

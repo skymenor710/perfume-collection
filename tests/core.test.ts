@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import seed from '../src/data/seed.json';
-import { dominantColor, hexToRgb, oklabToRgb, rgbToHex, rgbToOklab } from '../src/core/color';
-import { opaqueBounds, removeBackground } from '../src/core/cutout';
-import { cleanName, detectConcentration, detectGender, detectVolume, guessFromUrl, parsePrice } from '../src/core/normalize';
-import { findDuplicate, safeHttpUrl, safeImageRef, sanitizePerfume, type Perfume } from '../src/core/perfume';
-import { accentFor } from '../src/design/accent';
-import { cleanDescription, extractProduct, looksBlocked, upgradeImageUrl } from '../server/import/extract';
-import { parseRobots, robotsAllows } from '../server/net/polite';
+import seed from '../apps/web/src/data/seed.json';
+import { dominantColor, hexToRgb, oklabToRgb, rgbToHex, rgbToOklab } from '@perfumes/core/color';
+import { opaqueBounds, removeBackground } from '@perfumes/core/cutout';
+import { cleanName, detectConcentration, detectGender, detectVolume, guessFromUrl, parsePrice } from '@perfumes/core/normalize';
+import { findDuplicate, safeHttpUrl, safeImageRef, sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
+import { accentFor } from '@perfumes/core/accent';
+import { cleanDescription, extractProduct, looksBlocked, upgradeImageUrl } from '../apps/server/src/import/extract';
+import { parseRobots, robotsAllows } from '../apps/server/src/net/polite';
 
 /** Foto sintética: fundo liso, um "frasco" retangular com corpo de uma cor e tampa de outra. */
 function productPhoto(bg: [number, number, number], body: [number, number, number], cap: [number, number, number], w = 120, h = 160) {

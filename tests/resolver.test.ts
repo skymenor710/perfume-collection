@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BOTTLE_CANVAS, placeInCanvas } from '../src/core/canvas';
-import { sanitizePerfume } from '../src/core/perfume';
-import { assessCutout } from '../src/core/quality';
-import { parseDuckDuckGoHtml } from '../server/resolver/search';
-import { analyzeUrl, identityFromDatabaseUrl } from '../server/resolver/url';
+import { BOTTLE_CANVAS, placeInCanvas } from '@perfumes/core/canvas';
+import { sanitizePerfume } from '@perfumes/core/perfume';
+import { assessCutout } from '@perfumes/core/quality';
+import { parseDuckDuckGoHtml } from '../apps/server/src/resolver/search';
+import { analyzeUrl, identityFromDatabaseUrl } from '../apps/server/src/resolver/url';
 
 describe('o link é pista, não fonte', () => {
   it('tira rastreadores e âncora, mas guarda o link como foi colado', () => {
@@ -128,7 +128,7 @@ describe('modelo', () => {
 });
 
 describe('identidade pelo catálogo da base de perfumes (sem buscador)', async () => {
-  const { __catalogRules: r } = await import('../server/research/parfumo');
+  const { __catalogRules: r } = await import('../apps/server/src/research/parfumo');
   const cov = (title: string, slug: string) => {
     const s = r.plainTokens(slug);
     return r.covered(r.plainTokens(title), new Set(s), s.some((w) => ['man', 'woman', 'homme', 'femme'].includes(w)));

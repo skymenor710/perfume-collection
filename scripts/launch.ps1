@@ -27,7 +27,7 @@ function Get-AppProcess {
 
 if ($Stop) {
   $p = Get-AppProcess
-  if ($p -and $p.CommandLine -match 'server[\\/]main\.ts') {
+  if ($p -and $p.CommandLine -match '(server|src)[\\/]main\.ts') {
     Stop-Process -Id $p.ProcessId -Force
     Write-Host 'Meus Perfumes encerrado.'
   } else {
@@ -41,7 +41,7 @@ if (-not (Test-App)) {
   if (-not $node) { $node = 'C:\Program Files\nodejs\node.exe' }
   if (-not (Test-Path $node)) { throw 'Node.js não encontrado. Instale em https://nodejs.org e tente de novo.' }
 
-  if (-not (Test-Path (Join-Path $root 'dist\index.html'))) {
+  if (-not (Test-Path (Join-Path $root 'apps\web\dist\index.html'))) {
     Write-Host 'Montando o app pela primeira vez...'
     Push-Location $root
     & npm run build | Out-Host
@@ -52,7 +52,7 @@ if (-not (Test-App)) {
   New-Item -ItemType Directory -Force $logs | Out-Null
   $log = Join-Path $logs 'server.log'
   $tsx = Join-Path $root 'node_modules\tsx\dist\cli.mjs'
-  $cmd = "cmd.exe /d /c `"`"$node`" `"$tsx`" server\main.ts >> `"$log`" 2>&1`""
+  $cmd = "cmd.exe /d /c `"`"$node`" `"$tsx`" apps\server\src\main.ts >> `"$log`" 2>&1`""
 
   $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
   $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{

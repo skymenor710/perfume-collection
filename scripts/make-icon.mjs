@@ -1,8 +1,8 @@
 // Ícones do app a partir do mesmo desenho do favicon (frasco prata no preto):
 //   assets/meus-perfumes.ico            atalho do Windows
-//   public/icons/icon-192.png, -512     instalação (PWA)
-//   public/icons/maskable-512.png       Android recorta em círculo/squircle: desenho dentro da "zona segura" (80%)
-//   public/icons/apple-touch-icon.png   tela inicial do iPhone (180, sem transparência)
+//   apps/web/public/icons/icon-192.png, -512     instalação (PWA)
+//   apps/web/public/icons/maskable-512.png       Android recorta em círculo/squircle: desenho dentro da "zona segura" (80%)
+//   apps/web/public/icons/apple-touch-icon.png   tela inicial do iPhone (180, sem transparência)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 
@@ -18,12 +18,12 @@ const bottle = (size, { rounded = true, safe = 1 } = {}) => {
 </svg>`);
 };
 
-mkdirSync('public/icons', { recursive: true });
+mkdirSync('apps/web/public/icons', { recursive: true });
 mkdirSync('assets', { recursive: true });
-await sharp(bottle(192)).png().toFile('public/icons/icon-192.png');
-await sharp(bottle(512)).png().toFile('public/icons/icon-512.png');
-await sharp(bottle(512, { rounded: false, safe: 0.8 })).png().toFile('public/icons/maskable-512.png');
-await sharp(bottle(180, { rounded: false })).flatten({ background: '#050507' }).png().toFile('public/icons/apple-touch-icon.png');
+await sharp(bottle(192)).png().toFile('apps/web/public/icons/icon-192.png');
+await sharp(bottle(512)).png().toFile('apps/web/public/icons/icon-512.png');
+await sharp(bottle(512, { rounded: false, safe: 0.8 })).png().toFile('apps/web/public/icons/maskable-512.png');
+await sharp(bottle(180, { rounded: false })).flatten({ background: '#050507' }).png().toFile('apps/web/public/icons/apple-touch-icon.png');
 
 const sizes = [16, 24, 32, 48, 64, 128, 256];
 const pngs = await Promise.all(sizes.map((s) => sharp(bottle(s)).png().toBuffer()));

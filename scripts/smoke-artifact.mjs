@@ -7,7 +7,7 @@ import path from 'node:path';
 import { chromium } from 'playwright-core';
 
 const ROOT = path.resolve('dist-artifact');
-const seed = JSON.parse(readFileSync('src/data/seed.json', 'utf8'));
+const seed = JSON.parse(readFileSync('apps/web/src/data/seed.json', 'utf8'));
 const server = http.createServer((req, res) => {
   const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '') || 'preview.html';
   const file = path.join(ROOT, rel);

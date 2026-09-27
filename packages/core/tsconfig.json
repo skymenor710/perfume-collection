@@ -1,0 +1,9 @@
+{
+  // Sem "DOM" e sem @types/node: se alguém usar window, document, fetch ou node:* aqui, o typecheck quebra.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": ["src", "platform.d.ts"]
+}

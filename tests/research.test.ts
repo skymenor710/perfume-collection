@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import seed from '../src/data/seed.json';
-import { concentrationAdjust, nameSimilarity } from '../src/core/match';
-import { accordLabel, noteLabel } from '../src/core/notes-pt';
-import { parseNotesText, sanitizeProfile } from '../src/core/olfactory';
-import { ASSET_VERSION, sanitizePerfume } from '../src/core/perfume';
-import { assessCutout } from '../src/core/quality';
+import seed from '../apps/web/src/data/seed.json';
+import { concentrationAdjust, nameSimilarity } from '@perfumes/core/match';
+import { accordLabel, noteLabel } from '@perfumes/core/notes-pt';
+import { parseNotesText, sanitizeProfile } from '@perfumes/core/olfactory';
+import { ASSET_VERSION, sanitizePerfume } from '@perfumes/core/perfume';
+import { assessCutout } from '@perfumes/core/quality';
 
 describe('mesmo perfume?', () => {
   it('reconhece títulos enfeitados de loja', () => {

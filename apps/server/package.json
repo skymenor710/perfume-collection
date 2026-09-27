@@ -1,0 +1,22 @@
+{
+  "name": "@perfumes/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor Node: API, importação por link, fotos, páginas públicas.",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@perfumes/core": "*",
+    "cheerio": "1.2.0",
+    "onnxruntime-node": "1.30.0",
+    "sharp": "0.35.4",
+    "tsx": "4.23.15",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24"
+  }
+}

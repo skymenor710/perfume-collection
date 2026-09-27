@@ -1,19 +1,10 @@
 {
+  // Scripts e testes da raiz. Os pacotes têm o próprio tsconfig (npm run typecheck roda todos).
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["src", "server", "scripts", "tests"]
+  "include": ["scripts", "tests"]
 }

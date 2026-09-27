@@ -9,7 +9,7 @@ import { build } from 'vite';
 
 const OUT = 'dist-artifact';
 rmSync(OUT, { recursive: true, force: true });
-await build({ mode: 'artifact', logLevel: 'warn' });
+await build({ configFile: 'apps/web/vite.config.ts', mode: 'artifact', logLevel: 'warn' });
 
 const BUILD = path.join(OUT, 'build');
 const index = readFileSync(path.join(BUILD, 'index.html'), 'utf8');
@@ -34,7 +34,7 @@ if (Buffer.byteLength(content) > 16 * 1024 * 1024) throw new Error('Passou de 16
 writeFileSync(path.join(OUT, 'perfumes.html'), content);
 
 mkdirSync(path.join(OUT, 'bottles'), { recursive: true });
-cpSync('public/bottles', path.join(OUT, 'bottles'), { recursive: true });
+cpSync('apps/web/public/bottles', path.join(OUT, 'bottles'), { recursive: true });
 
 writeFileSync(
   path.join(OUT, 'preview.html'),

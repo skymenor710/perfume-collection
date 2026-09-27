@@ -23,7 +23,7 @@ if (!executablePath) throw new Error('Nenhum Edge/Chrome encontrado.');
 const dataDir = mkdtempSync(path.join(os.tmpdir(), 'perfumes-smoke-'));
 // Coleção limpa, mas o cache de buscas e lojas é o de verdade: o teste não martela os sites de novo.
 if (existsSync('data/cache')) cpSync('data/cache', path.join(dataDir, 'cache'), { recursive: true });
-const server = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/main.ts'], {
+const server = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/server/src/main.ts'], {
   env: { ...process.env, PERFUMES_PORT: String(PORT), PERFUMES_DATA_DIR: dataDir, PERFUMES_HOST: '127.0.0.1', PERFUMES_ACCESS_CODE: 'SMOKE1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });

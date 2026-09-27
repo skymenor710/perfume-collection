@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import seed from '../src/data/seed.json';
-import { applyPerfumeView, fromPerfume, publicLists, referencedImages, sanitizeLibrary, sanitizeUser, toPerfumeView, toPublicView, validateUsername, type Library } from '../src/core/library';
-import { sanitizePerfume, type Perfume } from '../src/core/perfume';
+import seed from '../apps/web/src/data/seed.json';
+import { applyPerfumeView, fromPerfume, publicLists, referencedImages, sanitizeLibrary, sanitizeUser, toPerfumeView, toPublicView, validateUsername, type Library } from '@perfumes/core/library';
+import { sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
 
 const perfumes = (seed as unknown[]).map(sanitizePerfume).filter((p): p is Perfume => p !== null);
 const owned: Perfume = { ...perfumes[0], id: 'teste-colecao', status: 'owned', personalRating: 'very_good', acquiredAt: '2026-09-20T10:00:00.000Z', order: 99 };

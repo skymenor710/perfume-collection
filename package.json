@@ -1,0 +1,48 @@
+{
+  "name": "perfume-collection",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Coleção pessoal de perfumes: wishlist e coleção num seletor de personagem 3D, com a galáxia tingida pela cor de cada frasco.",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "vite build && tsx server/main.ts",
+    "server": "tsx server/main.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "build:artifact": "node scripts/build-artifact.mjs",
+    "preview": "vite preview --port 4173 --strictPort --host 127.0.0.1",
+    "smoke": "node scripts/smoke.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "smoke:artifact": "node scripts/smoke-artifact.mjs",
+    "seed:research": "tsx scripts/research-seed.ts",
+    "app": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
+    "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -Stop",
+    "app:autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
+    "cheerio": "1.2.0",
+    "lucide-react": "1.48.0",
+    "onnxruntime-node": "1.30.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sharp": "0.35.4",
+    "three": "0.186.1",
+    "tsx": "4.23.15",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "playwright-core": "1.63.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}

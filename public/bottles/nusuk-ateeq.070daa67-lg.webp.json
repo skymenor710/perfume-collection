@@ -1,0 +1,4 @@
+{
+  "prompt": "Origem: foto de produto escolhida automaticamente pelo resolvedor \"produto primeiro\" (fonte: página do link; imagem https://m.media-amazon.com/images/I/61H0N+-OmPL._AC_SL1500_.jpg; página https://www.amazon.fr/dp/B0FN4NVWGJ; nota de qualidade 103). Fundo removido por segmentação (BiRefNet-lite, MIT, rodando no próprio computador) combinada com recorte por cor; frasco posto no quadro padrão 2048² transparente (72%×84%, base em 92%) e cor extraída por server/media/process.ts. Nenhum pixel do frasco foi gerado por IA.",
+  "createdAt": "2026-09-27T12:04:56.047Z"
+}

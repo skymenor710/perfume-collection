@@ -1,0 +1,103 @@
+/*
+ * Design system — "seleção de personagem no espaço".
+ * Preto, carvão, branco suave, prata. A única cor é o sotaque vindo do frasco selecionado:
+ * --accent-rgb é escrito pelo AccentController (src/design/accent.ts) e todo o resto deriva dele.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Superfícies */
+  --bg: #050507;
+  --bg-raised: #0b0b0f;
+  --bg-panel: rgb(9 9 12 / 0.94);
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.17);
+
+  /* Texto (contraste sobre --bg: 16.9 / 8.6 / 5.1) */
+  --text: #eceef2;
+  --text-2: #a9adb6;
+  --text-3: #80858f;
+  --silver: #c9ccd2;
+
+  /* Sotaque dinâmico: 2–10% da tela, nunca tema */
+  --accent-rgb: 199 202 208;
+  --accent: rgb(var(--accent-rgb));
+  --accent-soft: rgb(var(--accent-rgb) / 0.14);
+  --accent-line: rgb(var(--accent-rgb) / 0.45);
+  --accent-glow: rgb(var(--accent-rgb) / 0.32);
+
+  --danger: #e2a3a3;
+
+  /* Tipo — Archivo variável: largura 62–125%, peso 100–900 */
+  --font: 'Archivo Variable', 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display-stretch: 125%;
+  --label-stretch: 112%;
+  --fs-display: clamp(1.9rem, 1.1rem + 3.4vw, 4.1rem);
+  --fs-title: clamp(1.25rem, 1rem + 0.8vw, 1.6rem);
+  --fs-body: 0.9375rem;
+  --fs-small: 0.8125rem;
+  --fs-label: 0.6875rem;
+  --tracking-label: 0.18em;
+  --tracking-display: 0.015em;
+
+  /* Espaço */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --gutter: clamp(16px, 3.2vw, 48px);
+
+  /* Forma */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-pill: 999px;
+
+  /* Profundidade — sombras com deslocamento e desfoque, nunca halo colado */
+  --shadow-bottle: drop-shadow(0 28px 34px rgb(0 0 0 / 0.55));
+  --shadow-panel: 0 30px 80px -20px rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.04) inset;
+
+  /* Controles — alvo de toque mínimo (44 pt) e anel de foco visível de longe */
+  --target: 44px;
+  --target-fine: 40px;
+  --focus-ring: 2px;
+  --focus-offset: 3px;
+
+  /* Brilho */
+  --glow-1: 0 0 0 1px var(--accent-line), 0 0 18px -6px var(--accent-glow);
+
+  /* Movimento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 160ms;
+  --t-base: 320ms;
+  --t-slow: 700ms;
+  --t-cinematic: 1200ms;
+
+  /* Áreas seguras (iPhone) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --header-h: 64px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --header-h: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 1ms;
+    --t-base: 120ms;
+    --t-slow: 160ms;
+    --t-cinematic: 200ms;
+  }
+}

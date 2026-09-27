@@ -1,0 +1,20 @@
+import { mkdtempSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { chromium } from 'playwright-core';
+const ctx = await chromium.launchPersistentContext(mkdtempSync(path.join(os.tmpdir(), 'chrome-pwa-')), { executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: false, viewport: { width: 390, height: 844 } });
+const page = ctx.pages()[0];
+await page.goto('http://localhost:3100/');
+await page.waitForSelector('.nameplate__name');
+await page.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active), null, { timeout: 20000 });
+await page.reload();
+await page.waitForSelector('.nameplate__name');
+const controlled = await page.evaluate(() => Boolean(navigator.serviceWorker.controller));
+const caches = await page.evaluate(async () => (await self.caches.keys()).join(', '));
+// Offline: sem rede, a última coleção vista ainda abre.
+await ctx.setOffline(true);
+await page.reload();
+const offline = await page.waitForSelector('.nameplate__name', { timeout: 15000 }).then(() => page.locator('.nameplate__name').innerText()).catch(() => null);
+await page.screenshot({ path: 'scripts/.shots/chrome-offline.png' });
+console.log({ serviceWorker: 'ativo', controlaAPagina: controlled, caches, abreSemRede: offline });
+await ctx.close();

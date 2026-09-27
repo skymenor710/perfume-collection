@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-26T21:10:47.688Z",
+  "title": "Design System: Meus Perfumes",
+  "extensions": {
+    "colorMeta": {
+      "void": {
+        "role": "neutral",
+        "displayName": "Vazio",
+        "canonical": "#050507",
+        "tonalRamp": [
+          "oklch(15% 0.008 285)",
+          "oklch(25% 0.008 285)",
+          "oklch(35% 0.008 285)",
+          "oklch(45% 0.008 285)",
+          "oklch(55% 0.008 285)",
+          "oklch(68% 0.008 285)",
+          "oklch(80% 0.008 285)",
+          "oklch(95% 0.008 285)"
+        ]
+      },
+      "void-raised": {
+        "role": "neutral",
+        "displayName": "Vazio Elevado",
+        "canonical": "#0b0b0f",
+        "tonalRamp": [
+          "oklch(15% 0.008 285)",
+          "oklch(25% 0.008 285)",
+          "oklch(35% 0.008 285)",
+          "oklch(45% 0.008 285)",
+          "oklch(55% 0.008 285)",
+          "oklch(68% 0.008 285)",
+          "oklch(80% 0.008 285)",
+          "oklch(95% 0.008 285)"
+        ]
+      },
+      "void-panel": {
+        "role": "neutral",
+        "displayName": "Vidro Escuro",
+        "canonical": "rgb(9 9 12 / 0.94)",
+        "tonalRamp": [
+          "oklch(15% 0.008 285)",
+          "oklch(25% 0.008 285)",
+          "oklch(35% 0.008 285)",
+          "oklch(45% 0.008 285)",
+          "oklch(55% 0.008 285)",
+          "oklch(68% 0.008 285)",
+          "oklch(80% 0.008 285)",
+          "oklch(95% 0.008 285)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Fio de Prata",
+        "canonical": "rgb(255 255 255 / 0.09)",
+        "tonalRamp": [
+          "rgb(255 255 255 / 0.04)",
+          "rgb(255 255 255 / 0.06)",
+          "rgb(255 255 255 / 0.09)",
+          "rgb(255 255 255 / 0.12)",
+          "rgb(255 255 255 / 0.17)",
+          "rgb(255 255 255 / 0.22)",
+          "rgb(255 255 255 / 0.3)",
+          "rgb(255 255 255 / 0.4)"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Fio de Prata Forte",
+        "canonical": "rgb(255 255 255 / 0.17)",
+        "tonalRamp": [
+          "rgb(255 255 255 / 0.04)",
+          "rgb(255 255 255 / 0.06)",
+          "rgb(255 255 255 / 0.09)",
+          "rgb(255 255 255 / 0.12)",
+          "rgb(255 255 255 / 0.17)",
+          "rgb(255 255 255 / 0.22)",
+          "rgb(255 255 255 / 0.3)",
+          "rgb(255 255 255 / 0.4)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Branco Suave",
+        "canonical": "#eceef2",
+        "tonalRamp": [
+          "oklch(15% 0.006 265)",
+          "oklch(25% 0.006 265)",
+          "oklch(35% 0.006 265)",
+          "oklch(45% 0.006 265)",
+          "oklch(55% 0.006 265)",
+          "oklch(68% 0.006 265)",
+          "oklch(80% 0.006 265)",
+          "oklch(95% 0.006 265)"
+        ]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Cinza Suave",
+        "canonical": "#a9adb6",
+        "tonalRamp": [
+          "oklch(15% 0.01 265)",
+          "oklch(25% 0.01 265)",
+          "oklch(35% 0.01 265)",
+          "oklch(45% 0.01 265)",
+          "oklch(55% 0.01 265)",
+          "oklch(68% 0.01 265)",
+          "oklch(80% 0.01 265)",
+          "oklch(95% 0.01 265)"
+        ]
+      },
+      "text-3": {
+        "role": "neutral",
+        "displayName": "Cinza Distante",
+        "canonical": "#80858f",
+        "tonalRamp": [
+          "oklch(15% 0.012 265)",
+          "oklch(25% 0.012 265)",
+          "oklch(35% 0.012 265)",
+          "oklch(45% 0.012 265)",
+          "oklch(55% 0.012 265)",
+          "oklch(68% 0.012 265)",
+          "oklch(80% 0.012 265)",
+          "oklch(95% 0.012 265)"
+        ]
+      },
+      "silver": {
+        "role": "neutral",
+        "displayName": "Prata",
+        "canonical": "#c9ccd2",
+        "tonalRamp": [
+          "oklch(15% 0.008 265)",
+          "oklch(25% 0.008 265)",
+          "oklch(35% 0.008 265)",
+          "oklch(45% 0.008 265)",
+          "oklch(55% 0.008 265)",
+          "oklch(68% 0.008 265)",
+          "oklch(80% 0.008 265)",
+          "oklch(95% 0.008 265)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Sotaque do Frasco",
+        "canonical": "oklch(0.8 0.012 250)",
+        "note": "Padrão prata fria; reescrito em tempo real (--accent-rgb) por AccentController a partir da cor do frasco, L 0.68–0.80, C 0.07–0.145.",
+        "tonalRamp": [
+          "oklch(15% 0.012 250)",
+          "oklch(25% 0.012 250)",
+          "oklch(35% 0.012 250)",
+          "oklch(45% 0.012 250)",
+          "oklch(55% 0.012 250)",
+          "oklch(68% 0.012 250)",
+          "oklch(80% 0.012 250)",
+          "oklch(95% 0.012 250)"
+        ]
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "Rosa Cinzento",
+        "canonical": "#e2a3a3",
+        "tonalRamp": [
+          "oklch(15% 0.06 20)",
+          "oklch(25% 0.06 20)",
+          "oklch(35% 0.06 20)",
+          "oklch(45% 0.06 20)",
+          "oklch(55% 0.06 20)",
+          "oklch(68% 0.06 20)",
+          "oklch(80% 0.06 20)",
+          "oklch(95% 0.06 20)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Nome do Perfume",
+        "purpose": "Só o nome do perfume na placa; caixa alta, largura 125%, peso 250."
+      },
+      "title": {
+        "displayName": "Título",
+        "purpose": "Estados vazios e pareamento; caixa alta, largura 125%."
+      },
+      "body": {
+        "displayName": "Corpo",
+        "purpose": "Texto corrido, avisos e dicas (36–60ch)."
+      },
+      "body-small": {
+        "displayName": "Corpo Pequeno",
+        "purpose": "Metadados da placa, filtros, chips de veredito."
+      },
+      "label": {
+        "displayName": "Rótulo de HUD",
+        "purpose": "Abas, marca, botões, rótulos de campo, contador; caixa alta."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-bottle",
+        "value": "drop-shadow(0 28px 34px rgb(0 0 0 / 0.55))",
+        "purpose": "Filtro em toda foto de frasco."
+      },
+      {
+        "name": "shadow-panel",
+        "value": "0 30px 80px -20px rgb(0 0 0 / 0.8), 0 1px 0 rgb(255 255 255 / 0.04) inset",
+        "purpose": "Folhas, menu e toast."
+      },
+      {
+        "name": "glow-action",
+        "value": "0 10px 30px -12px var(--accent-glow)",
+        "purpose": "Hover da ação principal da placa."
+      },
+      {
+        "name": "ring-soft",
+        "value": "0 0 0 3px var(--accent-soft)",
+        "purpose": "Foco de campo; 4px no hover do botão claro."
+      },
+      {
+        "name": "glow-1",
+        "value": "0 0 0 1px var(--accent-line), 0 0 18px -6px var(--accent-glow)",
+        "purpose": "Brilho de contorno no sotaque."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Padrão de todas as transições de estado e entradas."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "Saída do frasco para a coleção, respiração e varredura."
+      },
+      {
+        "name": "t-fast",
+        "value": "160ms",
+        "purpose": "Cor, borda e fundo em hover."
+      },
+      {
+        "name": "t-base",
+        "value": "320ms",
+        "purpose": "Sublinhados, opacidade do HUD, toasts."
+      },
+      {
+        "name": "t-slow",
+        "value": "700ms",
+        "purpose": "Entrada da foto do frasco, redimensionar a seleção."
+      },
+      {
+        "name": "t-cinematic",
+        "value": "1200ms",
+        "purpose": "Troca de atmosfera no fallback sem WebGL."
+      },
+      {
+        "name": "accent-tau",
+        "value": "0.45s",
+        "purpose": "Constante de tempo da suavização exponencial do sotaque em OKLab."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "1ms / 120ms / 160ms / 200ms",
+        "purpose": "Durações sob prefers-reduced-motion; voos viram esmaecimentos."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "header-compact",
+        "value": "640px"
+      },
+      {
+        "name": "mobile",
+        "value": "720px"
+      },
+      {
+        "name": "mobile-landscape",
+        "value": "max-height 520px, landscape"
+      },
+      {
+        "name": "large",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário Claro",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "O único botão cheio; confirmação dentro da folha.",
+      "html": "<button class=\"ds-primary\">Adicionar à wishlist</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;height:46px;padding:0 24px;border:0;border-radius:999px;background:#eceef2;color:#050507;font-family:var(--font);font-size:.6875rem;font-weight:500;font-stretch:112%;text-transform:uppercase;font-weight:650;letter-spacing:.2em;cursor:pointer;transition:background-color 160ms cubic-bezier(.16,1,.3,1),box-shadow 320ms cubic-bezier(.16,1,.3,1)}.ds-primary:hover{background:#fff;box-shadow:0 0 0 4px rgb(var(--accent-rgb,199 202 208) / 0.14)}.ds-primary:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Ação da Placa",
+      "kind": "button",
+      "refersTo": "button-action",
+      "description": "\"Comprei\": pílula vazada com losango no sotaque.",
+      "html": "<button class=\"ds-action\"><span class=\"ds-action__mark\"></span>Comprei <span class=\"ds-action__hint\">mover para a coleção</span></button>",
+      "css": ".ds-action{display:inline-flex;align-items:center;gap:12px;height:46px;padding:0 22px 0 18px;background:none;border:1px solid rgb(255 255 255 / .17);border-radius:999px;color:#eceef2;font-family:var(--font);font-size:.6875rem;font-weight:500;font-stretch:112%;text-transform:uppercase;letter-spacing:.24em;cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1),background-color 160ms cubic-bezier(.16,1,.3,1),box-shadow 320ms cubic-bezier(.16,1,.3,1)}.ds-action__mark{width:7px;height:7px;transform:rotate(45deg);border:1px solid rgb(var(--accent-rgb,199 202 208))}.ds-action__hint{font-size:.8125rem;font-stretch:100%;letter-spacing:.01em;text-transform:none;font-weight:400;color:#80858f}.ds-action:hover{border-color:rgb(var(--accent-rgb,199 202 208) / 0.45);background:rgb(var(--accent-rgb,199 202 208) / 0.14);box-shadow:0 10px 30px -12px rgb(var(--accent-rgb,199 202 208) / 0.32)}.ds-action:hover .ds-action__mark{background:rgb(var(--accent-rgb,199 202 208))}.ds-action:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Botão Redondo",
+      "kind": "button",
+      "refersTo": "button-round",
+      "description": "Loja, mais opções e setas do elenco.",
+      "html": "<button class=\"ds-round\" aria-label=\"Próximo\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 18 6-6-6-6\"/></svg></button>",
+      "css": ".ds-round{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;background:none;border:1px solid rgb(255 255 255 / .17);color:#c9ccd2;cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1),background-color 160ms cubic-bezier(.16,1,.3,1)}.ds-round:hover{border-color:rgb(var(--accent-rgb,199 202 208) / 0.45);background:rgb(var(--accent-rgb,199 202 208) / 0.14);color:#eceef2}.ds-round:disabled{opacity:.25}.ds-round:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Botão Adicionar",
+      "kind": "button",
+      "refersTo": "button-add",
+      "description": "Pílula vazada do cabeçalho; círculo de 44px no celular.",
+      "html": "<button class=\"ds-add\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Adicionar perfume</button>",
+      "css": ".ds-add{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 18px 0 14px;background:none;border:1px solid rgb(255 255 255 / .17);border-radius:999px;color:#a9adb6;font-family:var(--font);font-size:.6875rem;font-weight:500;font-stretch:112%;text-transform:uppercase;letter-spacing:.18em;cursor:pointer;transition:color 160ms cubic-bezier(.16,1,.3,1),border-color 160ms cubic-bezier(.16,1,.3,1),background-color 160ms cubic-bezier(.16,1,.3,1)}.ds-add:hover{color:#eceef2;border-color:rgb(var(--accent-rgb,199 202 208) / 0.45);background:rgb(var(--accent-rgb,199 202 208) / 0.14)}.ds-add:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Abas",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Wishlist / Coleção com sublinhado no sotaque.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab is-on\">Wishlist<span class=\"ds-tab__count\">14</span></button><button class=\"ds-tab\">Coleção<span class=\"ds-tab__count\">1</span></button></nav>",
+      "css": ".ds-tabs{display:flex;gap:4px}.ds-tab{position:relative;height:40px;padding:0 18px;background:none;border:0;color:#80858f;font-family:var(--font);font-size:.6875rem;font-weight:500;font-stretch:112%;text-transform:uppercase;letter-spacing:.22em;cursor:pointer;transition:color 160ms cubic-bezier(.16,1,.3,1)}.ds-tab::after{content:'';position:absolute;left:18px;right:18px;bottom:4px;height:1px;background:rgb(var(--accent-rgb,199 202 208));transform:scaleX(0);transition:transform 320ms cubic-bezier(.16,1,.3,1)}.ds-tab:hover{color:#a9adb6}.ds-tab.is-on{color:#eceef2}.ds-tab.is-on::after{transform:scaleX(1)}.ds-tab__count{margin-left:8px;color:#80858f;letter-spacing:.05em}.ds-tab:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Chip de Veredito",
+      "kind": "chip",
+      "refersTo": "chip-verdict",
+      "description": "Uma das quatro palavras; ativo ganha o sotaque.",
+      "html": "<div class=\"ds-verdicts\"><button class=\"ds-chip\"><span class=\"ds-chip__mark\"></span>Comprar novamente</button><button class=\"ds-chip is-on\"><span class=\"ds-chip__mark\"></span>Muito bom</button></div>",
+      "css": ".ds-verdicts{display:flex;flex-wrap:wrap;gap:6px}.ds-chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px 0 10px;background:none;border:1px solid rgb(255 255 255 / .09);border-radius:999px;font-family:var(--font);font-size:.8125rem;color:#a9adb6;cursor:pointer;transition:color 160ms cubic-bezier(.16,1,.3,1),border-color 320ms cubic-bezier(.16,1,.3,1),background-color 320ms cubic-bezier(.16,1,.3,1)}.ds-chip__mark{width:16px;height:16px;border-radius:50%;border:1px solid rgb(255 255 255 / .17)}.ds-chip:hover{color:#eceef2;border-color:rgb(255 255 255 / .17)}.ds-chip.is-on{color:#eceef2;border-color:rgb(var(--accent-rgb,199 202 208) / 0.45);background:rgb(var(--accent-rgb,199 202 208) / 0.14)}.ds-chip.is-on .ds-chip__mark{background:rgb(var(--accent-rgb,199 202 208));border-color:rgb(var(--accent-rgb,199 202 208))}.ds-chip:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Carimbo do Veredito",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "O veredito em repouso, com cantos em L.",
+      "html": "<button class=\"ds-stamp\"><span class=\"ds-stamp__mark\"></span><span class=\"ds-stamp__word\">Muito bom</span><span class=\"ds-stamp__edit\">trocar</span></button>",
+      "css": ".ds-stamp{position:relative;display:inline-flex;align-items:center;gap:12px;min-height:46px;padding:0 18px 0 16px;border:1px solid rgb(var(--accent-rgb,199 202 208) / 0.45);border-radius:2px;background:linear-gradient(90deg,rgb(var(--accent-rgb,199 202 208) / 0.12),rgb(var(--accent-rgb,199 202 208) / 0.03));color:rgb(var(--accent-rgb,199 202 208));font-family:var(--font);cursor:pointer;transition:border-color 160ms cubic-bezier(.16,1,.3,1)}.ds-stamp::before,.ds-stamp::after{content:'';position:absolute;width:7px;height:7px;border-color:rgb(var(--accent-rgb,199 202 208));border-style:solid}.ds-stamp::before{left:-4px;top:-4px;border-width:1px 0 0 1px}.ds-stamp::after{right:-4px;bottom:-4px;border-width:0 1px 1px 0}.ds-stamp__mark{width:8px;height:8px;transform:rotate(45deg);background:rgb(var(--accent-rgb,199 202 208));box-shadow:0 0 12px rgb(var(--accent-rgb,199 202 208) / 0.32)}.ds-stamp__word{font-stretch:125%;font-size:.8125rem;font-weight:500;text-transform:uppercase;letter-spacing:.2em}.ds-stamp__edit{margin-left:6px;font-size:.6875rem;color:#80858f;letter-spacing:.04em}.ds-stamp:hover{border-color:rgb(var(--accent-rgb,199 202 208))}.ds-stamp:focus-visible{outline:1px solid rgb(var(--accent-rgb,199 202 208));outline-offset:3px}"
+    },
+    {
+      "name": "Campo",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Campo da folha com rótulo de HUD e foco no sotaque.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field__label\">Nome</span><input placeholder=\"Hawas Fire\"></label>",
+      "css": ".ds-field{display:grid;gap:7px}.ds-field__label{color:#80858f;font-family:var(--font);font-size:.6875rem;font-weight:500;font-stretch:112%;text-transform:uppercase;letter-spacing:.18em}.ds-field input{height:46px;padding:0 12px;font-family:var(--font);font-size:1rem;background:rgb(255 255 255 / .03);border:1px solid rgb(255 255 255 / .17);border-radius:4px;color:#eceef2;caret-color:rgb(var(--accent-rgb,199 202 208));transition:border-color 160ms cubic-bezier(.16,1,.3,1),box-shadow 320ms cubic-bezier(.16,1,.3,1)}.ds-field input::placeholder{color:#80858f}.ds-field input:focus{outline:none;border-color:rgb(var(--accent-rgb,199 202 208) / 0.45);box-shadow:0 0 0 3px rgb(var(--accent-rgb,199 202 208) / 0.14)}"
+    },
+    {
+      "name": "Placa do Perfume",
+      "kind": "custom",
+      "refersTo": "nameplate",
+      "description": "Nome largo e leve, metadados com pontos, preço.",
+      "html": "<div class=\"ds-plate\"><h2 class=\"ds-plate__name\">Shiyaaka Snow</h2><p class=\"ds-plate__meta\"><span>Khadlaj</span><span>Eau de Parfum</span><span>100 ml</span></p><p class=\"ds-plate__price\">€ 35,10</p></div>",
+      "css": ".ds-plate{font-family:var(--font);color:#eceef2;padding:24px;background:#050507}.ds-plate__name{margin:0;font-size:clamp(1.9rem,1.1rem + 3.4vw,4.1rem);font-stretch:125%;font-weight:250;line-height:.98;letter-spacing:.015em;text-transform:uppercase;text-wrap:balance}.ds-plate__meta{margin:14px 0 0;display:flex;flex-wrap:wrap;font-size:.8125rem;color:#a9adb6;letter-spacing:.02em}.ds-plate__meta span+span::before{content:'';display:inline-block;width:3px;height:3px;margin:0 10px 2px;border-radius:50%;background:#80858f;vertical-align:middle}.ds-plate__price{margin:14px 0 0;font-size:1.0625rem;font-stretch:105%;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Tela de Seleção no Espaço",
+    "overview": "Um frasco sozinho sobre uma poça de luz, no meio do espaço profundo; o resto do elenco recua em diagonal para a escuridão, menor e mais apagado. A interface é um HUD de jogo: rótulos largos em caixa alta, linhas de prata finíssimas, controles em pílula vazada. Não há cartões, não há grade de loja, não há barra lateral de painel. O frasco é o protagonista e nada compete com ele.\n\nO mundo é preto, carvão e prata. A única cor vem do frasco selecionado: extraída da foto, domesticada em OKLCH (luminosidade presa entre 0,68 e 0,80, croma entre 0,07 e 0,145; frascos neutros viram prata fria) e escrita em tempo real na variável de sotaque. Ela vive nas estrelas, na nebulosa atrás do frasco, no cone de luz, na poça do piso, no anel de foco e no carimbo do veredito, e só ali. Arrastar entre dois frascos mistura as duas cores em OKLab; a troca nunca corta, sempre se dissolve (constante de tempo de 0,45 s).\n\nA densidade é baixa e a composição é ancorada nos cantos: identidade no alto, placa com o nome embaixo à esquerda, contador e setas embaixo à direita, palco livre no centro. No celular a mesma cena empilha, com a placa e a ação presas acima da área segura.",
+    "keyCharacteristics": [
+      "Espaço quase preto (galáxia WebGL própria) como único fundo; nenhum painel opaco no palco.",
+      "Um sotaque dinâmico derivado do frasco, em 2–10% da tela, nunca tema.",
+      "Archivo variável: nomes em largura 125% e peso 250, rótulos de HUD em largura 112%, caixa alta e tracking 0,18em.",
+      "Controles vazados em pílula com linha de prata; o sotaque aparece no hover e no estado ativo.",
+      "Profundidade por luz, desfoque e escala, não por cartões com sombra."
+    ],
+    "rules": [
+      {
+        "name": "The Sotaque, Nunca Tema Rule",
+        "body": "A cor do frasco ocupa no máximo 2–10% da tela. Fundos, superfícies e texto continuam pretos, cinzas e brancos; nenhum componente ganha fundo cheio na cor do sotaque, exceto marcas de 7–16px.",
+        "section": "colors"
+      },
+      {
+        "name": "The Domesticação Rule",
+        "body": "Toda cor extraída passa por `accentFor`: luminosidade 0,68–0,80, croma 0,07–0,145 (multiplicado por 1,15), croma abaixo de 0,035 vira prata (L 0,8, C 0,012). Nunca aplicar a cor crua da foto.",
+        "section": "colors"
+      },
+      {
+        "name": "The Não Recomprar É Prata Rule",
+        "body": "O veredito \"Não comprar novamente\" nunca usa o sotaque nem o vermelho de perigo: seu carimbo e seu chip ficam em prata (`text-2`, fundo branco a 3–5%).",
+        "section": "colors"
+      },
+      {
+        "name": "The Uma Família Rule",
+        "body": "Tudo é Archivo variável; a hierarquia vem de largura, peso e caixa, nunca de uma segunda fonte.",
+        "section": "typography"
+      },
+      {
+        "name": "The Nome Largo e Leve Rule",
+        "body": "O nome do perfume é o único texto em peso abaixo de 300 e largura 125%; nada mais na tela usa essa combinação.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sombra Com Distância Rule",
+        "body": "Toda sombra tem deslocamento e desfoque generosos; nunca halo colado nem sombra dura deslocada.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Luz É a Elevação Rule",
+        "body": "No palco, o que está em foco é o que está iluminado: cone, poça e reflexo marcam o selecionado. Não usar moldura, cartão ou fundo para destacar um frasco.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** derivar toda cor de interação das quatro intensidades do sotaque (`accent`, `accent-line` 45%, `accent-glow` 32%, `accent-soft` 14%).",
+      "**Do** transicionar com `cubic-bezier(0.16, 1, 0.3, 1)` e as durações 160 / 320 / 700 / 1200ms; com `prefers-reduced-motion`, cair para 1 / 120 / 160 / 200ms e trocar voos por esmaecimentos.",
+      "**Do** manter o texto nos três tons (Branco Suave, Cinza Suave, Cinza Distante) e o foco visível como contorno de 1px no sotaque com 3px de afastamento.",
+      "**Do** dar a todo frasco a sombra do frasco e, no palco, cone, poça e reflexo.",
+      "**Do** escrever rótulos de HUD em Label (11px, 0,18em, largura 112%, caixa alta)."
+    ],
+    "donts": [
+      "**Don't** usar cartões, grades de produto ou painéis opacos no palco.",
+      "**Don't** pintar fundos, superfícies ou texto corrido com a cor do sotaque, nem usar a cor crua extraída da foto.",
+      "**Don't** usar estrelas ou notas numéricas para o veredito; são quatro palavras em português.",
+      "**Don't** usar sombras duras deslocadas ou halos colados.",
+      "**Don't** introduzir uma segunda família tipográfica nem ícones em glifo; ícones são SVG de traço fino.",
+      "**Don't** dar ao \"Não comprar novamente\" o sotaque ou o vermelho de perigo."
+    ]
+  }
+}

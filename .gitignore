@@ -1,0 +1,32 @@
+# Dependências e saídas de build
+node_modules/
+dist/
+dist-artifact/
+*.tsbuildinfo
+
+# Dados locais da coleção (library.json, fotos importadas, cache, modelo de IA 224 MB, logs).
+# NUNCA vão para o Git: são dados pessoais e/ou pesados. Backup próprio: ver docs/PRODUCTION.md.
+data/
+
+# Segredos e configuração local — só o .env.example é versionado
+.env
+.env.*
+!.env.example
+
+# Mestres PNG 2048² da semente (14 MB, regeneráveis por `npm run seed:research`)
+assets/masters/
+
+# Saídas de testes e laboratório
+scripts/.shots/
+scripts/.lab/*.png
+scripts/.lab/*.webp
+test-results/
+coverage/
+
+# Ferramentas locais
+.impeccable/review/
+.impeccable/hook.cache.json
+.claude/settings.local.json
+*.log
+.DS_Store
+Thumbs.db

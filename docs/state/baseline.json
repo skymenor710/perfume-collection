@@ -1,0 +1,446 @@
+{
+  "savedAt": "2026-09-27T19:01:49.270Z",
+  "schemaVersion": 2,
+  "users": [
+    {
+      "id": "u_3de9e3fcf3b4ac52",
+      "username": "guilherme",
+      "privacy": {
+        "profile": "private",
+        "wishlist": "private",
+        "collection": "private"
+      }
+    }
+  ],
+  "counts": {
+    "perfumes": 15,
+    "wishlist": 15,
+    "collection": 0,
+    "withVariants": 2,
+    "images": 32,
+    "missingImages": 0
+  },
+  "perfumes": [
+    {
+      "id": "afnan-9-pm-night-out",
+      "name": "9 PM Night Out",
+      "brand": "Afnan",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 48.63,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 130,
+      "sourceUrl": "https://www.cdiscount.com/au-quotidien/hygiene-soin-beaute/afnan-9-pm-night-out-extrait/f-127021804-aadji53933.html",
+      "images": [
+        {
+          "ref": "bottles/afnan-9-pm-night-out.6089d9a2-lg.webp",
+          "exists": true,
+          "sha256": "66f8378d3b3b5b179b430b3987171f3229a3bce8ac45579fe207a9c77fdcedd1"
+        },
+        {
+          "ref": "bottles/afnan-9-pm-night-out.6089d9a2-sm.webp",
+          "exists": true,
+          "sha256": "9e4fc060a0872fdb5b3a79d36ca971b27d598436853c3b9dadeff6e7dba2cc4e"
+        }
+      ]
+    },
+    {
+      "id": "afnan-supremacy-collector-s-edition",
+      "name": "Supremacy Collector's Edition",
+      "brand": "Afnan",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 60,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 10,
+      "sourceUrl": "https://www.notino.fr/afnan/supremacy-collectors-edition-eau-de-parfum-pour-homme/",
+      "images": [
+        {
+          "ref": "bottles/afnan-supremacy-collector-s-edition.e8b9475f-lg.webp",
+          "exists": true,
+          "sha256": "f48ccd2fa8bb3ae60e04747f6bc8a6df755e357270ba3fe414a834ad870d0d20"
+        },
+        {
+          "ref": "bottles/afnan-supremacy-collector-s-edition.e8b9475f-sm.webp",
+          "exists": true,
+          "sha256": "d0b042f731396c43ccf4b426b59c5de7eb09bb5ef78acb48ebf4ff2e6adb31c5"
+        }
+      ]
+    },
+    {
+      "id": "afnan-supremacy-in-heaven",
+      "name": "Supremacy In Heaven",
+      "brand": "Afnan",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 37.5,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 30,
+      "sourceUrl": "https://www.notino.fr/afnan/supremacy-in-heaven-eau-de-parfum-mixte/",
+      "images": [
+        {
+          "ref": "bottles/afnan-supremacy-in-heaven.80fb764f-lg.webp",
+          "exists": true,
+          "sha256": "7e2caa4da893168bb55b2910fa8d38b1cf7a89339145c757b7d52b9b311fa3cd"
+        },
+        {
+          "ref": "bottles/afnan-supremacy-in-heaven.80fb764f-sm.webp",
+          "exists": true,
+          "sha256": "75846bbce90bfcccd6d54a741b7ff9df692b7c98480751fe9f3b3ab523220cb3"
+        }
+      ]
+    },
+    {
+      "id": "afnan-supremacy-not-only-intense",
+      "name": "Supremacy Not Only Intense",
+      "brand": "Afnan",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 48,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 20,
+      "sourceUrl": "https://www.notino.fr/afnan/supremacy-not-only-intense-eau-de-parfum-pour-homme/",
+      "images": [
+        {
+          "ref": "bottles/afnan-supremacy-not-only-intense.285bd80c-lg.webp",
+          "exists": true,
+          "sha256": "fb05c4430be39e11f758ad31b84d4106f9e42587c5c5fe2cb1f76c61b8d85e07"
+        },
+        {
+          "ref": "bottles/afnan-supremacy-not-only-intense.285bd80c-sm.webp",
+          "exists": true,
+          "sha256": "6c425c282cef44d7bbd6cdd8d5b0a07c8c3fc2f9d654cbd256cccefbd17ec227"
+        }
+      ]
+    },
+    {
+      "id": "armaf-club-de-nuit-elite",
+      "name": "Club de Nuit Elite",
+      "brand": "Armaf",
+      "list": "wishlist",
+      "volume": "105 ml",
+      "price": 50,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 70,
+      "sourceUrl": "https://arabicparfums.com/en/products/club-de-nuit-elite-armaf",
+      "images": [
+        {
+          "ref": "bottles/armaf-club-de-nuit-elite.4f13c53e-lg.webp",
+          "exists": true,
+          "sha256": "550b15dcbaf7bd5c20b29862f47e61e260dc6f2536f0c6d8a76d953c2554059d"
+        },
+        {
+          "ref": "bottles/armaf-club-de-nuit-elite.4f13c53e-sm.webp",
+          "exists": true,
+          "sha256": "e5f23ecaf64d2197e6dda13418454c88e515330ef26f6beaae53ad26f299a50d"
+        }
+      ]
+    },
+    {
+      "id": "armaf-club-de-nuit-precieux",
+      "name": "Club de Nuit Precieux",
+      "brand": "Armaf",
+      "list": "wishlist",
+      "volume": "55 ml",
+      "price": 43.5,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 60,
+      "sourceUrl": "https://www.notino.fr/armaf/club-de-nuit-precieux-extrait-de-parfum-mixte/",
+      "images": [
+        {
+          "ref": "bottles/armaf-club-de-nuit-precieux.628aa881-lg.webp",
+          "exists": true,
+          "sha256": "02a2bec8a5cb84bd88550c04f01dd12bdec140a5f9a8d34f3bd6f6ee0b840ba3"
+        },
+        {
+          "ref": "bottles/armaf-club-de-nuit-precieux.628aa881-sm.webp",
+          "exists": true,
+          "sha256": "40019c50dfc251071f64d4bc6ecbaec2e0059aa1ff7134f43c86dca874ac8d34"
+        }
+      ]
+    },
+    {
+      "id": "french-avenue-azzure-aoud-7m3nwa",
+      "name": "Azzure Aoud",
+      "brand": "French Avenue",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 49.9,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 140,
+      "sourceUrl": "https://www.notino.fr/french-avenue/azzure-aoud-eau-de-parfum-pour-homme/",
+      "images": [
+        {
+          "ref": "media/mujwsz73-674444159b-lg.webp",
+          "exists": true,
+          "sha256": "31b27c468698efcc7af9c7ef38ae16b20aced7d8f071209d93bbc64570ca4290"
+        },
+        {
+          "ref": "media/mujwsz73-674444159b-sm.webp",
+          "exists": true,
+          "sha256": "3938027bac64d55357c399dc650d9dc04f18c75ef30ddad8a6183e9e8de1613e"
+        },
+        {
+          "ref": "media/mujwsz73-674444159b.png",
+          "exists": true,
+          "sha256": "8aa54003c2fdb62d1d20152c648227156af32d543dec4aa2071a0ecb29e1927f"
+        }
+      ]
+    },
+    {
+      "id": "french-avenue-spectre-ghost",
+      "name": "Spectre Ghost",
+      "brand": "French Avenue",
+      "list": "wishlist",
+      "volume": "80 ml",
+      "price": 34.9,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 50,
+      "sourceUrl": "https://www.ferwer.fr/french-avenue_spectre-ghost-eau-de-parfum-pour-homme",
+      "images": [
+        {
+          "ref": "bottles/french-avenue-spectre-ghost.321b97e3-lg.webp",
+          "exists": true,
+          "sha256": "d116f8fb86e303a7cf86de96422849aee755f8223124a8dbc70be57bf7d37527"
+        },
+        {
+          "ref": "bottles/french-avenue-spectre-ghost.321b97e3-sm.webp",
+          "exists": true,
+          "sha256": "b9ad871ddb4fd45cab43a329c9eab348f343aec80d7c3e9a05955ae02d6f8c4e"
+        }
+      ]
+    },
+    {
+      "id": "khadlaj-island-dreams",
+      "name": "Island Dreams",
+      "brand": "Khadlaj",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 37,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 110,
+      "sourceUrl": "https://www.notino.fr/khadlaj/island-dreams-extrait-de-parfum-mixte/",
+      "images": [
+        {
+          "ref": "bottles/khadlaj-island-dreams.4059eec0-lg.webp",
+          "exists": true,
+          "sha256": "1524bbbf9b2d7062e3896d3bc69569fe54d02ce51a556c295c752611e33843ec"
+        },
+        {
+          "ref": "bottles/khadlaj-island-dreams.4059eec0-sm.webp",
+          "exists": true,
+          "sha256": "bf5cd28355551eb0561901d85231467cb97afe614acbee4b171e1a05b7c3dab9"
+        }
+      ]
+    },
+    {
+      "id": "khadlaj-shiyaaka-snow",
+      "name": "Shiyaaka Snow",
+      "brand": "Khadlaj",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 35.1,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 0,
+      "sourceUrl": "https://www.notino.fr/khadlaj/shiyaaka-snow-eau-de-parfum-pour-homme/",
+      "images": [
+        {
+          "ref": "bottles/khadlaj-shiyaaka-snow.e1b92151-lg.webp",
+          "exists": true,
+          "sha256": "2a6ef1caa41da2b711178c5b29f1da213340755ee526de391d03968296d4a451"
+        },
+        {
+          "ref": "bottles/khadlaj-shiyaaka-snow.e1b92151-sm.webp",
+          "exists": true,
+          "sha256": "4747b4fe000f0075c5b34d3290a01e26979ea9011455d4f14a375c77ab351125"
+        }
+      ]
+    },
+    {
+      "id": "maison-asrar-vanguard",
+      "name": "Vanguard",
+      "brand": "Maison Asrar",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 53.9,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 100,
+      "sourceUrl": "https://www.notino.fr/maison-asrar/vanguard-eau-de-parfum-mixte/",
+      "images": [
+        {
+          "ref": "bottles/maison-asrar-vanguard.0d6d8c64-lg.webp",
+          "exists": true,
+          "sha256": "2cf5cbfef82d462abf5626effb84e97ad66c978012f04659c4331ef1bb8205a5"
+        },
+        {
+          "ref": "bottles/maison-asrar-vanguard.0d6d8c64-sm.webp",
+          "exists": true,
+          "sha256": "e323d7abdf851d0094f20bb7d3a289ac6e5c7a6bf4db71a752838efb68a2d31c"
+        }
+      ]
+    },
+    {
+      "id": "mykonos-reflection-r5rx34",
+      "name": "Reflection",
+      "brand": "Mykonos",
+      "list": "wishlist",
+      "volume": "50 ml",
+      "price": 35.95,
+      "currency": "EUR",
+      "variantId": "58518844047705",
+      "variantVolume": "50 ml",
+      "variants": [
+        "58518844047705:50 ml",
+        "58518844014937:100 ml"
+      ],
+      "rating": null,
+      "position": 150,
+      "sourceUrl": "https://royaloudleicester.com/products/mykonos-reflection-edp-50ml-100ml?variant=58518844014937",
+      "images": [
+        {
+          "ref": "media/mujy19m7-5e3d3e1f9f-lg.webp",
+          "exists": true,
+          "sha256": "3a5c6ff8a53977989b7bf9d9d5f3162c81902113f94e12cb4f6d73dfbe4d4820"
+        },
+        {
+          "ref": "media/mujy19m7-5e3d3e1f9f-sm.webp",
+          "exists": true,
+          "sha256": "a92b4accb70e99ac4e1497531f35e5a7ce496458ca708405083594fd2c225217"
+        },
+        {
+          "ref": "media/mujy19m7-5e3d3e1f9f.png",
+          "exists": true,
+          "sha256": "b3716f7a30a104f41975d0303341075d31e6d565b3c4725f5b8e68c42f63e1ab"
+        }
+      ]
+    },
+    {
+      "id": "mykonos-x-rrq-empire",
+      "name": "Empire",
+      "brand": "Mykonos × RRQ",
+      "list": "wishlist",
+      "volume": "50/100 ml",
+      "price": 26,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [
+        "42310340411467:50 ml",
+        "42310340444235:100 ml"
+      ],
+      "rating": null,
+      "position": 120,
+      "sourceUrl": "https://officialmykonos.com/products/mykonos-x-rrq-empire-extrait-de-parfum-50ml-100ml",
+      "images": [
+        {
+          "ref": "bottles/mykonos-x-rrq-empire.3b8aa5ac-lg.webp",
+          "exists": true,
+          "sha256": "7f6110b04998338cf18389fe2d43d0e8874070d168d01be0f855dd25e37ccb83"
+        },
+        {
+          "ref": "bottles/mykonos-x-rrq-empire.3b8aa5ac-sm.webp",
+          "exists": true,
+          "sha256": "cef5fb2c9c3eeecd687a7586176a7158a8a24559652498da02974d35a0c830cd"
+        }
+      ]
+    },
+    {
+      "id": "nusuk-ateeq",
+      "name": "Ateeq",
+      "brand": "Nusuk",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 29.99,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 40,
+      "sourceUrl": "https://www.amazon.fr/dp/B0FN4NVWGJ",
+      "images": [
+        {
+          "ref": "bottles/nusuk-ateeq.070daa67-lg.webp",
+          "exists": true,
+          "sha256": "fb0d36d54fe2bb4b8530f57f9c0746e4e572e08eb700851428188e6f58466937"
+        },
+        {
+          "ref": "bottles/nusuk-ateeq.070daa67-sm.webp",
+          "exists": true,
+          "sha256": "200c9b9388bd42dc27d73885a92f5d8eeef31ce65fffef37e7e8b40d6bf53ca8"
+        }
+      ]
+    },
+    {
+      "id": "rayhaan-cedrus-blanc",
+      "name": "Cedrus Blanc",
+      "brand": "Rayhaan",
+      "list": "wishlist",
+      "volume": "100 ml",
+      "price": 40,
+      "currency": "EUR",
+      "variantId": null,
+      "variantVolume": null,
+      "variants": [],
+      "rating": null,
+      "position": 80,
+      "sourceUrl": "https://www.parfumcity.nl/fr/products/rayhaan-cedrus-blanc-100ml",
+      "images": [
+        {
+          "ref": "bottles/rayhaan-cedrus-blanc.31af0f39-lg.webp",
+          "exists": true,
+          "sha256": "54b122ae2210c5532b17e0434740687b48929cd802c2ddcda5241920140e0905"
+        },
+        {
+          "ref": "bottles/rayhaan-cedrus-blanc.31af0f39-sm.webp",
+          "exists": true,
+          "sha256": "1a313c18f6798f29493efa2e074c93e702ce438fe5b5f077607f30689941dc23"
+        }
+      ]
+    }
+  ]
+}

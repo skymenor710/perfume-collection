@@ -6,5 +6,5 @@
     "jsx": "react-jsx",
     "types": ["node", "vite/client"]
   },
-  "include": ["scripts", "tests"]
+  "include": ["scripts", "tests", "vitest.config.ts"]
 }

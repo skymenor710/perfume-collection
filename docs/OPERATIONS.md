@@ -1,6 +1,6 @@
 # Operação — Meus Perfumes (Postgres/Neon como fonte oficial)
 
-> Estado em 28/09/2026 (FASE 2.5.1). A coleção mora no Postgres do Neon (`STORAGE_BACKEND=postgres`); o
+> Estado em 28/09/2026 (FASE 2.5.4). A coleção mora no Postgres do Neon (`STORAGE_BACKEND=postgres`); o
 > `data/library.json` está PARADO desde o switch e serve só como histórico. Nada aqui contém credencial: elas vivem
 > apenas no `.env.local` (fora do Git).
 
@@ -19,9 +19,10 @@
 
 ## 2. Backup externo (recomendação — NÃO automatizado)
 
-**Hoje não existe backup fora deste computador.** Verificado em 28/09/2026: a Área de Trabalho não está no OneDrive,
-o repositório Git não tem remoto e as três cópias completas (`Desktop/perfume-collection-backup-*`) estão no mesmo
-disco C:. A única cópia fora da máquina é o próprio Neon (histórico de restauração do banco, sem as imagens).
+**Cópia externa feita em 28/09/2026 (FASE 2.5.3)** — ver "Cópia externa no OneDrive" abaixo. Antes dela, verificado
+no mesmo dia: a Área de Trabalho não está no OneDrive, o repositório Git não tem remoto e as três cópias completas
+(`Desktop/perfume-collection-backup-*`) estão no mesmo disco C:. Além do OneDrive, a outra cópia fora da máquina é o
+próprio Neon (histórico de restauração do banco, sem as imagens).
 
 **Pacote mínimo a preservar fora do computador** (um destino que o dono escolher: pendrive/HD externo, ou uma pasta
 do OneDrive que ele já usa — nunca junto de credenciais):
@@ -39,6 +40,46 @@ copiar: o SHA-256 dos arquivos no destino tem de bater com o `manifest.json`/`im
 
 Frequência sugerida: depois de cada sessão de importações e antes de qualquer fase nova (R2, deploy).
 A FASE 5 prevê `pg_dump` diário para um bucket separado — isso substitui este passo manual.
+
+### Pacote de recuperação pronto (FASE 2.5.2, 28/09/2026)
+
+Tudo acima já está montado e conferido em **`data/backups/recovery/`** — é isto que deve ir para fora do computador:
+
+| Copiar | Tamanho | O que é |
+|---|---|---|
+| `data/backups/recovery/recovery-20260928-192903/` (pasta inteira) | 2,05 MB | export do Postgres, library.json histórico, as 32 imagens, inventário com SHA-256, migrations, docs, `VERSION.json`, `manifest.json`, `LEIA-ME-RECUPERACAO.md` |
+| `data/backups/recovery/codigo-8a5d91c.bundle` | 1,4 MB | o código inteiro com o histórico do Git (o repositório não tem remoto); restaura com `git clone codigo-8a5d91c.bundle` |
+
+Conferido na geração: SHA-256 de cada arquivo = manifesto; export = Neon (0 diferenças); 32 imagens = original = baseline
+= banco; restauração simulada num Postgres descartável (dados, API byte a byte e Mykonos Reflection ok); nenhum valor do
+`.env.local`, senha, endpoint completo ou connection string no pacote; histórico inteiro do Git sem segredos.
+`recovery-20260928-192741` foi a primeira geração (o `VERSION.json` não listava o que estava fora do commit) — substituída
+pela de 19:29; pode ser apagada quando o dono quiser.
+
+Recuperação passo a passo: [RECOVERY.md](RECOVERY.md). Inventário das imagens para o R2:
+[FASE3-R2-INVENTARIO.md](FASE3-R2-INVENTARIO.md).
+
+### Cópia externa no OneDrive (FASE 2.5.3, 28/09/2026)
+
+Destino: **OneDrive pessoal → `Backups/MeusPerfumes/`** (neste PC, `%OneDrive%\Backups\MeusPerfumes\`), com
+`recovery-20260928-192903/` (48 arquivos) e `codigo-8a5d91c.bundle` — 49 arquivos, 3.571.881 bytes.
+
+Conferido no destino: 47 SHA-256 = `manifest.json`; os 49 arquivos idênticos à origem (SHA-256 e tamanho);
+32 imagens = `images-inventory.json`; bundle válido, clonado a partir do OneDrive, HEAD `8a5d91c`; nenhum `.env*`,
+`devices.json`, valor do `.env.local`, senha, endpoint ou connection string; os 49 marcados **InSync** pelo OneDrive
+(enviados para a nuvem). Originais locais intactos (mtime e tamanho).
+
+Próximas cópias: gerar um pacote novo e copiá-lo **ao lado** (outra pasta `recovery-<data>/` + o bundle do commit da
+vez), nunca por cima do anterior. Não há pendrive/HD conectado; o OneDrive é o único destino externo em uso.
+
+**Qual pacote usar:** o `recovery-<data>/` mais recente, com o `codigo-<commit>.bundle` cujo commit é o `gitCommit` do
+`VERSION.json` dele. Os antigos ficam como histórico e não são apagados.
+
+- `recovery-20260928-192903` + `codigo-8a5d91c.bundle`: dados, banco e imagens restauram (ensaio completo a partir do
+  OneDrive em 28/09/2026), mas o código desse bundle **não compila o frontend** — faltava `apps/web/src/data/`, escondida
+  pela regra `data/` do `.gitignore` (corrigida para `/data/` na FASE 2.5.4). Ver [RECOVERY.md](RECOVERY.md), seção 0.
+- A partir da FASE 2.5.4: pacote gerado depois da correção, restaurado do OneDrive do zero (código compilado, testes,
+  banco descartável, API e imagens) antes de ser dado como válido.
 
 ## 3. SSL/TLS do banco
 

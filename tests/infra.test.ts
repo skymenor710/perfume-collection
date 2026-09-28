@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -85,7 +86,17 @@ describe('configuração validada', () => {
     expect(ignore).toMatch(/^\.env$/m);
     expect(ignore).toMatch(/^\.env\.\*$/m);
     expect(ignore).toMatch(/^!\.env\.example$/m);
-    expect(ignore).toMatch(/^data\/$/m);
+    expect(ignore).toMatch(/^\/data\/$/m);
+  });
+
+  it('o .gitignore esconde os dados da raiz, mas não o código que mora numa pasta "data"', () => {
+    // Sem a barra inicial, "data/" escondia também apps/web/src/data/ — e o código restaurado do Git não compilava.
+    const ignored = (f: string) => spawnSync('git', ['check-ignore', '-q', f]).status === 0;
+    expect(ignored('data/library.json')).toBe(true);
+    expect(ignored('data/devices.json')).toBe(true);
+    expect(ignored('.env.local')).toBe(true);
+    expect(ignored('apps/web/src/data/repository.ts')).toBe(false);
+    expect(ignored('apps/web/src/data/seed.json')).toBe(false);
   });
 });
 

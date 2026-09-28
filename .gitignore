@@ -6,7 +6,8 @@ dist-artifact/
 
 # Dados locais da coleção (library.json, fotos importadas, cache, modelo de IA 224 MB, logs).
 # NUNCA vão para o Git: são dados pessoais e/ou pesados. Backup próprio: ver docs/PRODUCTION.md.
-data/
+# Só a pasta da RAIZ: sem a barra inicial, a regra também escondia apps/web/src/data/ (código do frontend e a semente).
+/data/
 
 # Segredos e configuração local — só o .env.example é versionado
 .env

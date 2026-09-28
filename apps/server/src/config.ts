@@ -47,6 +47,9 @@ const envSchema = z.object({
   DATABASE_URL_UNPOOLED: optionalText.refine((v) => v === undefined || /^postgres(ql)?:\/\//.test(v) || v.startsWith('pglite:'), 'precisa começar com postgres://'),
   /** Id do dono desta instalação no banco (só necessário quando houver mais de um usuário). */
   PERFUMES_OWNER_ID: optionalText,
+  /** Banco de TESTES: URL de um branch separado do Neon e o nome exato do database esperado nela (proteção extra). */
+  TEST_DATABASE_URL: optionalText,
+  NEON_TEST_DATABASE_NAME: optionalText,
   R2_ACCOUNT_ID: optionalText,
   R2_ACCESS_KEY_ID: optionalText,
   R2_SECRET_ACCESS_KEY: optionalText,
@@ -60,7 +63,7 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 /** Nomes que guardam segredo: aparecem nos logs só como "definido". */
-export const SECRET_KEYS = ['PERFUMES_ACCESS_CODE', 'SEARCH_PROVIDER_KEY', 'BRAVE_SEARCH_API_KEY', 'DATABASE_URL', 'DATABASE_URL_UNPOOLED', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SENTRY_DSN'] as const;
+export const SECRET_KEYS = ['PERFUMES_ACCESS_CODE', 'SEARCH_PROVIDER_KEY', 'BRAVE_SEARCH_API_KEY', 'DATABASE_URL', 'DATABASE_URL_UNPOOLED', 'TEST_DATABASE_URL', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SENTRY_DSN'] as const;
 
 export class ConfigError extends Error {}
 

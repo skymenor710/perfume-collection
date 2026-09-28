@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
@@ -409,5 +409,96 @@ describe('banco de testes nunca é o principal', () => {
     expect(JSON.stringify({ host: t.host, pooled: t.pooled, database: t.database })).not.toMatch(/senha|dono|quiet-moon-z9y8x7|postgresql:/);
     expect(t).toMatchObject({ kind: 'postgres', pooled: true, database: 'neondb' });
     expect(t.host).toMatch(/^ep-q…x7-pooler\.eu-central-1\.aws\.neon\.tech$/);
+  });
+});
+
+describe('validação única do banco de testes (db:targets = test:neon = smoke = helpers)', () => {
+  const principal = 'postgresql://dono:senha@ep-cool-sun-a1b2c3-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+  const principalDireto = 'postgresql://dono:senha@ep-cool-sun-a1b2c3.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+  const testes = 'postgresql://dono:senha@ep-quiet-moon-z9y8x7-pooler.eu-central-1.aws.neon.tech/testes?sslmode=require';
+  const env = (over: Record<string, string>) => {
+    const all: Record<string, string> = { DATABASE_URL: principal, DATABASE_URL_UNPOOLED: principalDireto, TEST_DATABASE_URL: testes, ...over };
+    return (k: string) => all[k] ?? '';
+  };
+
+  it('libera um branch separado, com pooler e com o nome esperado', async () => {
+    const { checkTestTarget } = await import('../apps/server/src/db/targets');
+    expect(checkTestTarget(env({ NEON_TEST_DATABASE_NAME: 'testes' }))).toMatchObject({ ok: true, refusals: [] });
+    expect(checkTestTarget(env({})).ok).toBe(true); // sem a variável, a proteção por nome fica desligada
+  });
+
+  it.each<[string, Record<string, string>, RegExp]>([
+    ['nome do database diferente do esperado', { NEON_TEST_DATABASE_NAME: 'testes_ci' }, /esperado "testes_ci".*encontrado "testes"/],
+    ['sem pooler', { TEST_DATABASE_URL: testes.replace('-pooler', '') }, /não passa pelo pooler/],
+    ['igual ao principal', { TEST_DATABASE_URL: principal }, /MESMO banco/],
+    ['conexão direta do principal', { TEST_DATABASE_URL: principalDireto }, /MESMO banco/],
+    ['mesmo endpoint/branch com outro database', { TEST_DATABASE_URL: principal.replace('/neondb', '/testes') }, /MESMO endpoint/],
+    ['não configurada', { TEST_DATABASE_URL: '' }, /não está configurada/],
+  ])('RECUSA: %s', async (_label, over, reason) => {
+    const { checkTestTarget } = await import('../apps/server/src/db/targets');
+    const check = checkTestTarget(env(over));
+    expect(check.ok).toBe(false);
+    expect(check.refusals.join('\n')).toMatch(reason);
+    expect(check.refusals.join('\n')).not.toMatch(/senha|dono:|postgresql:\/\//);
+  });
+});
+
+describe('backup antes do primeiro write no banco principal', () => {
+  const principal = 'postgresql://dono:senha@ep-cool-sun-a1b2c3-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+  it('sem backup, backup de outro banco, antigo ou de outro library.json: RECUSA; backup certo: libera', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'perfumes-bkp-'));
+    const before = process.env.PERFUMES_DATA_DIR;
+    process.env.PERFUMES_DATA_DIR = dir;
+    const { reloadConfig } = await import('../apps/server/src/config');
+    reloadConfig();
+    try {
+      const { backupRefusal, targetFingerprint, sha256 } = await import('../apps/server/src/db/backup');
+      writeFileSync(path.join(dir, 'library.json'), '{"a":1}');
+      expect(backupRefusal(principal)).toMatch(/não há backup/);
+      const save = (name: string, over: Record<string, unknown>) => {
+        const d = path.join(dir, 'backups', name);
+        mkdirSync(d, { recursive: true });
+        const manifest = { kind: 'backup-before-neon', createdAt: new Date().toISOString(), target: { fingerprint: targetFingerprint(principal) }, libraryJson: { sha256: sha256('{"a":1}') }, ...over };
+        writeFileSync(path.join(d, 'manifest.json'), JSON.stringify(manifest));
+      };
+      save('backup-before-neon-20260101-000000', { target: { fingerprint: targetFingerprint('postgresql://x:y@ep-outro-banco-pooler.neon.tech/neondb') } });
+      expect(backupRefusal(principal)).toMatch(/não há backup/);
+      save('backup-before-neon-20260101-000001', { createdAt: new Date(Date.now() - 13 * 3600_000).toISOString() });
+      expect(backupRefusal(principal)).toMatch(/mais de 12 h/);
+      save('backup-before-neon-20260101-000002', { libraryJson: { sha256: sha256('outro') } });
+      expect(backupRefusal(principal)).toMatch(/library.json mudou/);
+      save('backup-before-neon-20260101-000003', { createdAt: new Date(Date.now() + 1000).toISOString() });
+      expect(backupRefusal(principal)).toBeNull();
+      // Pooler e conexão direta do mesmo banco = o mesmo backup vale.
+      expect(backupRefusal(principal.replace('-pooler', ''))).toBeNull();
+    } finally {
+      if (before === undefined) delete process.env.PERFUMES_DATA_DIR;
+      else process.env.PERFUMES_DATA_DIR = before;
+      reloadConfig();
+    }
+  });
+});
+
+describe('TLS do driver pg fixado em verify-full (sem mudar credenciais)', () => {
+  const base = 'postgresql://dono:senha@ep-cool-sun-a1b2c3-pooler.eu-central-1.aws.neon.tech/neondb';
+  it.each([
+    ['require', 'verify-full'],
+    ['prefer', 'verify-full'],
+    ['verify-ca', 'verify-full'],
+    ['verify-full', 'verify-full'],
+    ['disable', 'disable'],
+  ])('sslmode=%s → %s', async (from, to) => {
+    const { pgConnectionOptions } = await import('../apps/server/src/db/client');
+    expect(new URL(pgConnectionOptions(`${base}?sslmode=${from}`).connectionString).searchParams.get('sslmode')).toBe(to);
+  });
+
+  it('channel_binding=require liga enableChannelBinding; usuário, senha, host e banco não mudam', async () => {
+    const { pgConnectionOptions } = await import('../apps/server/src/db/client');
+    const o = pgConnectionOptions(`${base}?sslmode=require&channel_binding=require`);
+    expect(o.enableChannelBinding).toBe(true);
+    const u = new URL(o.connectionString);
+    expect([u.username, u.password, u.hostname, u.pathname]).toEqual(['dono', 'senha', 'ep-cool-sun-a1b2c3-pooler.eu-central-1.aws.neon.tech', '/neondb']);
+    expect(pgConnectionOptions(`${base}?sslmode=require`).enableChannelBinding).toBeUndefined();
+    expect(pgConnectionOptions(base).connectionString).toBe(base);
   });
 });

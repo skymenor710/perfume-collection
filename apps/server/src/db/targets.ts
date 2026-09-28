@@ -69,3 +69,39 @@ export function testTargetRefusal(testUrl: string, principal: string[]): string 
   }
   return null;
 }
+
+export interface TestTargetCheck {
+  /** Liberado para operações destrutivas (DROP SCHEMA, reset, limpeza, testes concorrentes). */
+  ok: boolean;
+  /** Todos os motivos de recusa (vazio = liberado). */
+  refusals: string[];
+  /** Descrição segura (host mascarado, pooler, banco) — nunca a URL. */
+  test: TargetInfo | null;
+  expectedDatabase: string | null;
+}
+
+/**
+ * A validação ÚNICA do banco de testes, usada por db:targets, pelos comandos com --target=test, pelo test:neon, pelo
+ * smoke no Neon e pelos helpers de teste. Recebe um leitor de variáveis (ambiente e/ou .env.local).
+ *
+ * Recusa quando: falta TEST_DATABASE_URL · não é postgres:// · mesma URL, mesmo banco, mesmo endpoint ou mesmo branch
+ * de DATABASE_URL/DATABASE_URL_UNPOOLED · não passa pelo pooler (os testes exigem o pooler que o app vai usar) ·
+ * NEON_TEST_DATABASE_NAME definida e o banco da URL não é EXATAMENTE esse nome.
+ */
+export function checkTestTarget(get: (key: string) => string, options: { requirePooler?: boolean } = {}): TestTargetCheck {
+  const testUrl = get('TEST_DATABASE_URL');
+  const principal = [get('DATABASE_URL'), get('DATABASE_URL_UNPOOLED')].filter(Boolean);
+  const expectedDatabase = get('NEON_TEST_DATABASE_NAME') || null;
+  const refusals: string[] = [];
+  const base = testTargetRefusal(testUrl, principal);
+  if (base) refusals.push(base);
+  const test = testUrl ? describeTarget(testUrl) : null;
+  if (test?.kind === 'postgres') {
+    if (principal.some((p) => p.trim() === testUrl.trim()) && !refusals.some((r) => /MESMO banco/.test(r))) refusals.push('TEST_DATABASE_URL é idêntica a uma URL do principal');
+    if ((options.requirePooler ?? true) && !test.pooled) refusals.push('TEST_DATABASE_URL não passa pelo pooler (host sem "-pooler"): os testes precisam da mesma conexão que o app vai usar');
+    if (expectedDatabase && test.database !== expectedDatabase) {
+      refusals.push(`o banco de TEST_DATABASE_URL não é o esperado: esperado "${expectedDatabase}" (NEON_TEST_DATABASE_NAME), encontrado "${test.database}"`);
+    }
+  }
+  return { ok: refusals.length === 0, refusals, test, expectedDatabase };
+}

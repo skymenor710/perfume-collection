@@ -106,25 +106,48 @@ export function baselineChecks(baseline: Baseline, library: Library, resolve: Im
     }
   }
 
-  // Checagem explícita pedida pelo dono: Mykonos Reflection = 50 ml (versão, imagem, preço, lista), nunca 100 ml.
+  // Checagem explícita pedida pelo dono: Mykonos Reflection = 50 ml, com a versão e o id certos, nunca 100 ml.
   const reflectionBase = baseline.perfumes.find((p) => /reflection/i.test(p.name ?? '') && /mykonos/i.test(p.brand ?? ''));
-  const reflection = rows.find((r) => /reflection/i.test(r.p?.name ?? '') && /mykonos/i.test(r.p?.brand ?? ''));
-  if (!reflectionBase || !reflection?.p) problems.push('Mykonos Reflection: não encontrado');
-  else {
-    const { e, p } = reflection;
-    const v = p.variants.find((x) => x.id === e.variantId);
-    const expect = (label: string, got: unknown, want: unknown) => {
-      if (JSON.stringify(got) !== JSON.stringify(want)) problems.push(`Mykonos Reflection ${label}: esperado ${JSON.stringify(want)}, banco ${JSON.stringify(got)}`);
-    };
-    expect('volume', e.volume, '50 ml');
-    expect('versão escolhida', e.variantId, reflectionBase.variantId);
-    expect('volume da versão', v?.volume ?? null, '50 ml');
-    expect('preço', e.price, reflectionBase.price);
-    expect('moeda', e.currency, reflectionBase.currency);
-    expect('lista', e.list, reflectionBase.list);
-    expect('imagem principal', p.images[0]?.url ?? null, reflectionBase.images[0]?.ref ?? null);
-    expect('imagem ligada à versão', p.images[0]?.variantId ?? null, reflectionBase.variantId);
-    if (e.volume?.includes('100')) problems.push('Mykonos Reflection: aparece como 100 ml — PARAR');
+  if (!reflectionBase) problems.push('Mykonos Reflection: não está no baseline');
+  problems.push(...reflectionChecks(library, { entryId: reflectionBase?.id ?? null, imageRef: reflectionBase?.images[0]?.ref ?? null }));
+  return problems;
+}
+
+/**
+ * O Mykonos Reflection como o dono confirmou: 50 ml, versão Shopify 58518844047705, 35,95 EUR, na wishlist, com a
+ * foto ligada a essa versão. Valores FIXOS (não vêm do baseline): se o baseline estivesse errado, isto ainda pegaria.
+ * Opcionalmente confere também o id da entrada/produto e a referência da foto registrados no baseline.
+ */
+export const REFLECTION_EXPECTED = { variantId: '58518844047705', volume: '50 ml', price: 35.95, currency: 'EUR', list: 'wishlist' } as const;
+
+export function reflectionChecks(library: Library, known: { entryId?: string | null; imageRef?: string | null } = {}): string[] {
+  const problems: string[] = [];
+  const products = new Map(library.products.map((p) => [p.id, p]));
+  const found = library.entries
+    .map((e) => ({ e, p: products.get(e.productId) }))
+    .filter((r) => /reflection/i.test(r.p?.name ?? '') && /mykonos/i.test(r.p?.brand ?? ''));
+  if (found.length !== 1) return [`Mykonos Reflection: esperado 1 registro, encontrado ${found.length}`];
+  const { e, p } = found[0]!;
+  if (!p) return ['Mykonos Reflection: produto não encontrado'];
+  const v = p.variants.find((x) => x.id === e.variantId);
+  const want = REFLECTION_EXPECTED;
+  const expect = (label: string, got: unknown, wanted: unknown) => {
+    if (JSON.stringify(got) !== JSON.stringify(wanted)) problems.push(`Mykonos Reflection ${label}: esperado ${JSON.stringify(wanted)}, encontrado ${JSON.stringify(got)}`);
+  };
+  if (known.entryId) {
+    expect('id da entrada', e.id, known.entryId);
+    expect('id do produto', p.id, known.entryId);
   }
+  expect('versão escolhida (variant ID)', e.variantId, want.variantId);
+  expect('versão existe no produto', Boolean(v), true);
+  expect('volume da entrada', e.volume, want.volume);
+  expect('volume da versão', v?.volume ?? null, want.volume);
+  expect('preço', e.price, want.price);
+  expect('moeda', e.currency, want.currency);
+  expect('preço da versão', v?.price ?? null, want.price);
+  expect('lista', e.list, want.list);
+  if (known.imageRef) expect('imagem principal', p.images[0]?.url ?? null, known.imageRef);
+  expect('imagem ligada à versão', p.images[0]?.variantId ?? null, want.variantId);
+  if ([e.volume, v?.volume].some((x) => x?.includes('100'))) problems.push('Mykonos Reflection: aparece como 100 ml — PARAR');
   return problems;
 }

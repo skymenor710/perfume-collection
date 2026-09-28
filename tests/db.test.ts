@@ -2,6 +2,7 @@ import path from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Library } from '@perfumes/core/library';
+import { REFLECTION_EXPECTED, reflectionChecks } from '../apps/server/src/db/checks';
 import { redactDbError, type DbHandle } from '../apps/server/src/db/client';
 import { diffLibraries } from '../apps/server/src/db/compare';
 import { importLibrary, validateLibrary } from '../apps/server/src/db/importer';
@@ -247,6 +248,114 @@ describe('importação: atômica, verificada, idempotente', () => {
     await importLibrary(handle.db, validate());
     const imgs = await handle.db.select().from(productImages);
     expect(imgs.every((i) => /^(bottles|media)\//.test(i.ref) && i.sha256?.length === 64)).toBe(true);
+  });
+
+  it('ERRO REAL do Postgres no meio (etapa das entradas, com banco já populado): ROLLBACK, estado anterior intacto', async () => {
+    // Estado anterior: a biblioteca já importada.
+    expect((await importLibrary(handle.db, validate())).ok).toBe(true);
+    const before = await loadLibrary(handle.db);
+    const countsBefore = await allCounts();
+    // Uma biblioteca maior: tudo o que já existe + um perfume novo (usuário, produto, versões, imagem e entrada novos).
+    const bigger = JSON.parse(JSON.stringify(lib)) as Library;
+    const novo = JSON.parse(JSON.stringify(bigger.products.find((p) => p.id === 'mykonos-reflection-teste'))) as Library['products'][number];
+    novo.id = 'perfume-novo';
+    novo.name = 'Perfume Novo';
+    novo.images = novo.images.map((i) => ({ ...i, url: 'media/perfume-novo-lg.webp', thumbUrl: 'media/perfume-novo-sm.webp', masterUrl: 'media/perfume-novo.png' }));
+    bigger.products.push(novo);
+    bigger.users.push({ ...OWNER, id: 'u_novo', username: 'novo_usuario' });
+    const entry = bigger.entries.find((e) => e.id === 'mykonos-reflection-teste')!;
+    bigger.entries.push({ ...entry, id: 'perfume-novo', productId: 'perfume-novo', userId: 'u_novo' });
+    // O Postgres (não o código) recusa a entrada nova DEPOIS de usuário, produto, versões e imagens já inseridos.
+    await handle.db.execute(sql.raw(`create or replace function falha_teste() returns trigger language plpgsql as $$ begin raise exception 'falha real do banco na entrada %', new.id; end $$`));
+    await handle.db.execute(sql.raw(`create trigger falha_teste before insert on entries for each row when (new.id = 'perfume-novo') execute function falha_teste()`));
+    await expect(importLibrary(handle.db, validate(bigger))).rejects.toThrow(/ROLLBACK/);
+    // Nada do que entrou antes da falha ficou: nem o usuário, nem o produto, nem as versões, nem a imagem.
+    expect(await allCounts()).toEqual(countsBefore);
+    expect(diffLibraries(before, await loadLibrary(handle.db))).toEqual([]);
+    expect(await handle.db.select().from(users).where(eq(users.id, 'u_novo'))).toEqual([]);
+    expect(await handle.db.select().from(products).where(eq(products.id, 'perfume-novo'))).toEqual([]);
+    // Sem o gatilho, a mesma importação passa inteira — nada "meio gravado" ficou no caminho.
+    await handle.db.execute(sql.raw('drop trigger falha_teste on entries'));
+    const ok = await importLibrary(handle.db, validate(bigger));
+    expect(ok.ok).toBe(true);
+    expect(ok.tables.entries.inserted).toBe(1);
+  });
+});
+
+describe('transação: falha deliberada desfaz tudo', () => {
+  beforeEach(async () => {
+    await importLibrary(handle.db, validate());
+  });
+
+  it('estado inicial → 1ª alteração → 2ª alteração → erro → ROLLBACK → estado final idêntico ao inicial', async () => {
+    const initial = await loadLibrary(handle.db);
+    const countsInitial = await allCounts();
+    const seen: string[] = [];
+    await expect(
+      handle.db.transaction(async (tx) => {
+        // 1ª alteração: preço de uma entrada.
+        await tx.update(entries).set({ price: '1.00' }).where(eq(entries.id, 'mykonos-reflection-teste'));
+        seen.push(String((await tx.select().from(entries).where(eq(entries.id, 'mykonos-reflection-teste')))[0]!.price));
+        // 2ª alteração: uma versão nova no produto.
+        await tx.insert(productVariants).values({ productId: 'mykonos-reflection-teste', id: 'v-tmp', position: 9, label: '200 ml', volumeText: '200 ml', volumeMl: '200' });
+        seen.push(String((await tx.select().from(productVariants).where(eq(productVariants.id, 'v-tmp'))).length));
+        // Erro deliberado.
+        throw new Error('erro deliberado');
+      }),
+    ).rejects.toThrow('erro deliberado');
+    // Dentro da transação as duas alterações existiam…
+    expect(seen).toEqual(['1.00', '1']);
+    // …e depois do ROLLBACK nenhuma permanece.
+    expect(await allCounts()).toEqual(countsInitial);
+    expect(diffLibraries(initial, await loadLibrary(handle.db))).toEqual([]);
+    expect((await handle.db.select().from(entries).where(eq(entries.id, 'mykonos-reflection-teste')))[0]!.price).toBe('35.95');
+  });
+
+  it('o repositório também: gravação que falha no banco não deixa nada pela metade', async () => {
+    const repo = await PostgresLibraryRepository.open(handle.db);
+    const initial = await loadLibrary(handle.db);
+    const r = (await repo.list()).find((p) => p.id === 'mykonos-reflection-teste')!;
+    // Nome novo + preço novo + versão que viola o CHECK de preço (o banco recusa no meio da gravação).
+    const bad = { ...r, name: 'Não pode ficar', price: 1, variants: r.variants.map((v, i) => (i === 1 ? { ...v, price: -5 } : v)) };
+    expect(await pgError(repo.upsert(bad))).toBe('23514');
+    expect(diffLibraries(initial, await loadLibrary(handle.db))).toEqual([]);
+  });
+});
+
+describe('Mykonos Reflection: checagem com valores fixos (variant ID incluído)', () => {
+  // A semente de teste também traz um Reflection ('mykonos-reflection'); a coleção real tem exatamente um.
+  // Aqui fica só o caso especial, para a checagem "exatamente 1 registro" valer como na coleção real.
+  const one = (): Library => {
+    const l = JSON.parse(JSON.stringify(lib)) as Library;
+    return { ...l, products: l.products.filter((p) => p.id !== 'mykonos-reflection'), entries: l.entries.filter((e) => e.productId !== 'mykonos-reflection') };
+  };
+  const reflectionOf = (l: Library) => l.entries.find((e) => e.id === 'mykonos-reflection-teste')!;
+
+  it('a biblioteca certa passa em todas as checagens, inclusive id da entrada/produto e foto', () => {
+    expect(REFLECTION_EXPECTED.variantId).toBe('58518844047705');
+    expect(reflectionChecks(one(), { entryId: 'mykonos-reflection-teste', imageRef: 'media/reflection-50-lg.webp' })).toEqual([]);
+    // Dois registros (como na fixture inteira) também é recusado: a coleção real tem exatamente um.
+    expect(reflectionChecks(lib).join()).toMatch(/esperado 1 registro, encontrado 2/);
+  });
+
+  it.each<[string, (l: Library) => void, RegExp]>([
+    ['versão trocada para a de 100 ml', (l) => Object.assign(reflectionOf(l), { variantId: '58518844080473' }), /variant ID|100 ml/],
+    ['volume 100 ml com a versão certa', (l) => Object.assign(reflectionOf(l), { volume: '100 ml' }), /volume da entrada|100 ml/],
+    ['preço 35,90', (l) => Object.assign(reflectionOf(l), { price: 35.9 }), /preço/],
+    ['moeda USD', (l) => Object.assign(reflectionOf(l), { currency: 'USD' }), /moeda/],
+    ['foi para a coleção', (l) => Object.assign(reflectionOf(l), { list: 'collection' }), /lista/],
+    ['foto desligada da versão', (l) => (l.products.find((p) => p.id === 'mykonos-reflection-teste')!.images[0]!.variantId = null), /imagem ligada/],
+  ])('recusa: %s', (_label, mutate, problem) => {
+    const broken = one();
+    mutate(broken);
+    const problems = reflectionChecks(broken, { entryId: 'mykonos-reflection-teste' });
+    expect(problems.join('\n')).toMatch(problem);
+    // Mostra esperado e encontrado (nunca corrige).
+    expect(problems.join('\n')).toMatch(/esperado .* encontrado|PARAR/);
+  });
+
+  it('id de entrada/produto diferente do registrado é recusado', () => {
+    expect(reflectionChecks(one(), { entryId: 'outro-id' }).join('\n')).toMatch(/id da entrada/);
   });
 });
 

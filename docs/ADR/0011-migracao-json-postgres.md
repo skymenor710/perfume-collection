@@ -50,6 +50,23 @@ apagada). O schema tem um SQL de desfazer manual (`drizzle/rollback/0000_inicial
 - Produto continua sendo editado pela visão do dono (como no JSON); sobrescrita por pessoa entra com contas (FASE 6).
 - `PERFUMES_OWNER_ID` é necessário só quando o banco tiver mais de um usuário.
 
+## Comportamentos conhecidos (decisão consciente nesta fase)
+
+- **Duas alterações simultâneas da mesma entrada (teste D):** última gravação vence, com o documento INTEIRO (a API é
+  PUT de documento). Sem ETag/409 nesta fase; é o ponto de evolução natural quando houver várias pessoas/aparelhos.
+- **Remover uma versão que outra pessoa escolheu (teste F3):** a FK composta recusa (`23503`) e a transação inteira é
+  desfeita. Sem tratamento de conflito na interface por enquanto.
+- **Proteções da validação no Neon (FASE 2.5):** o branch de testes precisa ser outro endpoint, passar pelo pooler e,
+  com `NEON_TEST_DATABASE_NAME`, ter exatamente esse nome; o banco principal só recebe write depois de um
+  `db:backup` (backup-before-neon) recente do mesmo banco e do library.json atual.
+
+## FASE 2.5.1 (hardening pós-switch)
+
+- TLS fixado em memória (`sslmode=verify-full`, `channel_binding=require` respeitado) sem alterar credenciais.
+- Marcador de fonte oficial (`data/storage-backend.json`): com o Postgres oficial, a partida com `json` é recusada;
+  a volta é só pelo `npm run db:rollback-json -- --confirm` (exporta, confere, arquiva o library.json e o substitui).
+- Operação, backup externo recomendado e nota sobre o nome do database de testes: [OPERATIONS.md](../OPERATIONS.md).
+
 ## Alternativas consideradas
 
 `drizzle-kit push` (não reproduzível); migrar sem manter o JSON (sem volta); importação sem transação ou sem

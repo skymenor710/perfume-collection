@@ -8,6 +8,7 @@ import { event, log } from '../log';
 import { loadStore, readPerfumes, store } from '../store';
 import type { LibraryRepository } from './library';
 import { PostgresLibraryRepository } from './postgres';
+import { jsonStartRefusal, markPostgresOfficial } from './official-source';
 import { seedUpgrades } from './rules';
 
 /**
@@ -29,6 +30,9 @@ export interface OpenedLibrary {
 
 export async function openLibraryRepository(): Promise<OpenedLibrary> {
   if (config.storageBackend === 'json') {
+    // Postgres já é a fonte oficial? Então o library.json está parado: recusa, sem tocar em nada.
+    const refusal = jsonStartRefusal();
+    if (refusal) throw new StartupError(refusal);
     loadStore();
     return { repo: store, close: async () => {} };
   }
@@ -42,6 +46,8 @@ export async function openLibraryRepository(): Promise<OpenedLibrary> {
     const status = await migrationStatus(handle.db);
     if (!status.upToDate) throw new StartupError(`O banco não está com todas as migrations (faltam: ${status.pending.join(', ') || '?'}). Rode \`npm run db:migrate\`.`);
     const repo = await PostgresLibraryRepository.open(handle.db, config.ownerId);
+    // Banco aberto, em dia e com dono: o Postgres é a fonte oficial (protege contra voltar ao JSON parado).
+    markPostgresOfficial();
     // Mesma regra do JSON: perfumes da planilha recebem o que a semente reprocessada trouxe de novo.
     try {
       const upgrades = seedUpgrades(await repo.list(), readPerfumes(config.seedFile));

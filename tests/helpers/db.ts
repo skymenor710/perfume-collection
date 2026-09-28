@@ -6,7 +6,7 @@ import { fromPerfume, LIBRARY_SCHEMA, type Library, type User } from '@perfumes/
 import { sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
 import { readEnvFile } from '../../apps/server/src/config';
 import { applyMigrations, openDb, type DbHandle } from '../../apps/server/src/db/client';
-import { describeTarget, testTargetRefusal } from '../../apps/server/src/db/targets';
+import { checkTestTarget, describeTarget } from '../../apps/server/src/db/targets';
 import seed from '../../apps/web/src/data/seed.json';
 
 /**
@@ -22,8 +22,8 @@ const fileEnv = process.env.PERFUMES_TEST_NEON === '1' ? readEnvFile() : {};
 const pick = (k: string) => (process.env[k]?.trim() || fileEnv[k] || '').trim();
 const TEST_URL = process.env.PERFUMES_TEST_NEON === '1' || process.env.TEST_DATABASE_URL ? pick('TEST_DATABASE_URL') : '';
 if (process.env.PERFUMES_TEST_NEON === '1' || TEST_URL) {
-  const refusal = testTargetRefusal(TEST_URL, [pick('DATABASE_URL'), pick('DATABASE_URL_UNPOOLED')]);
-  if (refusal) throw new Error(`Testes no servidor Postgres recusados: ${refusal}.`);
+  const check = checkTestTarget(pick, { requirePooler: true });
+  if (!check.ok) throw new Error(`Testes no servidor Postgres RECUSADOS:\n  ${check.refusals.join('\n  ')}`);
 }
 
 export const usingServer = Boolean(TEST_URL);
@@ -36,6 +36,9 @@ export async function freshDb(): Promise<DbHandle> {
     await applyMigrations(handle);
     return handle;
   }
+  // Confere de novo imediatamente antes do DROP (nunca apaga nada sem a validação completa).
+  const again = checkTestTarget(pick, { requirePooler: true });
+  if (!again.ok) throw new Error(`DROP SCHEMA recusado:\n  ${again.refusals.join('\n  ')}`);
   const handle = await openDb(TEST_URL, { max: 10 });
   await handle.db.execute(sql`drop schema if exists public cascade`);
   await handle.db.execute(sql`drop schema if exists drizzle cascade`);

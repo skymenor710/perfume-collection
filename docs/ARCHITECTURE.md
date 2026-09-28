@@ -192,6 +192,7 @@ privada) em `tests/api-v1.test.ts`.
   (`npm run db:generate` gera, `db:migrate` aplica; nunca `push`).
 - `db:import` (valida → transação → verifica → COMMIT, idempotente), `db:verify` (JSON × Postgres, baseline, API byte a
   byte), `db:export` (volta para o formato do library.json). Roteiro: [state/fase2-20260927](state/fase2-20260927/README.md).
+- Operação do dia a dia, backup externo recomendado, TLS e rollback explícito: [OPERATIONS.md](OPERATIONS.md).
 - Com postgres, a partida exige migrations em dia e nunca cai para o JSON em silêncio; cópia no formato do library.json
   na partida e a cada 24 h em `data/backups/postgres/`.
 

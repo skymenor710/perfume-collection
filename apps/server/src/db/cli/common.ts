@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { config, ConfigError, ensureLocalConfig } from '../../config';
 import { openDb, redactDbError, type DbHandle } from '../client';
-import { describeTarget as safeTarget, testTargetRefusal } from '../targets';
+import { backupRefusal } from '../backup';
+import { checkTestTarget, describeTarget as safeTarget } from '../targets';
 
 /**
  * Base dos comandos `npm run db:*`. A URL vem SÓ do ambiente/.env.local (nunca da linha de comando, que fica no
@@ -40,11 +41,24 @@ export function die(message: string, code = 1): never {
  */
 export function targetUrl(purpose: 'migrate' | 'data'): string {
   if (option('target', 'principal') !== 'test') return purpose === 'migrate' ? config.migrationDatabaseUrl : config.databaseUrl;
-  const test = (process.env.TEST_DATABASE_URL ?? '').trim();
-  const refusal = testTargetRefusal(test, [config.databaseUrl, config.migrationDatabaseUrl]);
-  if (refusal) die(`Banco de testes recusado: ${refusal}.`);
-  console.log('Alvo: branch de TESTES (ambiente separado do principal: conferido)');
-  return test;
+  // Mesma validação do db:targets (o .env.local já foi carregado pelo boot).
+  const check = checkTestTarget((k) => (process.env[k] ?? '').trim(), { requirePooler: true });
+  if (!check.ok) die(`Banco de testes RECUSADO — nada foi executado:\n  ${check.refusals.join('\n  ')}`);
+  console.log('Alvo: branch de TESTES (separado do principal, pelo pooler, nome conferido: ok)');
+  return (process.env.TEST_DATABASE_URL ?? '').trim();
+}
+
+export const isTestTarget = () => option('target', 'principal') === 'test';
+
+/**
+ * Antes de GRAVAR no banco principal (migration, importação real): exige um backup-before-neon recente deste banco
+ * e do library.json atual. No branch de testes não se aplica.
+ */
+export function requireBackupBeforeWrite(url: string): void {
+  if (isTestTarget() || url.startsWith('pglite:')) return;
+  const refusal = backupRefusal(url);
+  if (refusal) die(`Gravação no banco PRINCIPAL recusada — nada foi executado: ${refusal}.`);
+  console.log('Backup-before-neon deste banco e do library.json atual: conferido.');
 }
 
 /** Tipo + host MASCARADO + pooler + banco. Nunca usuário, senha ou a URL inteira. */

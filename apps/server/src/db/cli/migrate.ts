@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { applyMigrations, redactDbError } from '../client';
 import { migrationStatus } from '../status';
-import { boot, connect, describeTarget, die, flag, writeReport, targetUrl } from './common';
+import { boot, connect, describeTarget, die, flag, requireBackupBeforeWrite, targetUrl, writeReport } from './common';
 
 /**
  * npm run db:migrate            aplica as migrations versionadas (drizzle/*.sql) que faltam
@@ -20,6 +20,7 @@ try {
   if (flag('status') || before.upToDate) {
     if (before.upToDate) console.log('Nada a aplicar.');
   } else {
+    requireBackupBeforeWrite(url);
     await applyMigrations(handle);
     const after = await migrationStatus(handle.db);
     if (!after.upToDate) die(`Depois de aplicar, ainda faltam: ${after.pending.join(', ')}`);

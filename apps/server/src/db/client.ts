@@ -28,6 +28,29 @@ export function isPgliteUrl(url: string) {
   return url.startsWith('pglite:');
 }
 
+/**
+ * TLS do driver `pg`, fixado explicitamente (só em memória: o .env.local e as credenciais não mudam).
+ *
+ * - `sslmode=require|prefer|verify-ca` → `verify-full`. Hoje o `pg` 8 já trata esses modos como `verify-full`
+ *   (confere certificado e nome do host); no `pg` 9 eles passam à semântica do libpq, em que `require` NÃO confere o
+ *   certificado. Fixar aqui mantém a proteção de hoje numa atualização futura — e não enfraquece nada agora.
+ *   `disable`/`allow`, `verify-full` e URLs sem sslmode ficam como estão.
+ * - `channel_binding=require` → `enableChannelBinding: true`. O `pg` ignora esse parâmetro na URL; a ligação do
+ *   SCRAM ao canal TLS (SCRAM-SHA-256-PLUS) só liga pela opção.
+ */
+export function pgConnectionOptions(url: string): { connectionString: string; enableChannelBinding?: boolean } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { connectionString: url };
+  }
+  const mode = parsed.searchParams.get('sslmode');
+  if (mode === 'require' || mode === 'prefer' || mode === 'verify-ca') parsed.searchParams.set('sslmode', 'verify-full');
+  const channelBinding = parsed.searchParams.get('channel_binding') === 'require';
+  return { connectionString: parsed.toString(), ...(channelBinding ? { enableChannelBinding: true } : {}) };
+}
+
 export async function openDb(url: string, options: { max?: number } = {}): Promise<DbHandle> {
   if (isPgliteUrl(url)) {
     const target = url.slice('pglite:'.length);
@@ -45,7 +68,7 @@ export async function openDb(url: string, options: { max?: number } = {}): Promi
   }
   const { Pool } = await import('pg');
   const { drizzle } = await import('drizzle-orm/node-postgres');
-  const pool = new Pool({ connectionString: url, max: options.max ?? 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
+  const pool = new Pool({ ...pgConnectionOptions(url), max: options.max ?? 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
   // Erro de conexão ociosa (rede caiu, Neon suspendeu): não derruba o processo; o próximo pedido reconecta.
   pool.on('error', () => {});
   return { db: drizzle(pool, { schema }) as unknown as Db, kind: 'postgres', close: () => pool.end() };

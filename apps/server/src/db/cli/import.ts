@@ -7,7 +7,7 @@ import { redactDbError } from '../client';
 import { formatDifferences } from '../compare';
 import { importLibrary, validateLibrary, type ImportReport } from '../importer';
 import { migrationStatus } from '../status';
-import { BASELINE_FILE, boot, connect, describeTarget, die, flag, MIGRATION_ID, option, table, writeReport, targetUrl } from './common';
+import { BASELINE_FILE, boot, connect, describeTarget, die, flag, MIGRATION_ID, option, requireBackupBeforeWrite, table, targetUrl, writeReport } from './common';
 
 /**
  * npm run db:import                       importa data/library.json (valida → transação → verifica → COMMIT)
@@ -45,6 +45,8 @@ try {
   console.log(`Destino: ${describeTarget(url)}`);
   const status = await migrationStatus(handle.db);
   if (!status.upToDate) die(`O banco não tem todas as migrations (faltam: ${status.pending.join(', ')}). Rode npm run db:migrate antes.`);
+  // Importação REAL no principal só com backup-before-neon recente (o ensaio desfaz tudo e não precisa).
+  if (!flag('dry-run')) requireBackupBeforeWrite(url);
   report = await importLibrary(handle.db, validation, {
     dryRun: flag('dry-run'),
     allowUpdate: flag('allow-update'),

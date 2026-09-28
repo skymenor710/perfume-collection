@@ -14,16 +14,17 @@ const [mode, dataDir] = process.argv.slice(2);
 if (!['reset', 'smoke', 'clean'].includes(mode ?? '')) throw new Error('uso: neon-test-db.ts reset | smoke <pasta> | clean');
 
 const { readEnvFile } = await import('../apps/server/src/config');
-const { describeTarget, testTargetRefusal } = await import('../apps/server/src/db/targets');
+const { checkTestTarget } = await import('../apps/server/src/db/targets');
 const file = readEnvFile();
 const pick = (k: string) => (process.env[k]?.trim() || file[k] || '').trim();
 const url = pick('TEST_DATABASE_URL');
-const refusal = testTargetRefusal(url, [pick('DATABASE_URL'), pick('DATABASE_URL_UNPOOLED')]);
-if (refusal) {
-  console.error(`Banco de testes recusado: ${refusal}.`);
+// A MESMA validação do db:targets, antes de qualquer DROP SCHEMA / reset / limpeza. Falhou = aborta, nada roda.
+const check = checkTestTarget(pick, { requirePooler: true });
+if (!check.ok || !check.test) {
+  console.error(`Banco de testes RECUSADO — nenhuma operação destrutiva foi executada:\n  ${check.refusals.join('\n  ')}`);
   process.exit(1);
 }
-const t = describeTarget(url);
+const t = check.test;
 console.log(`branch de testes: ${t.host} · ${t.pooled ? 'com pooler' : 'conexão direta'} · banco ${t.database} (separado do principal: conferido)`);
 
 const { applyMigrations, openDb, redactDbError } = await import('../apps/server/src/db/client');

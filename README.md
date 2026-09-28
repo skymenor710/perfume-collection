@@ -141,6 +141,23 @@ npm run state:verify
 
 `state:verify` compara a coleção real (`data/library.json` + cada foto pelo SHA-256) com `docs/state/baseline.json`.
 
+## Banco (Postgres/Neon)
+
+A coleção pode morar em `data/library.json` (`STORAGE_BACKEND=json`, padrão) ou no Postgres (`STORAGE_BACKEND=postgres`
++ `DATABASE_URL` no `.env.local`). Roteiro completo em [docs/state/fase2-20260927/README.md](docs/state/fase2-20260927/README.md).
+
+```bash
+npm run db:migrate
+```
+```bash
+npm run db:import -- --dry-run
+```
+```bash
+npm run db:verify
+```
+
+`npm run smoke -- --backend=postgres` roda o teste de ponta a ponta com a coleção no Postgres.
+
 ```bash
 npm run build && npm run smoke
 ```

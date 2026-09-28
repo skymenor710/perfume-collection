@@ -15,3 +15,4 @@ Uma decisão por arquivo: contexto, decisão, consequências, alternativas. Deci
 | 0008 | [Logs estruturados (pino) com redação](0008-logs-estruturados.md) | aceito |
 | 0009 | [Configuração só pelo ambiente, validada por zod](0009-configuracao-validada.md) | aceito |
 | 0010 | [Autorização por Principal (preparo para contas)](0010-autorizacao-por-principal.md) | aceito |
+| 0011 | [Migração do library.json para Postgres: reversível, verificável, atômica](0011-migracao-json-postgres.md) | aceito |

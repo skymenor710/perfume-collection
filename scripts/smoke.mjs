@@ -2,7 +2,8 @@
 // Sobe um servidor próprio com dados temporários (a coleção de verdade em data/ não é tocada),
 // percorre os fluxos, confere o DOM e grava capturas em .impeccable/review/ e scripts/.shots/.
 // Uso: npm run build && npm run smoke   (SMOKE_IMPORT_URL=… troca o link usado no fluxo 4)
-import { spawn } from 'node:child_process';
+//      npm run smoke -- --backend=postgres   o mesmo teste com a coleção no Postgres (PGlite temporário)
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,8 +24,17 @@ if (!executablePath) throw new Error('Nenhum Edge/Chrome encontrado.');
 const dataDir = mkdtempSync(path.join(os.tmpdir(), 'perfumes-smoke-'));
 // Coleção limpa, mas o cache de buscas e lojas é o de verdade: o teste não martela os sites de novo.
 if (existsSync('data/cache')) cpSync('data/cache', path.join(dataDir, 'cache'), { recursive: true });
+const BACKEND = process.argv.includes('--backend=postgres') ? 'postgres' : 'json';
+const backendEnv = { STORAGE_BACKEND: BACKEND, DATABASE_URL: '' };
+if (BACKEND === 'postgres') {
+  // Mesma coleção limpa, migrations versionadas e importação verificada, antes de o servidor subir.
+  const prep = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/smoke-prepare-pg.ts', dataDir], { stdio: 'inherit', env: { ...process.env, LOG_LEVEL: 'warn' } });
+  if (prep.status !== 0) throw new Error('Não consegui preparar o banco do smoke.');
+  backendEnv.DATABASE_URL = `pglite:${path.join(dataDir, 'pg')}`;
+}
+console.log(`backend: ${BACKEND}`);
 const server = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/server/src/main.ts'], {
-  env: { ...process.env, PERFUMES_PORT: String(PORT), PERFUMES_DATA_DIR: dataDir, PERFUMES_HOST: '127.0.0.1', PERFUMES_ACCESS_CODE: 'SMOKE1' },
+  env: { ...process.env, ...backendEnv, PERFUMES_PORT: String(PORT), PERFUMES_DATA_DIR: dataDir, PERFUMES_HOST: '127.0.0.1', PERFUMES_ACCESS_CODE: 'SMOKE1' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let serverLog = '';

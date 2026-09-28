@@ -336,3 +336,43 @@ describe('modelo de recorte fixado por SHA-256', () => {
     expect(await verifyModelFile(local)).toBe(true);
   }, 60_000);
 });
+
+/* ------------------------------------------------------------------ banco (FASE 2) */
+
+describe('configuração do banco', () => {
+  it('padrão continua json; postgres exige DATABASE_URL', () => {
+    expect(parseEnv({}).STORAGE_BACKEND).toBe('json');
+    expect(() => parseEnv({ STORAGE_BACKEND: 'postgres' })).toThrowError(/DATABASE_URL/);
+    expect(parseEnv({ STORAGE_BACKEND: 'postgres', DATABASE_URL: 'postgres://u:p@h/db?sslmode=require' }).STORAGE_BACKEND).toBe('postgres');
+    expect(() => parseEnv({ STORAGE_BACKEND: 'mysql' })).toThrowError(ConfigError);
+  });
+
+  it('pglite: só fora de produção; esquemas estranhos recusados', () => {
+    expect(parseEnv({ DATABASE_URL: 'pglite:data/pg' }).DATABASE_URL).toBe('pglite:data/pg');
+    expect(() => parseEnv({ NODE_ENV: 'production', DATABASE_URL: 'pglite:data/pg' })).toThrowError(/produção/);
+    expect(() => parseEnv({ DATABASE_URL: 'mysql://x' })).toThrowError(/DATABASE_URL/);
+  });
+
+  it('a URL do banco nunca aparece no retrato da configuração nem na mensagem de erro', () => {
+    const url = 'postgres://dono:SENHA-SECRETA-42@ep-x.neon.tech/perfumes?sslmode=require';
+    const env = parseEnv({ STORAGE_BACKEND: 'postgres', DATABASE_URL: url, DATABASE_URL_UNPOOLED: url });
+    const text = JSON.stringify(describeConfig(env));
+    expect(text).not.toContain('SENHA-SECRETA-42');
+    expect(text).not.toContain('ep-x.neon.tech');
+    expect(describeConfig(env)).toMatchObject({ storageBackend: 'postgres', database: 'postgres' });
+    expect(describeConfig(env).secretsDefined).toEqual(expect.arrayContaining(['DATABASE_URL', 'DATABASE_URL_UNPOOLED']));
+    try {
+      parseEnv({ DATABASE_URL: 'mysql://dono:SENHA-SECRETA-42@h/db' });
+    } catch (error) {
+      expect((error as Error).message).not.toContain('SENHA-SECRETA-42');
+    }
+  });
+
+  it('migrations versionadas no repositório (sem drizzle-kit push)', () => {
+    const journal = JSON.parse(readFileSync('apps/server/drizzle/meta/_journal.json', 'utf8'));
+    expect(journal.entries.map((e: { tag: string }) => e.tag)).toContain('0000_inicial');
+    const pkg = readFileSync('package.json', 'utf8') + readFileSync('apps/server/package.json', 'utf8');
+    expect(pkg).not.toMatch(/drizzle-kit push/);
+    expect(pkg).toMatch(/"db:migrate"/);
+  });
+});

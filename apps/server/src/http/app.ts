@@ -184,7 +184,7 @@ export function createHandler(deps: HandlerDeps = {}) {
   // Jobs em memória nesta etapa (sem banco): reiniciar o servidor esquece jobs, nunca a coleção.
   const jobs = deps.jobs ?? new ImportJobRunner(new MemoryImportJobStore());
   // Hoje há um usuário só: quem passou pela proteção (este computador ou aparelho pareado) age como ele.
-  const authorize: Authorizer = deps.authorize ?? ((req) => (isAuthorized(req) ? { userId: repo.me().id, via: isLoopback(req) ? 'loopback' : 'device' } : null));
+  const authorize: Authorizer = deps.authorize ?? (async (req) => (isAuthorized(req) ? { userId: (await repo.me()).id, via: isLoopback(req) ? 'loopback' : 'device' } : null));
   const v1 = getRequestListener(createV1({ repo, jobs, authorize }).fetch);
 
   return async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -207,39 +207,39 @@ export function createHandler(deps: HandlerDeps = {}) {
         const pub = /^\/api\/public\/([a-z0-9._]{3,30})(?:\/(wishlist|collection))?$/i.exec(url.pathname);
         if (pub && req.method === 'GET') {
           limitPublic(req);
-          const profile = repo.publicProfile(pub[1]);
+          const profile = await repo.publicProfile(pub[1]);
           if (!profile) throw new HttpError(404, 'not_public', 'Esta página não é pública.');
           const lists: ListKind[] = pub[2] ? [pub[2].toLowerCase() as ListKind] : profile.lists;
           if (pub[2] && !profile.lists.includes(lists[0])) throw new HttpError(404, 'not_public', 'Esta lista não é pública.');
-          const perfumes = lists.flatMap((l) => repo.publicList(pub[1], l) ?? []);
+          const perfumes = (await Promise.all(lists.map((l) => repo.publicList(pub[1], l)))).flatMap((l) => l ?? []);
           return sendJson(res, 200, { user: publicUser(profile.user), lists: profile.lists, perfumes }, { 'Cache-Control': 'no-cache' });
         }
 
         requireAuthorized(req);
 
         // PERFIL do dono desta instalação (enquanto não há contas: quem passou pelo código de acesso).
-        if (route === 'GET /api/me') return sendJson(res, 200, { user: repo.me() });
+        if (route === 'GET /api/me') return sendJson(res, 200, { user: await repo.me() });
         if (route === 'PATCH /api/me') {
           const patch = await readJson(req, meSchema);
           try {
-            return sendJson(res, 200, { user: repo.updateMe(patch) });
+            return sendJson(res, 200, { user: await repo.updateMe(patch) });
           } catch (error) {
             throw new HttpError(422, 'invalid', (error as Error).message);
           }
         }
 
-        if (route === 'GET /api/perfumes') return sendJson(res, 200, { revision: repo.revision(), perfumes: repo.list() });
+        if (route === 'GET /api/perfumes') return sendJson(res, 200, { revision: await repo.revision(), perfumes: await repo.list() });
 
         const one = /^\/api\/perfumes\/([\w-]{1,80})$/.exec(url.pathname);
         if (one && req.method === 'PUT') {
           const body = await readJson(req, z.record(z.string(), z.unknown()), 256 * 1024);
           const perfume = sanitizePerfume({ ...body, id: one[1], updatedAt: new Date().toISOString() });
           if (!perfume) throw new HttpError(422, 'invalid', 'O perfume precisa de um nome.');
-          return sendJson(res, 200, { perfume: repo.upsert(perfume) });
+          return sendJson(res, 200, { perfume: await repo.upsert(perfume) });
         }
         const refresh = /^\/api\/perfumes\/([\w-]{1,80})\/refresh$/.exec(url.pathname);
         if (refresh && req.method === 'POST') {
-          const current = repo.list().find((p) => p.id === refresh[1]);
+          const current = (await repo.list()).find((p) => p.id === refresh[1]);
           if (!current) throw new HttpError(404, 'not_found', 'Esse perfume não está mais na coleção.');
           if (!current.brand) throw new HttpError(422, 'invalid', 'Preciso da marca para pesquisar esse perfume.');
           const { variantId } = await readOptionalJson(req, refreshSchema);
@@ -296,7 +296,7 @@ export function createHandler(deps: HandlerDeps = {}) {
             assetVersion: ASSET_VERSION,
             updatedAt: new Date().toISOString(),
           });
-          if (updated) repo.upsert(updated);
+          if (updated) await repo.upsert(updated);
           res.end(`${JSON.stringify({ perfume: updated, notes: outcome.ok === true ? outcome.notes : outcome.ok === false ? [outcome.message] : [] })}\n`);
           return;
         }
@@ -339,7 +339,7 @@ export function createHandler(deps: HandlerDeps = {}) {
 
         if (route === 'GET /api/events') {
           res.writeHead(200, { ...API_HEADERS, 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
-          res.write(`event: revision\ndata: ${repo.revision()}\n\n`);
+          res.write(`event: revision\ndata: ${await repo.revision()}\n\n`);
           const off = repo.subscribe((revision) => res.write(`event: revision\ndata: ${revision}\n\n`));
           const ping = setInterval(() => res.write(': ping\n\n'), 25_000);
           req.on('close', () => {
@@ -356,7 +356,7 @@ export function createHandler(deps: HandlerDeps = {}) {
       if (url.pathname.startsWith('/media/')) {
         const rel = url.pathname.slice('/media/'.length);
         // Foto de perfume de uma lista pública pode ser vista sem código de acesso; o resto, não.
-        const isPublic = repo.isPublicMedia(`media/${rel}`);
+        const isPublic = await repo.isPublicMedia(`media/${rel}`);
         if (!isPublic) requireAuthorized(req);
         // O armazenamento recusa chave com "..", barra inicial ou caractere estranho, e confere a pasta de novo.
         const object = await media.get(rel);
@@ -369,7 +369,7 @@ export function createHandler(deps: HandlerDeps = {}) {
       if (url.pathname === '/' || url.pathname === '/index.html') return serveIndex(res);
       // Endereços públicos (/username, /username/wishlist, /username/collection): mesmo app, com metadados da página.
       const publicRoute = parsePublicRoute(url.pathname);
-      if (publicRoute) return serveIndex(res, publicPageMeta(publicRoute, originFor(req.headers.host)));
+      if (publicRoute) return serveIndex(res, await publicPageMeta(publicRoute, originFor(req.headers.host), repo));
       const decoded = decodePath(url.pathname);
       const asset = url.pathname !== '/' && decoded !== null && inside(config.distDir, decoded);
       // sw.js sem cache longo: uma versão nova do service worker precisa chegar no próximo acesso.

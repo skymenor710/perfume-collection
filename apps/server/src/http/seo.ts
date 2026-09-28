@@ -1,7 +1,7 @@
 import { parsePublicPath, type ListKind, type PublicPath } from '@perfumes/core/library';
 import type { Perfume } from '@perfumes/core/perfume';
 import { config } from '../config';
-import { store } from '../store';
+import type { LibraryRepository } from '../repositories/library';
 
 /**
  * Metadados por página (título, descrição, canonical, Open Graph, Twitter card) para os endereços públicos
@@ -25,13 +25,13 @@ export interface PageMeta {
 
 const LIST_LABEL: Record<ListKind, string> = { wishlist: 'Wishlist', collection: 'Coleção' };
 
-export function publicPageMeta(route: PublicRoute, origin: string): PageMeta {
-  const profile = store.publicProfile(route.username);
+export async function publicPageMeta(route: PublicRoute, origin: string, repo: LibraryRepository): Promise<PageMeta> {
+  const profile = await repo.publicProfile(route.username);
   const notPublic: PageMeta = { status: 404, title: 'Meus Perfumes', description: 'Esta página não é pública.', canonical: null, image: null, robots: 'noindex' };
   if (!profile) return notPublic;
   const lists: ListKind[] = route.list ? [route.list] : profile.lists;
   if (route.list && !profile.lists.includes(route.list)) return notPublic;
-  const perfumes: Perfume[] = lists.flatMap((l) => store.publicList(route.username, l) ?? []);
+  const perfumes: Perfume[] = (await Promise.all(lists.map((l) => repo.publicList(route.username, l)))).flatMap((l) => l ?? []);
   const name = profile.user.displayName;
   const title = route.list ? `${LIST_LABEL[route.list]} de ${name} · Meus Perfumes` : `${name} · Meus Perfumes`;
   const names = perfumes.slice(0, 4).map((p) => p.name);

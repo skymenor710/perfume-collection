@@ -1,52 +1,73 @@
 import http from 'node:http';
 import { config, ConfigError, describeConfig, ensureLocalConfig } from './config';
+import { redactDbError } from './db/client';
 import { createHandler } from './http/app';
 import { localAddresses } from './http/guard';
 import { event, log } from './log';
 import { collectMediaGarbage } from './media/gc';
-import { loadStore, store } from './store';
+import { backupLibraryFromDb, openLibraryRepository, StartupError } from './repositories';
 
 /**
  * Coleção de perfumes no computador: serve o app e faz o que o navegador sozinho não consegue —
  * abrir a página de uma loja, baixar a foto do frasco, recortar o fundo e achar a cor.
  */
 
+const fail = (message: string): never => {
+  process.stderr.write(`\n${message}\n\n`);
+  process.exit(1);
+};
+
 try {
   ensureLocalConfig();
 } catch (error) {
   // Configuração inválida: para aqui, com a lista do que corrigir (sem mostrar valores).
-  if (error instanceof ConfigError) {
-    process.stderr.write(`\n${error.message}\n\nConfira o .env.local (modelo em .env.example).\n\n`);
-    process.exit(1);
-  }
+  if (error instanceof ConfigError) fail(`${error.message}\n\nConfira o .env.local (modelo em .env.example).`);
   throw error;
 }
-loadStore();
+
+let opened: Awaited<ReturnType<typeof openLibraryRepository>>;
+try {
+  opened = await openLibraryRepository();
+} catch (error) {
+  const message = error instanceof StartupError ? error.message : redactDbError(error, config.databaseUrl);
+  log.fatal({ event: 'server.error', stage: 'library', message });
+  fail(`Não consegui abrir a coleção (${config.storageBackend}): ${message}`);
+}
+const { repo } = opened!;
 
 // Mídia órfã (fotos que nenhum perfume usa) sai na partida e a cada 6 h.
 const sweep = async () => {
   try {
-    const { removed, bytes } = await collectMediaGarbage(store.referenced());
+    const { removed, bytes } = await collectMediaGarbage(await repo.referenced());
     if (removed) event('media.gc', { removed, kb: Math.round(bytes / 1024) });
   } catch (error) {
-    log.warn({ event: 'media.gc', err: error });
+    log.warn({ event: 'media.gc', err: redactDbError(error, config.databaseUrl) });
   }
 };
 void sweep();
 setInterval(() => void sweep(), 6 * 60 * 60 * 1000).unref();
 
-const handle = createHandler();
+// Postgres: cópia no formato do library.json na partida e a cada 24 h (caminho de volta para o JSON).
+if (opened!.db) {
+  const db = opened!.db;
+  const backup = async () => {
+    try {
+      event('library.backup', { file: (await backupLibraryFromDb(db)).split(/[\\/]/).slice(-3).join('/') });
+    } catch (error) {
+      log.warn({ event: 'library.backup', err: redactDbError(error, config.databaseUrl) });
+    }
+  };
+  void backup();
+  setInterval(() => void backup(), 24 * 60 * 60 * 1000).unref();
+}
+
+const handle = createHandler({ repo });
 const server = http.createServer((req, res) => void handle(req, res));
 server.requestTimeout = 2 * 60_000;
 
 server.on('error', (error: NodeJS.ErrnoException) => {
   log.fatal({ event: 'server.error', code: error.code, port: config.port, err: error });
-  process.stderr.write(
-    error.code === 'EADDRINUSE'
-      ? `\nA porta ${config.port} já está em uso. Feche a outra janela ou defina PERFUMES_PORT com outra porta.\n\n`
-      : `\nNão consegui iniciar: ${error.message}\n\n`,
-  );
-  process.exit(1);
+  fail(error.code === 'EADDRINUSE' ? `A porta ${config.port} já está em uso. Feche a outra janela ou defina PERFUMES_PORT com outra porta.` : `Não consegui iniciar: ${error.message}`);
 });
 
 server.listen(config.port, config.host, () => {
@@ -72,7 +93,9 @@ server.listen(config.port, config.host, () => {
   );
 });
 
-process.on('SIGINT', () => {
+const shutdown = () => {
   server.close();
-  process.exit(0);
-});
+  void opened!.close().finally(() => process.exit(0));
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

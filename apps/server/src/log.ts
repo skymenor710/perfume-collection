@@ -95,6 +95,7 @@ export type LogEvent =
   | 'library.migrated'
   | 'library.upgraded'
   | 'library.invalid_entries'
+  | 'library.backup'
   | 'library.unreadable'
   | 'egress.throttled';
 

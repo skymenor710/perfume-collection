@@ -10,7 +10,7 @@
 |---|---|---|
 | 0 · Git + backup + CI | Repositório local, `.gitignore` sem dados/segredos, `.env.example`, lint, CI sem credenciais, baseline da coleção | ✅ feito — **sem remoto** (push só com autorização) |
 | 1 · Reorganização local | Monorepo, Hono `/api/v1`, jobs, fontes, repositório/storage, config, logs, correções de segurança da §14 | ✅ feito |
-| 2 · Banco | Neon (branch de dev) + Drizzle + migração do `library.json` verificada | ⏳ schema preliminar pronto em `apps/server/src/db/schema.ts` |
+| 2 · Banco | Neon (branch de dev) + Drizzle + migração do `library.json` verificada | 🔶 pronto e ensaiado localmente (Postgres/PGlite: 0 diferenças, API byte a byte, smoke 56/56); **falta o Neon** — conta e `DATABASE_URL` do dono |
 | 3 · Storage | R2 + chaves pelo conteúdo + migração das imagens verificada | ⏳ `StorageProvider` pronto; falta `R2StorageProvider` |
 | 4 · Tarefas | pg-boss: importação como tarefa, cache e disjuntores no banco | ⏳ contrato `ImportJobStore` e runner prontos (em memória) |
 | 5 · Deploy privado | Dockerfile, Railway (web + worker), domínio, Cloudflare, HTTPS, Sentry | — |

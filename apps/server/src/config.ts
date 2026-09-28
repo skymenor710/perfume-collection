@@ -39,7 +39,14 @@ const envSchema = z.object({
   /** Fontes desligadas, separadas por vírgula (ids de sources/registry.ts). */
   SOURCES_DISABLED: optionalText,
   // Produção (FASE 2+). Validados desde já para o formato não surpreender no dia da virada; o app ainda não os usa.
-  DATABASE_URL: optionalText.refine((v) => v === undefined || /^postgres(ql)?:\/\//.test(v), 'precisa começar com postgres://'),
+  /** Fonte oficial da biblioteca: json (data/library.json) ou postgres (DATABASE_URL). */
+  STORAGE_BACKEND: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['json', 'postgres']).default('json')),
+  /** postgres://… (Neon) ou, só fora de produção, pglite:<pasta> (Postgres local de ensaio). */
+  DATABASE_URL: optionalText.refine((v) => v === undefined || /^postgres(ql)?:\/\//.test(v) || v.startsWith('pglite:'), 'precisa começar com postgres:// (ou pglite: fora de produção)'),
+  /** Conexão direta (sem pooler) para aplicar migrations. Opcional: sem ela, usa DATABASE_URL. */
+  DATABASE_URL_UNPOOLED: optionalText.refine((v) => v === undefined || /^postgres(ql)?:\/\//.test(v) || v.startsWith('pglite:'), 'precisa começar com postgres://'),
+  /** Id do dono desta instalação no banco (só necessário quando houver mais de um usuário). */
+  PERFUMES_OWNER_ID: optionalText,
   R2_ACCOUNT_ID: optionalText,
   R2_ACCESS_KEY_ID: optionalText,
   R2_SECRET_ACCESS_KEY: optionalText,
@@ -53,13 +60,18 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 /** Nomes que guardam segredo: aparecem nos logs só como "definido". */
-export const SECRET_KEYS = ['PERFUMES_ACCESS_CODE', 'SEARCH_PROVIDER_KEY', 'BRAVE_SEARCH_API_KEY', 'DATABASE_URL', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SENTRY_DSN'] as const;
+export const SECRET_KEYS = ['PERFUMES_ACCESS_CODE', 'SEARCH_PROVIDER_KEY', 'BRAVE_SEARCH_API_KEY', 'DATABASE_URL', 'DATABASE_URL_UNPOOLED', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SENTRY_DSN'] as const;
 
 export class ConfigError extends Error {}
 
 /** Valida um ambiente (puro: os testes passam objetos, o servidor passa process.env). */
 export function parseEnv(env: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(env);
+  const result = envSchema
+    .superRefine((e, ctx) => {
+      if (e.STORAGE_BACKEND === 'postgres' && !e.DATABASE_URL) ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'obrigatória com STORAGE_BACKEND=postgres' });
+      if (e.NODE_ENV === 'production' && e.DATABASE_URL?.startsWith('pglite:')) ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'pglite: é só para ensaio local, nunca em produção' });
+    })
+    .safeParse(env);
   if (!result.success) {
     const lines = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);
     throw new ConfigError(`Configuração inválida:\n${lines.join('\n')}`);
@@ -108,6 +120,9 @@ export function describeConfig(e: Env = env()) {
     publicOrigin: config.publicOrigin,
     logLevel: e.LOG_LEVEL,
     egress: { maxConcurrent: e.EGRESS_MAX_CONCURRENT, maxPerMinute: e.EGRESS_MAX_PER_MINUTE },
+    storageBackend: e.STORAGE_BACKEND,
+    // Só o TIPO do banco; a URL nunca.
+    database: e.DATABASE_URL ? (e.DATABASE_URL.startsWith('pglite:') ? 'pglite' : 'postgres') : null,
     secretsDefined: SECRET_KEYS.filter((k) => set(k)),
   };
 }
@@ -177,6 +192,22 @@ export const config = {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
+  },
+  get storageBackend() {
+    return env().STORAGE_BACKEND;
+  },
+  get databaseUrl() {
+    return env().DATABASE_URL ?? '';
+  },
+  /** Para migrations: conexão direta quando existir. */
+  get migrationDatabaseUrl() {
+    return env().DATABASE_URL_UNPOOLED ?? env().DATABASE_URL ?? '';
+  },
+  get ownerId() {
+    return env().PERFUMES_OWNER_ID ?? null;
+  },
+  get root() {
+    return ROOT;
   },
   get debugCutout() {
     return Boolean(env().DEBUG_CUTOUT);

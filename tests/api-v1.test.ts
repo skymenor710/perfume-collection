@@ -39,8 +39,9 @@ beforeAll(async () => {
   repo = store;
   seedCount = (JSON.parse(readFileSync('apps/web/src/data/seed.json', 'utf8')) as unknown[]).length;
   const jobs = new ImportJobRunner(new MemoryImportJobStore(), fakeExecutor(), new Slots(2));
-  const authorize = (): Principal | null => (deny ? null : { userId: store.me().id, via: 'loopback' });
-  const handle = createHandler({ jobs, authorize });
+  const ownerId = (await store.me()).id;
+  const authorize = (): Principal | null => (deny ? null : { userId: ownerId, via: 'loopback' });
+  const handle = createHandler({ repo: store, jobs, authorize });
   server = http.createServer((req, res) => void handle(req, res));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as AddressInfo).port;
@@ -139,7 +140,7 @@ describe('API v1 — coleção', () => {
   });
 
   it('um perfume pelo id; id inexistente ou malformado → 404', async () => {
-    const [first] = repo.list();
+    const [first] = await repo.list();
     expect((await (await api(`/api/v1/perfumes/${first!.id}`)).json()).perfume.id).toBe(first!.id);
     expect((await api('/api/v1/perfumes/nao-existe')).status).toBe(404);
     expect((await api('/api/v1/perfumes/..%2F..%2Fpackage.json')).status).toBe(404);
@@ -170,7 +171,7 @@ describe('API v1 — importação por job', () => {
     expect(done.status).toBe('succeeded');
     expect(done.result.perfume.name).toBe('Reflection');
     // Um job só pesquisa: a coleção não muda sozinha.
-    expect(repo.list().length).toBe(seedCount);
+    expect((await repo.list()).length).toBe(seedCount);
   });
 
   it('fluxo de eventos (SSE) entrega o estado até terminar', async () => {

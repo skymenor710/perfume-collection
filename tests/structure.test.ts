@@ -1,11 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { getTableColumns } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { fromPerfume } from '@perfumes/core/library';
-import { sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
-import { entries, importJobs, productImages, products, productVariants, users } from '../apps/server/src/db/schema';
-import seed from '../apps/web/src/data/seed.json';
 
 const files = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? files(path.join(dir, d.name)) : /\.(ts|tsx)$/.test(d.name) ? [path.join(dir, d.name)] : []));
@@ -61,39 +56,20 @@ describe('estrutura do monorepo', () => {
   });
 });
 
-/* ------------------------------------------------------------------ schema preliminar cobre o domínio */
+/* ------------------------------------------------------------------ banco: um lugar só conhece o driver */
 
-describe('schema Postgres preliminar (sem conexão)', () => {
-  const perfumes = (seed as unknown[]).map(sanitizePerfume).filter((p): p is Perfume => p !== null);
-  const { product, entry } = fromPerfume(perfumes[0]!, 'u1');
-  const cols = (t: Parameters<typeof getTableColumns>[0]) => Object.keys(getTableColumns(t));
-
-  it('toda propriedade de uma entrada tem coluna', () => {
-    expect(cols(entries)).toEqual(expect.arrayContaining(Object.keys(entry)));
+describe('acesso ao banco centralizado', () => {
+  it('só db/client.ts importa drivers de Postgres (pg, PGlite); o resto fala com o repositório', () => {
+    const offenders = files('apps/server/src').filter(
+      (f) =>
+        !f.replace(/\\/g, '/').endsWith('db/client.ts') &&
+        /(from|import\()\s*['"](pg|postgres|@neondatabase\/[^'"]+|@electric-sql\/pglite|drizzle-orm\/(neon[^'"]*|node-postgres[^'"]*|postgres-js|pglite[^'"]*))['"]/.test(readFileSync(f, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
   });
 
-  it('todo campo do produto tem lugar (colunas, variantes, imagens, aparência)', () => {
-    const productCols = new Set(cols(products));
-    const elsewhere: Record<string, string[]> = { variants: cols(productVariants), images: cols(productImages), appearance: [] };
-    for (const key of Object.keys(product)) {
-      if (key in elsewhere) continue;
-      expect(productCols.has(key), `products.${key}`).toBe(true);
-    }
-    for (const key of Object.keys(product.appearance)) expect(productCols.has(key), `appearance.${key}`).toBe(true);
-    for (const v of perfumes.flatMap((p) => p.variants)) for (const key of Object.keys(v)) expect(cols(productVariants)).toContain(key);
-    // Imagem: url/thumbUrl/masterUrl viram chaves do armazenamento (key/thumbKey/masterKey).
-    const imageCols = new Set(cols(productImages));
-    const renamed: Record<string, string> = { url: 'key', thumbUrl: 'thumbKey', masterUrl: 'masterKey' };
-    for (const img of product.images) for (const key of Object.keys(img)) expect(imageCols.has(renamed[key] ?? key), `images.${key}`).toBe(true);
-  });
-
-  it('usuários e jobs têm as colunas que o app usa', () => {
-    expect(cols(users)).toEqual(expect.arrayContaining(['id', 'username', 'displayName', 'bio', 'privacyProfile', 'privacyWishlist', 'privacyCollection']));
-    expect(cols(importJobs)).toEqual(expect.arrayContaining(['id', 'ownerId', 'status', 'input', 'progressPercent', 'result', 'error', 'attempts', 'startedAt', 'finishedAt']));
-  });
-
-  it('o servidor não abre conexão com banco nesta etapa', () => {
-    const offenders = files('apps/server/src').filter((f) => /drizzle-orm\/(neon|node-postgres|postgres-js)|from ['"](pg|postgres|@neondatabase)/.test(readFileSync(f, 'utf8')));
+  it('rotas e jobs não importam o schema nem o banco diretamente', () => {
+    const offenders = [...files('apps/server/src/http'), ...files('apps/server/src/jobs')].filter((f) => /from ['"](\.\.?\/)+db\//.test(readFileSync(f, 'utf8')));
     expect(offenders).toEqual([]);
   });
 });

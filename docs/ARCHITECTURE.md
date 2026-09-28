@@ -40,7 +40,7 @@ perfume-collection/
 ├─ packages/
 │  └─ core/                @perfumes/core — domínio puro: perfume, biblioteca, cor, accent, notas, recorte, qualidade, correspondência
 ├─ scripts/                launch.ps1 (atalho), smoke, verify-state, build-artifact, laboratório
-├─ tests/                  vitest (274 testes)
+├─ tests/                  vitest (329 testes)
 ├─ docs/                   ARCHITECTURE, PRODUCTION, ADR/, state/ (baseline), history/
 └─ data/                   (fora do Git) library.json, media/, cache/, models/, logs/
 ```
@@ -178,19 +178,22 @@ privada) em `tests/api-v1.test.ts`.
 
 ---
 
-## 8. Persistência — portas e implementações
+## 8. Persistência — portas e implementações (FASE 2)
 
-| Porta | Hoje | FASE 2+ |
+| Porta | Implementações | Escolha |
 |---|---|---|
-| `LibraryRepository` (`repositories/library.ts`) | `store` → `data/library.json` (**fonte de verdade**) | Postgres (Neon + Drizzle) pelo mesmo contrato |
-| `StorageProvider` (`storage/types.ts`) | `LocalStorageProvider` → `data/media` | `R2StorageProvider` (chaves por conteúdo, `img.` subdomínio) |
-| `ImportJobStore` (`jobs/types.ts`) | `MemoryImportJobStore` (não persistente) | tabela `import_jobs` + pg-boss |
+| `LibraryRepository` (assíncrono) | `store` → `data/library.json` · `PostgresLibraryRepository` → Postgres (Neon; PGlite no ensaio/testes) | `STORAGE_BACKEND` em `repositories/index.ts` |
+| `StorageProvider` | `LocalStorageProvider` → `data/media` | R2 na FASE 3 |
+| `ImportJobStore` | `MemoryImportJobStore` (não persistente) | tabela `import_jobs` + pg-boss na FASE 4 |
 
-`db/schema.ts` é o schema **preliminar** (users, products, product_variants, product_images, entries, import_jobs).
-Não há conexão, driver, migration nem leitura. Um teste confere que cada campo do domínio atual tem coluna.
-Os testes usam a implementação real da biblioteca numa pasta temporária — não existe banco falso.
-
----
+- Regras comuns (visões, perfil, atualização pela planilha) em `repositories/rules.ts` + core: os dois backends não
+  podem divergir. Linhas ⇄ domínio só em `db/mapping.ts`; driver só em `db/client.ts`.
+- Schema e decisões: [ADR 0011](ADR/0011-migracao-json-postgres.md). Migrations em `apps/server/drizzle/`
+  (`npm run db:generate` gera, `db:migrate` aplica; nunca `push`).
+- `db:import` (valida → transação → verifica → COMMIT, idempotente), `db:verify` (JSON × Postgres, baseline, API byte a
+  byte), `db:export` (volta para o formato do library.json). Roteiro: [state/fase2-20260927](state/fase2-20260927/README.md).
+- Com postgres, a partida exige migrations em dia e nunca cai para o JSON em silêncio; cópia no formato do library.json
+  na partida e a cada 24 h em `data/backups/postgres/`.
 
 ## 9. Domínio (packages/core)
 
@@ -206,8 +209,8 @@ achatada `Perfume` (`toPerfumeView` / `fromPerfume` / `applyPerfumeView`, ida e 
 
 | Comando | O quê |
 |---|---|
-| `npm run check` | typecheck (core, web, server, scripts/testes) + lint + 274 testes + build — o mesmo do CI |
-| `npm run smoke` | servidor com dados temporários + Edge headless: 56 verificações, incluindo importação real pelo link |
+| `npm run check` | typecheck (core, web, server, scripts/testes) + lint + 329 testes (inclusive contra Postgres via PGlite) + build — o mesmo do CI |
+| `npm run smoke` · `npm run smoke -- --backend=postgres` | servidor com dados temporários + Edge headless: 56 verificações (JSON ou Postgres), incluindo importação real pelo link |
 | `npm run build:artifact && npm run smoke:artifact` | variante do link do claude.ai |
 | `npm run state:verify` | coleção real × `docs/state/baseline.json` (campos + SHA-256 de cada foto) |
 

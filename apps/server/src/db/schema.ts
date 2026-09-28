@@ -1,19 +1,44 @@
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  char,
+  check,
+  foreignKey,
+  index,
+  integer,
+  json,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import type { OlfactoryProfile } from '@perfumes/core/olfactory';
 import type { FieldSource, ImageSource } from '@perfumes/core/perfume';
 
 /**
- * SCHEMA PRELIMINAR do Postgres (Neon) — FASE 2. Nesta etapa NÃO há conexão, NÃO há migration e NADA lê ou
- * grava aqui: `data/library.json` continua sendo a fonte de verdade. O arquivo existe para o formato ser revisado
- * antes da virada e para o tipo checar que ele cobre o domínio atual (users / products / entries, schema 2).
+ * Schema do Postgres (Neon). Mudanças SÓ por migration versionada (`npm run db:generate` → drizzle/NNNN_*.sql).
  *
- * Decisões (ver docs/ADR/0003):
- * - ids em texto: os ids atuais (ex.: "mykonos-reflection-r5rx34") são preservados na migração, sem tabela de-para;
- * - produto é catálogo compartilhado; entrada é a relação pessoal (lista, versão, preço pago, nota, observação);
- * - variantes em tabela própria (a escolha da pessoa aponta para uma delas);
- * - imagens guardam a CHAVE do armazenamento (R2), não URL: trocar de CDN não exige migração;
- * - jobs de importação com o mesmo formato do ImportJobStore em memória de hoje.
+ *   users ─< entries >─ products ─< product_variants
+ *                │            └──< product_images ─> (product_variants)
+ *                └──────────────────> (product_variants)   versão escolhida, sempre do MESMO produto
+ *
+ * - Tudo que é de uma pessoa tem `user_id` (entries, import_jobs; no futuro reservas, compartilhamentos, histórico).
+ *   Nenhuma tabela assume um usuário específico.
+ * - Produto é catálogo (compartilhável entre pessoas); a entrada é a relação pessoal (lista, versão, posição,
+ *   veredito, observação, preço visto).
+ * - IDs em texto: os atuais ("mykonos-reflection-r5rx34", "u_…") são preservados — comparação JSON × Postgres é direta.
+ * - Dinheiro em numeric(12,2) (nunca ponto flutuante). 12 dígitos porque há preços em rupia (IDR 859000,00).
+ * - Volume estruturado: `volume_ml` numérico quando é um volume só; `volume_text` guarda o texto exato ("50/100 ml"
+ *   enquanto a versão não foi escolhida) para a ida e volta não perder nada.
+ * - Documentos do app (pirâmide olfativa, fontes por campo, fonte da foto) em `json` — preserva o texto exato,
+ *   inclusive a ordem das chaves, e a API sai byte a byte igual. Viram `jsonb`/tabelas quando houver consulta.
+ * - Imagens guardam a REFERÊNCIA atual ("bottles/…", "media/…"); na FASE 3 viram chaves do R2.
  */
 
 export const visibility = pgEnum('visibility', ['private', 'public']);
@@ -24,34 +49,40 @@ export const perfumeOrigin = pgEnum('perfume_origin', ['google-sheet', 'url-impo
 export const imageRole = pgEnum('image_role', ['main', 'alternate']);
 export const importStatus = pgEnum('import_status', ['queued', 'running', 'waiting_choice', 'succeeded', 'failed', 'cancelled']);
 
-const timestamps = {
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-};
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
+const money = (name: string) => numeric(name, { precision: 12, scale: 2 });
+const ml = (name: string) => numeric(name, { precision: 7, scale: 2 });
 
-/** Pessoas. Autenticação (Better Auth, FASE 6) cria as próprias tabelas de sessão/conta ligadas a este id. */
+/** Pessoas. A autenticação (Better Auth, FASE 6) cria as próprias tabelas de sessão/conta ligadas a este id. */
 export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
     username: text('username').notNull(),
     displayName: text('display_name').notNull(),
-    avatarKey: text('avatar_key'),
+    avatarRef: text('avatar_ref'),
     bio: text('bio'),
+    /** Para o login por e-mail (FASE 6). */
     email: text('email'),
     privacyProfile: visibility('privacy_profile').notNull().default('private'),
     privacyWishlist: visibility('privacy_wishlist').notNull().default('private'),
     privacyCollection: visibility('privacy_collection').notNull().default('private'),
-    ...timestamps,
+    /** Muda a cada gravação na biblioteca da pessoa (aviso de sincronização entre abas e aparelhos). */
+    libraryRevision: bigint('library_revision', { mode: 'number' }).notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('users_username_key').on(sql`lower(${t.username})`),
-    uniqueIndex('users_email_key').on(sql`lower(${t.email})`),
+    uniqueIndex('users_email_key')
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.email} is not null`),
     check('users_username_format', sql`${t.username} ~ '^[a-z0-9._]{3,30}$'`),
+    check('users_bio_length', sql`${t.bio} is null or char_length(${t.bio}) <= 280`),
   ],
 );
 
-/** Catálogo: o perfume em si (marca, nome, pirâmide, cor), compartilhado entre pessoas. */
+/** Catálogo: o perfume em si. */
 export const products = pgTable(
   'products',
   {
@@ -61,64 +92,76 @@ export const products = pgTable(
     concentration: text('concentration'),
     gender: gender('gender'),
     description: text('description'),
-    olfactoryProfile: jsonb('olfactory_profile').$type<OlfactoryProfile>(),
+    olfactoryProfile: json('olfactory_profile').$type<OlfactoryProfile>(),
     dominantColor: text('dominant_color'),
     dominantColorOverride: text('dominant_color_override'),
     accentColor: text('accent_color'),
     accentGlow: text('accent_glow'),
-    /** Modelo 3D do frasco (chave no armazenamento), quando houver. */
-    model3DUrl: text('model_3d_key'),
-    /** De onde veio cada campo (nome, marca, notas…), como hoje. */
-    fieldSources: jsonb('field_sources').$type<Record<string, FieldSource>>().notNull().default({}),
+    model3dRef: text('model_3d_ref'),
+    fieldSources: json('field_sources').$type<Record<string, FieldSource>>().notNull(),
     origin: perfumeOrigin('origin').notNull(),
     assetVersion: integer('asset_version').notNull().default(1),
-    ...timestamps,
+    /** Quem trouxe o produto para o catálogo (proveniência, não posse). Nulo nos dados migrados: não se inventa autor. */
+    createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  (t) => [index('products_brand_name_idx').on(sql`lower(${t.brand})`, sql`lower(${t.name})`)],
+  (t) => [index('products_brand_name_idx').on(sql`lower(${t.brand})`, sql`lower(${t.name})`), check('products_name_not_blank', sql`btrim(${t.name}) <> ''`)],
 );
 
-/** Tamanhos/versões que a loja vende (50 ml, 100 ml…). */
+/** Versões que a loja vende (50 ml, 100 ml…). O id é o da loja (ex.: variante Shopify), único dentro do produto. */
 export const productVariants = pgTable(
   'product_variants',
   {
     productId: text('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    /** Id da loja (ex.: variante Shopify 58518844047705) — único dentro do produto. */
     id: text('id').notNull(),
+    position: integer('position').notNull(),
     label: text('label').notNull(),
-    volume: text('volume'),
-    price: numeric('price', { precision: 10, scale: 2 }),
-    currency: text('currency'),
+    volumeText: text('volume_text'),
+    volumeMl: ml('volume_ml'),
+    price: money('price'),
+    currency: char('currency', { length: 3 }),
     sku: text('sku'),
     available: boolean('available'),
     url: text('url'),
-    position: integer('position').notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.productId, t.id] })],
+  (t) => [
+    primaryKey({ columns: [t.productId, t.id] }),
+    check('product_variants_price_nonnegative', sql`${t.price} is null or ${t.price} >= 0`),
+    check('product_variants_currency_format', sql`${t.currency} is null or ${t.currency} ~ '^[A-Z]{3}$'`),
+    check('product_variants_volume_positive', sql`${t.volumeMl} is null or ${t.volumeMl} > 0`),
+  ],
 );
 
-/** Fotos do frasco. `key` é a chave no armazenamento (R2), nunca URL absoluta. */
+/** Fotos do frasco, em ordem (a principal primeiro). Uma referência aparece uma vez por produto. */
 export const productImages = pgTable(
   'product_images',
   {
-    id: text('id').primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     productId: text('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    role: imageRole('role').notNull().default('main'),
-    key: text('key').notNull(),
-    thumbKey: text('thumb_key'),
-    masterKey: text('master_key'),
-    /** Hash do conteúdo (dedupe e chave por conteúdo no R2). */
-    sha256: text('sha256'),
+    position: integer('position').notNull(),
+    role: imageRole('role').notNull(),
+    ref: text('ref').notNull(),
+    thumbRef: text('thumb_ref'),
+    masterRef: text('master_ref'),
+    /** Versão que a foto mostra (50 ml ≠ 100 ml); nulo = vale para o produto. Sempre uma versão do MESMO produto. */
     variantId: text('variant_id'),
     transparent: boolean('transparent'),
-    source: jsonb('source').$type<ImageSource>(),
+    source: json('source').$type<ImageSource>(),
     credit: text('credit'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Hash do conteúdo (dedupe e chave por conteúdo no R2, FASE 3). */
+    sha256: char('sha256', { length: 64 }),
+    createdAt: ts('created_at').notNull().defaultNow(),
   },
-  (t) => [index('product_images_product_idx').on(t.productId)],
+  (t) => [
+    uniqueIndex('product_images_product_ref_key').on(t.productId, t.ref),
+    index('product_images_product_position_idx').on(t.productId, t.position),
+    foreignKey({ name: 'product_images_variant_fk', columns: [t.productId, t.variantId], foreignColumns: [productVariants.productId, productVariants.id] }),
+  ],
 );
 
 /** A relação pessoal: o perfume na wishlist ou na coleção de alguém. */
@@ -133,27 +176,36 @@ export const entries = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: 'restrict' }),
     list: listKind('list').notNull(),
+    /** Versão escolhida; nulo = ainda não escolheu (ou o produto não tem versões). */
     variantId: text('variant_id'),
-    position: integer('position').notNull().default(0),
+    position: integer('position').notNull(),
     rating: personalRating('rating'),
     notes: text('notes'),
     sourceUrl: text('source_url'),
     variantUrl: text('variant_url'),
-    volume: text('volume'),
-    price: numeric('price', { precision: 10, scale: 2 }),
-    currency: text('currency'),
+    volumeText: text('volume_text'),
+    volumeMl: ml('volume_ml'),
+    price: money('price'),
+    currency: char('currency', { length: 3 }),
     priceNote: text('price_note'),
-    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
-    acquiredAt: timestamp('acquired_at', { withTimezone: true }),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    addedAt: ts('added_at').notNull(),
+    acquiredAt: ts('acquired_at'),
+    updatedAt: ts('updated_at').notNull(),
   },
   (t) => [
-    index('entries_user_list_idx').on(t.userId, t.list, t.position),
+    // O mesmo perfume não entra duas vezes na mesma lista da mesma pessoa.
     uniqueIndex('entries_user_product_list_key').on(t.userId, t.productId, t.list),
+    index('entries_user_list_position_idx').on(t.userId, t.list, t.position),
+    index('entries_product_idx').on(t.productId),
+    foreignKey({ name: 'entries_variant_fk', columns: [t.productId, t.variantId], foreignColumns: [productVariants.productId, productVariants.id] }),
+    check('entries_price_nonnegative', sql`${t.price} is null or ${t.price} >= 0`),
+    check('entries_currency_format', sql`${t.currency} is null or ${t.currency} ~ '^[A-Z]{3}$'`),
+    check('entries_volume_positive', sql`${t.volumeMl} is null or ${t.volumeMl} > 0`),
+    check('entries_notes_length', sql`${t.notes} is null or char_length(${t.notes}) <= 1000`),
   ],
 );
 
-/** Jobs de importação (mesmo contrato do ImportJobStore; hoje em memória). */
+/** Jobs de importação (mesmo contrato do ImportJobStore; nesta fase o runner continua em memória). */
 export const importJobs = pgTable(
   'import_jobs',
   {
@@ -168,11 +220,16 @@ export const importJobs = pgTable(
     result: jsonb('result'),
     error: jsonb('error').$type<{ code: string; message: string }>(),
     attempts: integer('attempts').notNull().default(0),
-    ...timestamps,
-    startedAt: timestamp('started_at', { withTimezone: true }),
-    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    startedAt: ts('started_at'),
+    finishedAt: ts('finished_at'),
   },
-  (t) => [index('import_jobs_owner_created_idx').on(t.ownerId, t.createdAt), index('import_jobs_status_idx').on(t.status)],
+  (t) => [
+    index('import_jobs_owner_created_idx').on(t.ownerId, t.createdAt),
+    index('import_jobs_status_idx').on(t.status),
+    check('import_jobs_progress_range', sql`${t.progressPercent} between 0 and 100`),
+  ],
 );
 
 export const schema = { users, products, productVariants, productImages, entries, importJobs };

@@ -25,7 +25,7 @@ export interface Principal {
   via: 'loopback' | 'device' | 'session';
 }
 
-export type Authorizer = (req: IncomingMessage) => Principal | null;
+export type Authorizer = (req: IncomingMessage) => Principal | null | Promise<Principal | null>;
 
 export interface V1Deps {
   repo: LibraryRepository;
@@ -96,33 +96,33 @@ export function createV1(deps: V1Deps) {
 
   // Daqui para baixo, só com autorização.
   app.use('*', async (c, next) => {
-    const principal = deps.authorize(c.env.incoming);
+    const principal = await deps.authorize(c.env.incoming);
     if (!principal) throw new HttpError(401, 'pairing_required', 'Digite o código de acesso que aparece no computador.');
     c.set('principal', principal);
     await next();
   });
 
   /* ------------------------------------------------------------ perfil */
-  app.get('/me', (c) => c.json({ user: deps.repo.me() }));
+  app.get('/me', async (c) => c.json({ user: await deps.repo.me() }));
   app.patch('/me', async (c) => {
     const patch = await body(c, meSchema);
     try {
-      return c.json({ user: deps.repo.updateMe(patch) });
+      return c.json({ user: await deps.repo.updateMe(patch) });
     } catch (error) {
       throw new HttpError(422, 'invalid', (error as Error).message);
     }
   });
 
   /* ------------------------------------------------------------ coleção (leitura; a escrita segue nas rotas atuais) */
-  app.get('/perfumes', (c) => c.json({ revision: deps.repo.revision(), perfumes: deps.repo.list() }));
-  app.get('/perfumes/:id', (c) => {
+  app.get('/perfumes', async (c) => c.json({ revision: await deps.repo.revision(), perfumes: await deps.repo.list() }));
+  app.get('/perfumes/:id', async (c) => {
     const id = idSchema.safeParse(c.req.param('id'));
-    const perfume = id.success ? deps.repo.list().find((p) => p.id === id.data) : undefined;
+    const perfume = id.success ? (await deps.repo.list()).find((p) => p.id === id.data) : undefined;
     if (!perfume) throw new HttpError(404, 'not_found', 'Esse perfume não está na coleção.');
     return c.json({ perfume });
   });
-  app.get('/wishlist', (c) => c.json({ revision: deps.repo.revision(), perfumes: deps.repo.list().filter(inList('wishlist')) }));
-  app.get('/collection', (c) => c.json({ revision: deps.repo.revision(), perfumes: deps.repo.list().filter(inList('collection')) }));
+  app.get('/wishlist', async (c) => c.json({ revision: await deps.repo.revision(), perfumes: (await deps.repo.list()).filter(inList('wishlist')) }));
+  app.get('/collection', async (c) => c.json({ revision: await deps.repo.revision(), perfumes: (await deps.repo.list()).filter(inList('collection')) }));
 
   /* ------------------------------------------------------------ importação por job */
   app.post('/imports', async (c) => {

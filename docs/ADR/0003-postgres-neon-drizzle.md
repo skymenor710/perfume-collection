@@ -1,6 +1,6 @@
 # ADR 0003 — Postgres (Neon) + Drizzle; nesta etapa só o schema preliminar
 
-- **Status:** aceito
+- **Status:** aceito — implementado na FASE 2 (ver [0011](0011-migracao-json-postgres.md): o schema preliminar foi revisado, e a conexão, as migrations e a importação existem)
 - **Data:** 2026-09-27
 
 ## Contexto

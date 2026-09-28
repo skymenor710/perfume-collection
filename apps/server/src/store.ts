@@ -15,20 +15,21 @@ import {
   type Entry,
   type Library,
   type ListKind,
-  type Product,
   type User,
 } from '@perfumes/core/library';
 import { sanitizePerfume, sortPerfumes, type Perfume } from '@perfumes/core/perfume';
 import { config } from './config';
 import { event } from './log';
 import type { LibraryRepository, OwnerPatch } from './repositories/library';
+import { libraryViews, nextOwner, seedUpgrades } from './repositories/rules';
 
 /**
- * Armazenamento: biblioteca em três entidades (usuários · produtos · entradas) num JSON gravado de forma atômica
- * (arquivo temporário + rename). A API continua entregando a "visão" Perfume, então a interface não muda.
+ * JsonLibraryRepository: biblioteca em três entidades (usuários · produtos · entradas) num JSON gravado de forma
+ * atômica (arquivo temporário + rename). É o backend `STORAGE_BACKEND=json` — e o formato de cópia de segurança do
+ * Postgres (`npm run db:export` gera o mesmo arquivo).
  *
  * Migração (schema 1 → 2): na primeira execução com dados antigos, data/perfumes.json vira data/library.json; o
- * arquivo antigo fica guardado como data/perfumes.v1-<data>.json (nunca é apagado). Ver docs/ARCHITECTURE.md.
+ * arquivo antigo fica guardado como data/perfumes.v1-<data>.json (nunca é apagado).
  */
 
 let library: Library = { schemaVersion: LIBRARY_SCHEMA, users: [], products: [], entries: [] };
@@ -38,7 +39,7 @@ const listeners = new Set<(revision: number) => void>();
 const libraryFile = () => path.join(config.dataDir, 'library.json');
 const legacyFile = () => path.join(config.dataDir, 'perfumes.json');
 
-function readPerfumes(filePath: string): Perfume[] {
+export function readPerfumes(filePath: string): Perfume[] {
   const raw = JSON.parse(readFileSync(filePath, 'utf8')) as unknown;
   const list = Array.isArray(raw) ? raw : Array.isArray((raw as { perfumes?: unknown }).perfumes) ? (raw as { perfumes: unknown[] }).perfumes : [];
   return list.map(sanitizePerfume).filter((p): p is Perfume => p !== null);
@@ -95,19 +96,8 @@ const viewOf = (entry: Entry) => {
   const product = productOf(entry);
   return product ? toPerfumeView(entry, product) : null;
 };
-const ownerViews = () =>
-  sortPerfumes(
-    library.entries
-      .filter((e) => e.userId === owner().id)
-      .map(viewOf)
-      .filter((v): v is Perfume => v !== null),
-  );
 
-/**
- * A semente (os da planilha) foi reprocessada com um pipeline mais novo? Os perfumes guardados que vieram dela
- * recebem fotos, cores e perfil olfativo novos — sem perder o que é da pessoa. Perfumes que a pessoa removeu
- * não voltam.
- */
+/** Atualização pela planilha (regra em rules.ts), gravada de uma vez só. */
 function upgradeFromSeed() {
   let seed: Perfume[];
   try {
@@ -115,43 +105,9 @@ function upgradeFromSeed() {
   } catch {
     return;
   }
-  let upgraded = 0;
-  for (const s of seed) {
-    const entry = library.entries.find((e) => e.id === s.id && e.userId === owner().id);
-    const p = entry ? viewOf(entry) : null;
-    if (!entry || !p || p.origin !== 'google-sheet') continue;
-    // Versão mais nova, ou a mesma versão reprocessada (a foto da semente mudou de arquivo). Foto trocada pela
-    // pessoa (media/…) não é da semente e fica.
-    const seedPhotoChanged = p.imageUrl?.startsWith('bottles/') && p.imageUrl !== s.imageUrl;
-    // Semente que passou a conhecer as versões do produto (50/100 ml) também atualiza: o app precisa perguntar.
-    const seedLearnedVariants = s.variants.length > 1 && p.variants.length === 0;
-    if (p.assetVersion >= s.assetVersion && !seedPhotoChanged && !seedLearnedVariants) continue;
-    const next: Perfume = {
-      ...p,
-      imageUrl: s.imageUrl,
-      thumbUrl: s.thumbUrl,
-      dominantColor: s.dominantColor,
-      dominantColorOverride: s.dominantColorOverride,
-      accentColor: s.accentColor,
-      accentGlow: s.accentGlow,
-      imageSource: s.imageSource,
-      imageCredit: s.imageCredit,
-      masterUrl: s.masterUrl,
-      fieldSources: { ...p.fieldSources, ...s.fieldSources },
-      // Variante: vai inteira (tamanho + preço + link) ou não vai — nunca a foto de uma com o preço de outra.
-      variants: s.variants,
-      selectedVariantId: s.selectedVariantId,
-      variantUrl: s.variantUrl,
-      ...(s.selectedVariantId ? { volume: s.volume, price: s.price, currency: s.currency, priceNote: s.priceNote } : {}),
-      olfactoryProfile: s.olfactoryProfile,
-      description: p.description ?? s.description,
-      gender: p.gender ?? s.gender,
-      assetVersion: s.assetVersion,
-    };
-    write(next);
-    upgraded++;
-  }
-  if (upgraded) event('library.upgraded', { upgraded, assetVersion: seed[0]?.assetVersion });
+  const upgrades = seedUpgrades(libraryViews(library, owner().id), seed);
+  for (const next of upgrades) write(next);
+  if (upgrades.length) event('library.upgraded', { upgraded: upgrades.length, assetVersion: seed[0]?.assetVersion });
 }
 
 /** Grava uma visão: separa em produto + entrada do dono. */
@@ -181,12 +137,13 @@ function persist() {
 
 export type { OwnerPatch };
 
-/** Implementação em arquivo (data/library.json) da porta LibraryRepository — a fonte de verdade nesta etapa. */
+/** Implementação em arquivo (data/library.json) da porta LibraryRepository. */
 export const store: LibraryRepository = {
+  backend: 'json',
   /** A coleção do dono, como a interface usa (visões). */
-  list: ownerViews,
-  revision: () => revision,
-  upsert(perfume: Perfume) {
+  list: async () => libraryViews(library, owner().id),
+  revision: async () => revision,
+  async upsert(perfume: Perfume) {
     write(perfume);
     persist();
     return viewOf(library.entries.find((e) => e.id === perfume.id)!) ?? perfume;
@@ -206,41 +163,24 @@ export const store: LibraryRepository = {
   },
 
   /* ---------------------------------------------------------------- usuário */
-  me: (): User => owner(),
-  updateMe(patch: OwnerPatch): User {
+  me: async (): Promise<User> => owner(),
+  async updateMe(patch: OwnerPatch): Promise<User> {
     const current = owner();
-    let username = current.username;
-    if (patch.username !== undefined) {
-      const check = validateUsername(patch.username);
-      if (!check.ok) throw new Error(check.message);
-      if (library.users.some((u) => u.id !== current.id && u.username === check.username)) throw new Error('Esse nome já está em uso.');
-      username = check.username;
-    }
-    const next = sanitizeUser({
-      ...current,
-      username,
-      displayName: patch.displayName ?? current.displayName,
-      bio: patch.bio === undefined ? current.bio : patch.bio,
-      privacy: { ...current.privacy, ...patch.privacy },
-      updatedAt: new Date().toISOString(),
-    });
-    if (!next) throw new Error('Dados de perfil inválidos.');
+    const next = await nextOwner(current, patch, (username) => library.users.some((u) => u.id !== current.id && u.username === username));
     library.users[0] = next;
     persist();
     return next;
   },
 
   /* ---------------------------------------------------------------- público (sem conta) */
-  /** Perfil público de um username, com as listas que ele abriu. Nulo quando não existe ou é privado. */
-  publicProfile(username: string): { user: User; lists: ListKind[] } | null {
+  async publicProfile(username: string) {
     const user = library.users.find((u) => u.username === username.toLowerCase());
     if (!user) return null;
     const lists = publicLists(user);
     if (user.privacy.profile !== 'public' && lists.length === 0) return null;
     return { user, lists };
   },
-  /** Uma lista pública, como visões públicas (sem observações nem fontes internas). */
-  publicList(username: string, list: ListKind): Perfume[] | null {
+  async publicList(username: string, list: ListKind) {
     const user = library.users.find((u) => u.username === username.toLowerCase());
     if (!user || user.privacy[list] !== 'public') return null;
     return sortPerfumes(
@@ -251,8 +191,7 @@ export const store: LibraryRepository = {
         .map(toPublicView),
     );
   },
-  /** Arquivo de /media que aparece em alguma lista pública (pode ser servido sem código de acesso). */
-  isPublicMedia(ref: string): boolean {
+  async isPublicMedia(ref: string) {
     for (const user of library.users) {
       for (const list of publicLists(user)) {
         for (const e of library.entries) {
@@ -264,7 +203,6 @@ export const store: LibraryRepository = {
     }
     return false;
   },
-  /** Todas as imagens em uso (a limpeza de mídia não toca nelas). */
-  referenced: () => referencedImages(library),
-  products: (): readonly Product[] => library.products,
+  referenced: async () => referencedImages(library),
+  products: async () => library.products,
 };

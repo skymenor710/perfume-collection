@@ -296,16 +296,21 @@ describe('LocalStorageProvider', () => {
 });
 
 describe('limpeza de mídia pelo armazenamento', () => {
-  it('apaga só órfãos antigos do nível de cima; respeita referências, carência e subpastas', async () => {
+  it('tira só órfãos antigos do nível de cima — para a lixeira, nunca apagando; respeita referências, carência e subpastas', async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'perfumes-gc-'));
     const storage = new LocalStorageProvider(() => root, 'media/');
     for (const key of ['usada-lg.webp', 'orfa-lg.webp', 'nova-lg.webp', 'nota.txt', 'sub/orfa.png']) await storage.put(key, Buffer.from('x'), { contentType: 'image/webp' });
     const old = new Date(Date.now() - 7 * 60 * 60 * 1000);
     for (const f of ['usada-lg.webp', 'orfa-lg.webp', 'nota.txt']) utimesSync(path.join(root, f), old, old);
     utimesSync(path.join(root, 'sub', 'orfa.png'), old, old);
-    const result = await collectMediaGarbage(new Set(['media/usada-lg.webp']), 6 * 60 * 60 * 1000, storage);
+    const trashDir = mkdtempSync(path.join(os.tmpdir(), 'perfumes-lixeira-'));
+    const trash = new LocalStorageProvider(() => trashDir, 'orfas/');
+    const result = await collectMediaGarbage(new Set(['media/usada-lg.webp']), 6 * 60 * 60 * 1000, storage, Date.now(), trash);
     expect(result.removed).toBe(1);
     expect(existsSync(path.join(root, 'orfa-lg.webp'))).toBe(false);
+    // O órfão não foi apagado: está na lixeira, com o mesmo conteúdo.
+    expect(readFileSync(path.join(trashDir, 'orfa-lg.webp'), 'utf8')).toBe('x');
+    expect(readdirSync(trashDir)).toEqual(['orfa-lg.webp']);
     for (const kept of ['usada-lg.webp', 'nova-lg.webp', 'nota.txt', path.join('sub', 'orfa.png')]) expect(existsSync(path.join(root, kept))).toBe(true);
   });
 });

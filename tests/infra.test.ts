@@ -381,3 +381,33 @@ describe('configuração do banco', () => {
     expect(pkg).toMatch(/"db:migrate"/);
   });
 });
+
+describe('banco de testes nunca é o principal', () => {
+  const principal = 'postgresql://dono:senha@ep-cool-sun-a1b2c3-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+  const principalDireto = 'postgresql://dono:senha@ep-cool-sun-a1b2c3.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+  const branchTestes = 'postgresql://dono:senha@ep-quiet-moon-z9y8x7-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require';
+
+  it('pooler e conexão direta do mesmo branch são o MESMO ambiente', async () => {
+    const { sameTarget } = await import('../apps/server/src/db/targets');
+    expect(sameTarget(principal, principalDireto)).toBe(true);
+    expect(sameTarget(principal, branchTestes)).toBe(false);
+  });
+
+  it('recusa: igual ao principal, mesmo endpoint com outro nome de banco, vazio ou não-postgres', async () => {
+    const { testTargetRefusal } = await import('../apps/server/src/db/targets');
+    expect(testTargetRefusal(principal, [principal, principalDireto])).toMatch(/MESMO banco/);
+    expect(testTargetRefusal(principalDireto, [principal])).toMatch(/MESMO banco/);
+    expect(testTargetRefusal(principal.replace('/neondb', '/outro'), [principal])).toMatch(/MESMO endpoint/);
+    expect(testTargetRefusal('', [principal])).toMatch(/não está configurada/);
+    expect(testTargetRefusal('pglite:x', [principal])).toMatch(/não é/);
+    expect(testTargetRefusal(branchTestes, [principal, principalDireto])).toBeNull();
+  });
+
+  it('a descrição mascara o host e nunca inclui usuário, senha ou a URL', async () => {
+    const { describeTarget } = await import('../apps/server/src/db/targets');
+    const t = describeTarget(branchTestes);
+    expect(JSON.stringify({ host: t.host, pooled: t.pooled, database: t.database })).not.toMatch(/senha|dono|quiet-moon-z9y8x7|postgresql:/);
+    expect(t).toMatchObject({ kind: 'postgres', pooled: true, database: 'neondb' });
+    expect(t.host).toMatch(/^ep-q…x7-pooler\.eu-central-1\.aws\.neon\.tech$/);
+  });
+});

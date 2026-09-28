@@ -1,18 +1,20 @@
-import { config } from '../../config';
+import { sql } from 'drizzle-orm';
 import { applyMigrations, redactDbError } from '../client';
 import { migrationStatus } from '../status';
-import { boot, connect, describeTarget, die, flag, writeReport } from './common';
+import { boot, connect, describeTarget, die, flag, writeReport, targetUrl } from './common';
 
 /**
  * npm run db:migrate            aplica as migrations versionadas (drizzle/*.sql) que faltam
  * npm run db:migrate -- --status  só mostra o que está aplicado
  */
 boot();
-const url = config.migrationDatabaseUrl;
+const url = targetUrl('migrate');
 const handle = await connect(url);
 try {
   const before = await migrationStatus(handle.db);
+  const version = (await handle.db.execute(sql`show server_version`)) as unknown as { rows: { server_version: string }[] };
   console.log(`Banco: ${describeTarget(url)}`);
+  console.log(`Conexão: OK · PostgreSQL ${version.rows[0]?.server_version ?? '?'}`);
   console.log(`Migrations no repositório: ${before.expected.join(', ')}`);
   console.log(`Aplicadas: ${before.applied} · pendentes: ${before.pending.join(', ') || 'nenhuma'}`);
   if (flag('status') || before.upToDate) {

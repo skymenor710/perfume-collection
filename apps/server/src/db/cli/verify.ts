@@ -10,7 +10,7 @@ import { redactDbError } from '../client';
 import { diffLibraries, diffViews, formatDifferences, type Difference } from '../compare';
 import { loadLibrary, sortedLibrary } from '../snapshot';
 import { migrationStatus } from '../status';
-import { API_SNAPSHOT_FILE, BASELINE_FILE, boot, connect, describeTarget, die, option, table, writeReport } from './common';
+import { API_SNAPSHOT_FILE, BASELINE_FILE, boot, connect, describeTarget, die, option, table, writeReport, targetUrl } from './common';
 
 /**
  * npm run db:verify                     compara o banco com data/library.json, com o baseline e com a API de antes
@@ -23,7 +23,7 @@ const against = path.resolve(config.root, option('against', path.join(path.relat
 if (!existsSync(against)) die(`Arquivo não encontrado: ${against}`);
 const jsonLib = sortedLibrary(sanitizeLibrary(JSON.parse(readFileSync(against, 'utf8'))).library);
 
-const url = config.databaseUrl;
+const url = targetUrl('data');
 const handle = await connect(url);
 const sections: { nome: string; resultado: string; diferencas: number }[] = [];
 const details: Record<string, Difference[] | string[]> = {};

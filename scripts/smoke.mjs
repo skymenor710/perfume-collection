@@ -3,8 +3,9 @@
 // percorre os fluxos, confere o DOM e grava capturas em .impeccable/review/ e scripts/.shots/.
 // Uso: npm run build && npm run smoke   (SMOKE_IMPORT_URL=… troca o link usado no fluxo 4)
 //      npm run smoke -- --backend=postgres   o mesmo teste com a coleção no Postgres (PGlite temporário)
+//      npm run smoke -- --backend=postgres --database=test   no BRANCH DE TESTES do Neon (nunca o principal); limpa no fim
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
@@ -26,13 +27,23 @@ const dataDir = mkdtempSync(path.join(os.tmpdir(), 'perfumes-smoke-'));
 if (existsSync('data/cache')) cpSync('data/cache', path.join(dataDir, 'cache'), { recursive: true });
 const BACKEND = process.argv.includes('--backend=postgres') ? 'postgres' : 'json';
 const backendEnv = { STORAGE_BACKEND: BACKEND, DATABASE_URL: '' };
-if (BACKEND === 'postgres') {
+const ON_NEON = BACKEND === 'postgres' && process.argv.includes('--database=test');
+if (ON_NEON) {
+  // Branch de testes do Neon: o script confere que é outro ambiente, zera, migra e importa a coleção limpa.
+  const prep = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/neon-test-db.ts', 'smoke', dataDir], { stdio: 'inherit', env: { ...process.env, LOG_LEVEL: 'warn' } });
+  if (prep.status !== 0) throw new Error('Não consegui preparar o branch de testes para o smoke.');
+  // A URL é lida do .env.local só para passar ao servidor de teste; nunca é impressa.
+  const envFile = existsSync('.env.local') ? readFileSync('.env.local', 'utf8') : '';
+  const testUrl = process.env.TEST_DATABASE_URL || (/^\s*TEST_DATABASE_URL\s*=\s*(.+?)\s*$/m.exec(envFile)?.[1] ?? '').replace(/^["']|["']$/g, '');
+  backendEnv.DATABASE_URL = testUrl;
+  backendEnv.DATABASE_URL_UNPOOLED = '';
+} else if (BACKEND === 'postgres') {
   // Mesma coleção limpa, migrations versionadas e importação verificada, antes de o servidor subir.
   const prep = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/smoke-prepare-pg.ts', dataDir], { stdio: 'inherit', env: { ...process.env, LOG_LEVEL: 'warn' } });
   if (prep.status !== 0) throw new Error('Não consegui preparar o banco do smoke.');
   backendEnv.DATABASE_URL = `pglite:${path.join(dataDir, 'pg')}`;
 }
-console.log(`backend: ${BACKEND}`);
+console.log(`backend: ${BACKEND}${ON_NEON ? ' (Neon, branch de testes)' : ''}`);
 const server = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'apps/server/src/main.ts'], {
   env: { ...process.env, ...backendEnv, PERFUMES_PORT: String(PORT), PERFUMES_DATA_DIR: dataDir, PERFUMES_HOST: '127.0.0.1', PERFUMES_ACCESS_CODE: 'SMOKE1' },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -441,6 +452,7 @@ try {
 } finally {
   server.kill();
   rmSync(dataDir, { recursive: true, force: true });
+  if (ON_NEON) spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/neon-test-db.ts', 'clean'], { stdio: 'inherit' });
 }
 
 const failed = results.filter((r) => !r.ok);

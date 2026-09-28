@@ -11,7 +11,7 @@ import { migrationStatus } from '../apps/server/src/db/status';
 import { applyMigrations } from '../apps/server/src/db/client';
 import { EntryOwnershipError, OwnerNotFoundError, PostgresLibraryRepository } from '../apps/server/src/repositories/postgres';
 import { libraryViews } from '../apps/server/src/repositories/rules';
-import { fixtureLibrary, freshDb, imageFolder, OWNER, usingServer } from './helpers/db';
+import { fixtureLibrary, freshDb, imageFolder, OWNER, serverTarget, usingServer } from './helpers/db';
 
 /** Erro do Postgres por código (23505 único, 23503 chave estrangeira, 23514 check), atravessando o embrulho do drizzle. */
 async function pgError(promise: Promise<unknown>): Promise<string> {
@@ -376,6 +376,143 @@ describe('concorrência básica', () => {
     const results = await Promise.allSettled([repo.updateMe({ username: 'disputado' }), other.updateMe({ username: 'disputado' })]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.find((r) => r.status === 'rejected')).toMatchObject({ reason: { message: 'Esse nome já está em uso.' } });
+  });
+
+  /** Todas as entradas apontam para versões que existem no MESMO produto (nenhuma chave estrangeira pendurada). */
+  async function assertConsistent() {
+    const es = await handle.db.select().from(entries);
+    const vs = await handle.db.select().from(productVariants);
+    for (const e of es) if (e.variantId) expect(vs.some((v) => v.productId === e.productId && v.id === e.variantId), `entrada ${e.id} → versão ${e.variantId}`).toBe(true);
+    const keys = vs.map((v) => `${v.productId}|${v.id}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  }
+
+  it('D — duas alterações simultâneas da MESMA entrada: sem erro, sem duplicata, estado final é uma das duas inteira (nunca mistura)', async () => {
+    // Dois "servidores" (duas instâncias do repositório, conexões diferentes) gravando a mesma entrada ao mesmo tempo.
+    const other = await PostgresLibraryRepository.open(handle.db, OWNER.id);
+    const base = (await repo.list()).find((p) => p.id === 'mykonos-reflection-teste')!;
+    const before = await repo.revision();
+    const a = { ...base, personalRating: 'rebuy' as const, price: 10, priceNote: 'A' };
+    const b = { ...base, personalRating: 'good' as const, price: 20, priceNote: 'B' };
+    const results = await Promise.allSettled([repo.upsert(a), other.upsert(b)]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']); // sem deadlock, sem timeout, sem rollback
+    const rows = await handle.db.select().from(entries).where(eq(entries.id, base.id));
+    expect(rows).toHaveLength(1);
+    const final = [rows[0]!.rating, Number(rows[0]!.price), rows[0]!.priceNote];
+    // Documento inteiro (PUT): vale a última gravação, e ela vale INTEIRA — nunca a nota de uma com o preço da outra.
+    expect([JSON.stringify(['rebuy', 10, 'A']), JSON.stringify(['good', 20, 'B'])]).toContain(JSON.stringify(final));
+    expect(await repo.revision()).toBe(before + 2); // as duas passaram, uma depois da outra
+    await assertConsistent();
+  });
+
+  it('F — duas alterações simultâneas da MESMA versão (product_variant) pelo mesmo dono: uma inteira vence, nada duplica', async () => {
+    const other = await PostgresLibraryRepository.open(handle.db, OWNER.id);
+    const base = (await repo.list()).find((p) => p.id === 'mykonos-reflection-teste')!;
+    const withPrice = (price: number) => ({ ...base, variants: base.variants.map((v) => (v.id === '58518844080473' ? { ...v, price } : v)) });
+    const results = await Promise.allSettled([repo.upsert(withPrice(60)), other.upsert(withPrice(70))]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+    const vs = await handle.db.select().from(productVariants).where(eq(productVariants.productId, base.id));
+    expect(vs).toHaveLength(2);
+    expect(['60.00', '70.00']).toContain(vs.find((v) => v.id === '58518844080473')!.price);
+    await assertConsistent();
+  });
+
+  it('F — duas PESSOAS alterando as versões do mesmo produto do catálogo ao mesmo tempo: sem deadlock, sem chave pendurada', async () => {
+    // Pessoa B também tem o Reflection (catálogo compartilhado). A muda o preço da versão de 100 ml; B tira essa versão.
+    await handle.db.insert(users).values({ id: 'u_b', username: 'pessoab', displayName: 'B' });
+    const [mine] = await handle.db.select().from(entries).where(eq(entries.id, 'mykonos-reflection-teste'));
+    await handle.db.insert(entries).values({ ...mine!, id: 'b-reflection', userId: 'u_b' });
+    const repoB = await PostgresLibraryRepository.open(handle.db, 'u_b');
+    const a = (await repo.list()).find((p) => p.id === 'mykonos-reflection-teste')!;
+    const b = (await repoB.list()).find((p) => p.id === 'b-reflection')!;
+    const results = await Promise.allSettled([
+      repo.upsert({ ...a, variants: a.variants.map((v) => (v.id === '58518844080473' ? { ...v, price: 61 } : v)) }),
+      repoB.upsert({ ...b, variants: b.variants.filter((v) => v.id !== '58518844080473') }),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+    // Quem gravou por último decide o conjunto de versões; as duas entradas continuam apontando para a de 50 ml.
+    const ids = (await handle.db.select().from(productVariants).where(eq(productVariants.productId, 'mykonos-reflection-teste'))).map((v) => v.id).sort();
+    expect([JSON.stringify(['58518844047705']), JSON.stringify(['58518844047705', '58518844080473'])]).toContain(JSON.stringify(ids));
+    await assertConsistent();
+  });
+
+  it('F — tirar uma versão que OUTRA pessoa escolheu: o banco recusa (chave estrangeira) e desfaz tudo, sem estado pela metade', async () => {
+    await handle.db.insert(users).values({ id: 'u_b', username: 'pessoab', displayName: 'B' });
+    const [mine] = await handle.db.select().from(entries).where(eq(entries.id, 'mykonos-reflection-teste'));
+    // A pessoa B escolheu a de 100 ml.
+    await handle.db.insert(entries).values({ ...mine!, id: 'b-reflection', userId: 'u_b', variantId: '58518844080473', volumeText: '100 ml', volumeMl: '100' });
+    const a = (await repo.list()).find((p) => p.id === 'mykonos-reflection-teste')!;
+    const snapshot = await loadLibrary(handle.db);
+    const error = await pgError(repo.upsert({ ...a, name: 'Tentou tirar a versão da B', variants: a.variants.filter((v) => v.id !== '58518844080473') }));
+    expect(error).toBe('23503');
+    // ROLLBACK: nem o nome mudou, nem a versão sumiu.
+    expect(diffLibraries(snapshot, await loadLibrary(handle.db))).toEqual([]);
+    await assertConsistent();
+  });
+});
+
+/* ------------------------------------------------------------------ só num servidor Postgres (Neon + pooler) */
+
+describe.skipIf(!usingServer)('pooler: primitivas de concorrência numa conexão de servidor real', () => {
+  const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('a URL de testes passa pelo pooler (host "-pooler"), como o app vai usar', () => {
+    expect(serverTarget?.pooled, 'TEST_DATABASE_URL precisa ser a connection string COM pooler').toBe(true);
+  });
+
+  it('transação: erro no meio desfaz tudo', async () => {
+    await expect(
+      handle.db.transaction(async (tx) => {
+        await tx.insert(users).values({ id: 'u_tx', username: 'transacao', displayName: 'T' });
+        throw new Error('falha proposital');
+      }),
+    ).rejects.toThrow('falha proposital');
+    expect(await handle.db.select().from(users).where(eq(users.id, 'u_tx'))).toEqual([]);
+  });
+
+  it('SELECT … FOR UPDATE segura a linha para outra conexão (NOWAIT recebe 55P03)', async () => {
+    await handle.db.insert(users).values({ id: 'u_lock', username: 'travado', displayName: 'L' });
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const holder = handle.db.transaction(async (tx) => {
+      await tx.select().from(users).where(eq(users.id, 'u_lock')).for('update');
+      await held;
+    });
+    await pause(300);
+    const code = await pgError(handle.db.transaction(async (tx) => tx.execute(sql`select id from users where id = 'u_lock' for update nowait`)));
+    release();
+    await holder;
+    expect(code).toBe('55P03');
+    // Solta a trava ao terminar a transação: agora passa.
+    await expect(handle.db.transaction(async (tx) => tx.execute(sql`select id from users where id = 'u_lock' for update nowait`))).resolves.toBeDefined();
+  });
+
+  it('pg_advisory_xact_lock vale entre conexões e é liberado no fim da transação', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const holder = handle.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('perfumes:library-import'))`);
+      await held;
+    });
+    await pause(300);
+    const busy = (await handle.db.transaction(async (tx) => tx.execute(sql`select pg_try_advisory_xact_lock(hashtext('perfumes:library-import')) as ok`))) as unknown as { rows: { ok: boolean }[] };
+    release();
+    await holder;
+    const free = (await handle.db.transaction(async (tx) => tx.execute(sql`select pg_try_advisory_xact_lock(hashtext('perfumes:library-import')) as ok`))) as unknown as { rows: { ok: boolean }[] };
+    expect([busy.rows[0]!.ok, free.rows[0]!.ok]).toEqual([false, true]);
+  });
+
+  it('ON CONFLICT com 10 inserções simultâneas da mesma chave: uma linha só', async () => {
+    await handle.db.insert(users).values({ id: 'u_c', username: 'conflito', displayName: 'C' });
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        handle.db
+          .insert(users)
+          .values({ id: 'u_c', username: 'conflito', displayName: `C${i}` })
+          .onConflictDoUpdate({ target: users.id, set: { displayName: `C${i}` } }),
+      ),
+    );
+    expect(await handle.db.select().from(users).where(eq(users.id, 'u_c'))).toHaveLength(1);
   });
 });
 

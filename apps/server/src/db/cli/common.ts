@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { config, ConfigError, ensureLocalConfig } from '../../config';
 import { openDb, redactDbError, type DbHandle } from '../client';
+import { describeTarget as safeTarget, testTargetRefusal } from '../targets';
 
 /**
  * Base dos comandos `npm run db:*`. A URL vem SÓ do ambiente/.env.local (nunca da linha de comando, que fica no
@@ -32,13 +33,26 @@ export function die(message: string, code = 1): never {
   process.exit(code);
 }
 
+/**
+ * Qual banco o comando usa.
+ *   (padrão)        o PRINCIPAL: DATABASE_URL (migrations: DATABASE_URL_UNPOOLED quando existir)
+ *   --target=test   o branch de TESTES: TEST_DATABASE_URL — só depois de conferir que é outro ambiente
+ */
+export function targetUrl(purpose: 'migrate' | 'data'): string {
+  if (option('target', 'principal') !== 'test') return purpose === 'migrate' ? config.migrationDatabaseUrl : config.databaseUrl;
+  const test = (process.env.TEST_DATABASE_URL ?? '').trim();
+  const refusal = testTargetRefusal(test, [config.databaseUrl, config.migrationDatabaseUrl]);
+  if (refusal) die(`Banco de testes recusado: ${refusal}.`);
+  console.log('Alvo: branch de TESTES (ambiente separado do principal: conferido)');
+  return test;
+}
+
+/** Tipo + host MASCARADO + pooler + banco. Nunca usuário, senha ou a URL inteira. */
 export function describeTarget(url: string): string {
-  if (url.startsWith('pglite:')) return `PGlite local (${url.slice('pglite:'.length) || 'memória'})`;
-  try {
-    return `Postgres em ${new URL(url).host}`;
-  } catch {
-    return 'Postgres';
-  }
+  const t = safeTarget(url);
+  if (t.kind === 'pglite') return `PGlite local (${t.database})`;
+  if (t.kind !== 'postgres') return 'endereço inválido';
+  return `Postgres em ${t.host} (${t.pooled ? 'com pooler' : 'conexão direta'}, banco ${t.database})`;
 }
 
 export async function connect(url: string): Promise<DbHandle> {

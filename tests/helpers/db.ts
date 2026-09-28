@@ -4,17 +4,31 @@ import path from 'node:path';
 import { sql } from 'drizzle-orm';
 import { fromPerfume, LIBRARY_SCHEMA, type Library, type User } from '@perfumes/core/library';
 import { sanitizePerfume, type Perfume } from '@perfumes/core/perfume';
+import { readEnvFile } from '../../apps/server/src/config';
 import { applyMigrations, openDb, type DbHandle } from '../../apps/server/src/db/client';
+import { describeTarget, testTargetRefusal } from '../../apps/server/src/db/targets';
 import seed from '../../apps/web/src/data/seed.json';
 
 /**
  * Banco de teste de VERDADE: PGlite (o Postgres compilado para WebAssembly, em memória) por padrão, ou um servidor
- * Postgres em TEST_DATABASE_URL — que precisa ser um banco EXCLUSIVO de testes: os testes apagam tudo nele.
+ * Postgres em TEST_DATABASE_URL — que precisa ser um banco EXCLUSIVO de testes, num branch SEPARADO do Neon: os
+ * testes apagam tudo nele.
+ *
+ * `npm run test:neon` liga o servidor (PERFUMES_TEST_NEON=1, lendo o .env.local). Antes de qualquer coisa, a URL de
+ * testes é comparada com as do banco principal (mesmo banco OU mesmo endpoint/branch = recusa) — o principal nunca
+ * recebe teste destrutivo nem concorrente.
  */
-const TEST_URL = process.env.TEST_DATABASE_URL?.trim() || '';
-if (TEST_URL && TEST_URL === process.env.DATABASE_URL?.trim()) throw new Error('TEST_DATABASE_URL não pode ser o mesmo banco de DATABASE_URL.');
+const fileEnv = process.env.PERFUMES_TEST_NEON === '1' ? readEnvFile() : {};
+const pick = (k: string) => (process.env[k]?.trim() || fileEnv[k] || '').trim();
+const TEST_URL = process.env.PERFUMES_TEST_NEON === '1' || process.env.TEST_DATABASE_URL ? pick('TEST_DATABASE_URL') : '';
+if (process.env.PERFUMES_TEST_NEON === '1' || TEST_URL) {
+  const refusal = testTargetRefusal(TEST_URL, [pick('DATABASE_URL'), pick('DATABASE_URL_UNPOOLED')]);
+  if (refusal) throw new Error(`Testes no servidor Postgres recusados: ${refusal}.`);
+}
 
 export const usingServer = Boolean(TEST_URL);
+/** Host mascarado e se passa pelo pooler (para o relatório; nunca a URL). */
+export const serverTarget = TEST_URL ? describeTarget(TEST_URL) : null;
 
 export async function freshDb(): Promise<DbHandle> {
   if (!TEST_URL) {

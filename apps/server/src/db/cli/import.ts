@@ -7,7 +7,7 @@ import { redactDbError } from '../client';
 import { formatDifferences } from '../compare';
 import { importLibrary, validateLibrary, type ImportReport } from '../importer';
 import { migrationStatus } from '../status';
-import { BASELINE_FILE, boot, connect, describeTarget, die, flag, MIGRATION_ID, option, table, writeReport } from './common';
+import { BASELINE_FILE, boot, connect, describeTarget, die, flag, MIGRATION_ID, option, table, writeReport, targetUrl } from './common';
 
 /**
  * npm run db:import                       importa data/library.json (valida → transação → verifica → COMMIT)
@@ -38,7 +38,7 @@ const useBaseline = !flag('no-baseline');
 if (useBaseline && !existsSync(baselineFile)) die(`Baseline não encontrado (${BASELINE_FILE}). Rode com --no-baseline só em banco de teste.`);
 const baseline = useBaseline ? readBaseline(baselineFile) : null;
 
-const url = config.databaseUrl;
+const url = targetUrl('data');
 const handle = await connect(url);
 let report: ImportReport;
 try {

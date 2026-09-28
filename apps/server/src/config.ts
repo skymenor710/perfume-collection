@@ -79,14 +79,21 @@ export function parseEnv(env: Record<string, string | undefined>): Env {
   return result.data;
 }
 
-function loadEnvFile() {
-  if (!existsSync(ENV_FILE)) return;
-  for (const line of readFileSync(ENV_FILE, 'utf8').split(/\r?\n/)) {
+/** Lê o .env.local (sem aplicar e sem imprimir nada). Linhas vazias e comentários são ignorados. */
+export function readEnvFile(file = ENV_FILE): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!existsSync(file)) return out;
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
     const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
     if (!match || line.trim().startsWith('#')) continue;
     const value = match[2].replace(/^["']|["']$/g, '');
-    if (value && process.env[match[1]] === undefined) process.env[match[1]] = value;
+    if (value) out[match[1]] = value;
   }
+  return out;
+}
+
+function loadEnvFile() {
+  for (const [key, value] of Object.entries(readEnvFile())) if (process.env[key] === undefined) process.env[key] = value;
 }
 
 let cached: Env | null = null;

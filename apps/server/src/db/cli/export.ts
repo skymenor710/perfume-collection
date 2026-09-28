@@ -5,7 +5,7 @@ import { config } from '../../config';
 import { redactDbError } from '../client';
 import { diffLibraries, formatDifferences } from '../compare';
 import { loadLibrary, sortedLibrary } from '../snapshot';
-import { boot, connect, describeTarget, die } from './common';
+import { boot, connect, describeTarget, die, targetUrl } from './common';
 
 /**
  * npm run db:export   banco → arquivo no formato do data/library.json (data/exports/, nome único, nunca sobrescreve).
@@ -14,7 +14,7 @@ import { boot, connect, describeTarget, die } from './common';
  * arquivo com os dados de agora. A exportação é relida e comparada com o banco antes de dizer que deu certo.
  */
 boot();
-const url = config.databaseUrl;
+const url = targetUrl('data');
 const handle = await connect(url);
 try {
   const library = await loadLibrary(handle.db);

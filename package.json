@@ -22,7 +22,7 @@
     "test:neon": "node scripts/test-neon.mjs",
     "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p apps/web/tsconfig.json && tsc -p apps/server/tsconfig.json && tsc -p tsconfig.json",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "check": "npm run typecheck && npm run lint && npm run build && npm test",
     "smoke": "node scripts/smoke.mjs",
     "smoke:artifact": "node scripts/smoke-artifact.mjs",
     "state:verify": "node scripts/verify-state.mjs",

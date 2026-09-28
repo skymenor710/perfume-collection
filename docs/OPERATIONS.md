@@ -78,8 +78,11 @@ vez), nunca por cima do anterior. Não há pendrive/HD conectado; o OneDrive é 
 - `recovery-20260928-192903` + `codigo-8a5d91c.bundle`: dados, banco e imagens restauram (ensaio completo a partir do
   OneDrive em 28/09/2026), mas o código desse bundle **não compila o frontend** — faltava `apps/web/src/data/`, escondida
   pela regra `data/` do `.gitignore` (corrigida para `/data/` na FASE 2.5.4). Ver [RECOVERY.md](RECOVERY.md), seção 0.
-- A partir da FASE 2.5.4: pacote gerado depois da correção, restaurado do OneDrive do zero (código compilado, testes,
-  banco descartável, API e imagens) antes de ser dado como válido.
+- `recovery-20260928-195615` + `codigo-0e29f14.bundle`: código completo, mas nesse commit o `npm run check` testava antes
+  de compilar — num clone limpo, rodar `npm run build` antes de `npm test` (os dados, o banco e as imagens restauram igual).
+- Pacotes posteriores (FASE 2.5.4 em diante): gerados depois das duas correções e restaurados do OneDrive do zero
+  (`npm run check` inteiro no código restaurado, banco descartável, API por HTTP e imagens) antes de serem dados como
+  válidos.
 
 ## 3. SSL/TLS do banco
 

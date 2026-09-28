@@ -25,7 +25,9 @@ O repositório não tem remoto: o código inteiro, com o histórico, vai no paco
 2. `git clone -c core.autocrlf=false codigo-<commit>.bundle perfume-collection` — o `-c core.autocrlf=false` é
    obrigatório neste Windows: o Git global está com `autocrlf=true` e, sem ele, todos os arquivos voltam com CRLF e deixam de
    ser byte a byte os do commit (as migrations, inclusive).
-3. `git log -1 --oneline` = o commit do bundle; `npm ci`; `npm run typecheck`; `npm test`.
+3. `git log -1 --oneline` = o commit do bundle; `npm ci`; `npm run check` (typecheck → lint → build → testes: o build vem
+   antes porque os testes das páginas públicas precisam de `apps/web/dist`). Num clone limpo ficam pulados os 5 testes que
+   só rodam contra o Neon e o do modelo de IA (que ainda não foi baixado).
 
 ⚠️ **`codigo-8a5d91c.bundle` (pacote `recovery-20260928-192903`) está incompleto para o frontend:** até a correção de
 28/09/2026 (FASE 2.5.4) a regra `data/` do `.gitignore` escondia também `apps/web/src/data/` (`repository.ts`,
@@ -121,4 +123,5 @@ ambiente: código ← bundle (seção 0) → `npm ci` → imagens ← `images/` 
 (`DATABASE_URL=pglite:<pasta>`) → `db:migrate` → `db:import` (ensaio e real) → `db:verify --against=postgres-export.json`
 → `npm run build` → servidor com `STORAGE_BACKEND=postgres` → API por HTTP. Resultado: banco restaurado = export (0
 diferenças), API byte a byte = baseline, Reflection ok, 32 imagens com o SHA-256 do inventário. Foi esse ensaio que achou
-o problema do `.gitignore` e o do `autocrlf` descritos na seção 0.
+o problema do `.gitignore` e o do `autocrlf` descritos na seção 0, e que o `npm run check` testava antes de compilar
+(num clone limpo, 3 testes falhavam por falta de `apps/web/dist`; corrigido).

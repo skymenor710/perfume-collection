@@ -79,6 +79,16 @@ principal; os arquivos NÃO estão no banco.
 | Resolução de arquivo p/ verificação | `apps/server/src/db/checks.ts` (`resolveImageFile`), `scripts/verify-state.mjs`, `db:backup`, pacote de recuperação | leem o disco local; precisam de um resolvedor R2 (ou download) para conferir SHA-256 |
 | Importação/validação | `apps/server/src/db/importer.ts` (imagens precisam existir) | idem |
 | Páginas públicas / Open Graph | `apps/server/src/http/seo.ts` (`image: ${origin}/${cover}`) | a imagem de prévia passa a ser a URL do R2 |
+| Atualização da semente na partida | `apps/server/src/repositories/rules.ts` (`seedUpgrades`) | reconhece a foto da semente por `startsWith('bottles/')` e, quando a semente tem `assetVersion` maior, **regrava** `imageUrl`/`thumbUrl` com a referência `bottles/…` dela. Depois da virada para chaves R2 isso poderia devolver referências locais ao banco a cada partida — precisa conhecer o mapa referência→chave (ou a semente passar a usar as chaves) |
+| Proveniência das fotos da planilha | `scripts/embed-provenance.ts` | grava um `.json` ao lado de cada `bottles/*.webp`; no R2 vira metadado do objeto ou fica só local |
+
+**Fora do escopo do R2:** o modo "link do claude.ai" (`apps/web/src/data/repository.ts`) guarda fotos como assets do
+próprio artifact (`/_blob/<id>`), sem servidor. `apps/web/src/data/` só passou a ser versionada na FASE 2.5.4.
+
+**Auditoria contra o código (FASE 2.5.4, commit `f785520`):** todos os pontos das duas tabelas existem onde estão
+descritos; o contrato `StorageProvider` já tem `put/get/delete/exists/publicUrl/list`; nada da FASE 3 existe ainda
+(`R2StorageProvider` só num comentário de planejamento em `storage/types.ts`; nenhum `MEDIA_BACKEND`, `storage_key` ou
+endpoint do R2; as chaves `R2_*` só reservadas como segredo em `config.ts`).
 
 ## 4. Estratégia recomendada — migração sem downtime
 

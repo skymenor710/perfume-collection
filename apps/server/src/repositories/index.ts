@@ -5,6 +5,7 @@ import { openDb, redactDbError, type DbHandle } from '../db/client';
 import { loadLibrary } from '../db/snapshot';
 import { migrationStatus } from '../db/status';
 import { event, log } from '../log';
+import { mediaSettings, seedRefs } from '../media/content';
 import { loadStore, readPerfumes, store } from '../store';
 import type { LibraryRepository } from './library';
 import { PostgresLibraryRepository } from './postgres';
@@ -50,7 +51,8 @@ export async function openLibraryRepository(): Promise<OpenedLibrary> {
     markPostgresOfficial();
     // Mesma regra do JSON: perfumes da planilha recebem o que a semente reprocessada trouxe de novo.
     try {
-      const upgrades = seedUpgrades(await repo.list(), readPerfumes(config.seedFile));
+      // Pelo mapa de migração: foto da semente já no R2 continua sendo a mesma foto (nada volta para bottles/).
+      const upgrades = seedUpgrades(await repo.list(), readPerfumes(config.seedFile), seedRefs(mediaSettings()));
       for (const next of upgrades) await repo.upsert(next);
       if (upgrades.length) event('library.upgraded', { upgraded: upgrades.length });
     } catch (error) {

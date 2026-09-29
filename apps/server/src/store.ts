@@ -21,7 +21,8 @@ import { sanitizePerfume, sortPerfumes, type Perfume } from '@perfumes/core/perf
 import { config } from './config';
 import { event } from './log';
 import type { LibraryRepository, OwnerPatch } from './repositories/library';
-import { libraryViews, nextOwner, seedUpgrades } from './repositories/rules';
+import { mediaSettings, seedRefs } from './media/content';
+import { libraryViews, nextOwner, seedUpgrades, type SeedRefs } from './repositories/rules';
 
 /**
  * JsonLibraryRepository: biblioteca em três entidades (usuários · produtos · entradas) num JSON gravado de forma
@@ -100,12 +101,17 @@ const viewOf = (entry: Entry) => {
 /** Atualização pela planilha (regra em rules.ts), gravada de uma vez só. */
 function upgradeFromSeed() {
   let seed: Perfume[];
+  let refs: SeedRefs;
   try {
     seed = readPerfumes(config.seedFile);
-  } catch {
+    refs = seedRefs(mediaSettings());
+  } catch (error) {
+    // Sem semente, ou mapa de migração ilegível: não atualiza (nunca adivinha qual foto é qual).
+    if (!(error instanceof Error && /Mapa de migração/.test(error.message))) return;
+    event('library.upgraded', { skipped: error.message }, 'warn');
     return;
   }
-  const upgrades = seedUpgrades(libraryViews(library, owner().id), seed);
+  const upgrades = seedUpgrades(libraryViews(library, owner().id), seed, refs);
   for (const next of upgrades) write(next);
   if (upgrades.length) event('library.upgraded', { upgraded: upgrades.length, assetVersion: seed[0]?.assetVersion });
 }

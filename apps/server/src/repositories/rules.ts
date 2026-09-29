@@ -50,32 +50,54 @@ export async function nextOwner(current: User, patch: OwnerPatch, usernameTaken:
 }
 
 /**
+ * Como a atualização da semente enxerga referências de foto. Sem R2, comparação direta; com o mapa de migração
+ * (media/content.ts `seedRefs`), "p/<sha>…" que veio de "bottles/x" É "bottles/x" — senão a foto já migrada pareceria
+ * trocada e a semente devolveria a referência local a cada partida.
+ */
+export interface SeedRefs {
+  /** É foto da semente? ("bottles/…", ou chave por conteúdo que veio de um "bottles/…"). */
+  isSeedPhoto(ref: string | null): boolean;
+  /** As duas referências são a MESMA foto? */
+  same(a: string | null, b: string | null): boolean;
+  /** O que gravar para uma referência da semente (a chave validada no R2 no modo r2, ou a própria). */
+  stored(ref: string | null): string | null;
+}
+
+export const PLAIN_SEED_REFS: SeedRefs = {
+  isSeedPhoto: (ref) => Boolean(ref?.startsWith('bottles/')),
+  same: (a, b) => a === b,
+  stored: (ref) => ref,
+};
+
+/**
  * A semente (os da planilha) foi reprocessada com um pipeline mais novo? Os perfumes guardados que vieram dela
  * recebem fotos, cores e perfil olfativo novos — sem perder o que é da pessoa. Perfumes que a pessoa removeu
  * não voltam. Devolve as visões a gravar (vazio = nada a fazer).
+ *
+ * Idempotente: aplicar o resultado e rodar de novo devolve vazio (inclusive com fotos já migradas para o R2).
  */
-export function seedUpgrades(current: readonly Perfume[], seed: readonly Perfume[]): Perfume[] {
+export function seedUpgrades(current: readonly Perfume[], seed: readonly Perfume[], refs: SeedRefs = PLAIN_SEED_REFS): Perfume[] {
   const out: Perfume[] = [];
   for (const s of seed) {
     const p = current.find((v) => v.id === s.id);
     if (!p || p.origin !== 'google-sheet') continue;
     // Versão mais nova, ou a mesma versão reprocessada (a foto da semente mudou de arquivo). Foto trocada pela
     // pessoa (media/…) não é da semente e fica.
-    const seedPhotoChanged = p.imageUrl?.startsWith('bottles/') && p.imageUrl !== s.imageUrl;
+    const seedPhotoChanged = refs.isSeedPhoto(p.imageUrl) && !refs.same(p.imageUrl, s.imageUrl);
     // Semente que passou a conhecer as versões do produto (50/100 ml) também atualiza: o app precisa perguntar.
     const seedLearnedVariants = s.variants.length > 1 && p.variants.length === 0;
     if (p.assetVersion >= s.assetVersion && !seedPhotoChanged && !seedLearnedVariants) continue;
     out.push({
       ...p,
-      imageUrl: s.imageUrl,
-      thumbUrl: s.thumbUrl,
+      imageUrl: refs.stored(s.imageUrl),
+      thumbUrl: refs.stored(s.thumbUrl),
       dominantColor: s.dominantColor,
       dominantColorOverride: s.dominantColorOverride,
       accentColor: s.accentColor,
       accentGlow: s.accentGlow,
       imageSource: s.imageSource,
       imageCredit: s.imageCredit,
-      masterUrl: s.masterUrl,
+      masterUrl: refs.stored(s.masterUrl),
       fieldSources: { ...p.fieldSources, ...s.fieldSources },
       // Variante: vai inteira (tamanho + preço + link) ou não vai — nunca a foto de uma com o preço de outra.
       variants: s.variants,

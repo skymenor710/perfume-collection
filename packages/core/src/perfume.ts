@@ -200,11 +200,18 @@ export function safeHttpUrl(value: unknown): string | null {
   }
 }
 
-/** Imagem do próprio app: caminho relativo, /media, /_blob (claude.ai) ou http(s). */
+/**
+ * Referência por conteúdo (FASE 3): "p/<sha256 do arquivo>.<formato real>". A identidade da foto é o próprio
+ * conteúdo — mesma foto, mesma referência, venha de bottles/ ou de media/. Mora no R2 (ou na cópia local conferida).
+ */
+export const CONTENT_REF = /^p\/([0-9a-f]{64})\.(webp|png|jpg|gif|avif)$/;
+
+/** Imagem do próprio app: caminho relativo, referência por conteúdo, /media, /_blob (claude.ai) ou http(s). */
 export function safeImageRef(value: unknown): string | null {
   if (typeof value !== 'string' || !value.trim() || value.length > 2048) return null;
   const v = value.trim();
   if (/^(bottles|media)\/[\w.-]+\.(webp|png|jpe?g|avif)$/i.test(v)) return v;
+  if (CONTENT_REF.test(v)) return v;
   if (/^\/(media|_blob)\/[\w.-]+$/i.test(v)) return v;
   if (/^data:image\/(webp|png|jpeg);base64,[a-z0-9+/=]+$/i.test(v) && v.length < 1_500_000) return v;
   return safeHttpUrl(v);

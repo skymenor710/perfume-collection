@@ -11,8 +11,19 @@ import path from 'node:path';
 const ROOT = process.cwd();
 const BASELINE = path.join(ROOT, 'docs', 'state', 'baseline.json');
 
-/** Onde uma imagem "bottles/…" ou "media/…" mora no disco (antes e depois da reorganização em apps/). */
+/**
+ * Onde uma imagem "bottles/…" ou "media/…" mora no disco (antes e depois da reorganização em apps/).
+ * "p/<sha256>.<formato>" (FASE 3, R2): o arquivo local de origem registrado em data/media-map.json cujo conteúdo tem
+ * exatamente aquele SHA-256.
+ */
 function imageFile(ref) {
+  const content = /^p\/([0-9a-f]{64})\.(webp|png|jpg|gif|avif)$/.exec(ref);
+  if (content) {
+    const mapFile = path.join(ROOT, 'data', 'media-map.json');
+    const refs = existsSync(mapFile) ? JSON.parse(readFileSync(mapFile, 'utf8')).refs ?? {} : {};
+    const originals = Object.entries(refs).filter(([, r]) => r.key === ref).map(([orig]) => imageFile(orig));
+    return originals.find((f) => existsSync(f) && sha(f) === content[1]) ?? path.join(ROOT, 'data', 'media', '(sem cópia local)', ref);
+  }
   if (ref.startsWith('media/')) return path.join(ROOT, 'data', ref);
   const candidates = [path.join(ROOT, 'apps', 'web', 'public', ref), path.join(ROOT, 'public', ref)];
   return candidates.find((c) => existsSync(c)) ?? candidates[0];

@@ -16,3 +16,4 @@ Uma decisão por arquivo: contexto, decisão, consequências, alternativas. Deci
 | 0009 | [Configuração só pelo ambiente, validada por zod](0009-configuracao-validada.md) | aceito |
 | 0010 | [Autorização por Principal (preparo para contas)](0010-autorizacao-por-principal.md) | aceito |
 | 0011 | [Migração do library.json para Postgres: reversível, verificável, atômica](0011-migracao-json-postgres.md) | aceito |
+| 0012 | [Fotos no R2: chaves por conteúdo, prova por SHA-256 e mapa de migração](0012-r2-chaves-por-conteudo-e-mapa.md) | aceito |

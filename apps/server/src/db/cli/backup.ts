@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import path from 'node:path';
 import { sanitizeLibrary } from '@perfumes/core/library';
 import { config } from '../../config';
+import { MediaMap } from '../../media/map';
 import { BACKUP_PREFIX, backupsDir, libraryFile, sha256, targetFingerprint, type BackupManifest } from '../backup';
 import { resolveImageFile } from '../checks';
 import { redactDbError } from '../client';
@@ -50,6 +51,16 @@ const images = [...refs].sort().map((ref) => {
 });
 writeFileSync(path.join(dir, 'images.json'), `${JSON.stringify(images, null, 2)}\n`, { flag: 'wx' });
 
+// 2b. O mapa de migração das fotos (FASE 3), se existir: sem ele, a volta do R2 para os arquivos locais perde o registro.
+let mediaMap: BackupManifest['mediaMap'] = null;
+if (existsSync(config.mediaMapFile)) {
+  const mapBytes = readFileSync(config.mediaMapFile);
+  copyFileSync(config.mediaMapFile, path.join(dir, 'media-map.json'));
+  if (sha256(readFileSync(path.join(dir, 'media-map.json'))) !== sha256(mapBytes)) die('A cópia do mapa de migração não bate com o original.');
+  const data = new MediaMap(config.mediaMapFile).read();
+  mediaMap = { file: 'media-map.json', sha256: sha256(mapBytes), objects: Object.keys(data.objects).length, refs: Object.keys(data.refs).length };
+}
+
 // 3. O banco principal como está agora (só leitura).
 const url = config.databaseUrl;
 let principalDb: BackupManifest['principalDb'] = { file: null, state: 'DATABASE_URL não configurada', migrationsApplied: 0, counts: null, sha256: null };
@@ -94,6 +105,7 @@ const manifest: BackupManifest = {
   target,
   libraryJson: { file: 'library.json', sha256: sha256(libBytes), bytes: libBytes.length },
   images: { file: 'images.json', count: images.length, missing: images.filter((i) => !i.sha256).length },
+  mediaMap,
   principalDb,
 };
 writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx' });
@@ -101,5 +113,6 @@ writeFileSync(path.join(dir, 'manifest.json'), `${JSON.stringify(manifest, null,
 console.log(`Backup: ${path.relative(config.root, dir)}`);
 console.log(`  library.json  sha256 ${manifest.libraryJson.sha256.slice(0, 16)}… (${library.entries.length} perfumes)`);
 console.log(`  imagens       ${images.length} referências, ${manifest.images.missing} faltando`);
+console.log(`  mapa R2       ${mediaMap ? `${mediaMap.objects} objetos validados, ${mediaMap.refs} referências` : 'nenhum (nada migrado)'}`);
 console.log(`  banco         ${url ? describeTarget(url) : 'não configurado'} — ${principalDb.state}`);
 if (manifest.images.missing) die('Há imagens faltando: o backup foi gravado, mas confira antes de continuar.');

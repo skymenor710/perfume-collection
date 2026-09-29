@@ -4,6 +4,7 @@ import { redactDbError } from './db/client';
 import { createHandler } from './http/app';
 import { localAddresses } from './http/guard';
 import { event, log } from './log';
+import { mediaSettings, referencedWithOriginals } from './media/content';
 import { collectMediaGarbage } from './media/gc';
 import { backupLibraryFromDb, openLibraryRepository, StartupError } from './repositories';
 
@@ -35,10 +36,11 @@ try {
 }
 const { repo } = opened!;
 
-// Mídia órfã (fotos que nenhum perfume usa) sai na partida e a cada 6 h.
+// Mídia órfã (fotos que nenhum perfume usa) sai na partida e a cada 6 h — só do disco local, nunca do R2; a cópia
+// local de uma foto já migrada (origem no mapa) conta como em uso.
 const sweep = async () => {
   try {
-    const { removed, bytes } = await collectMediaGarbage(await repo.referenced());
+    const { removed, bytes } = await collectMediaGarbage(referencedWithOriginals(await repo.referenced(), mediaSettings().map));
     if (removed) event('media.gc', { removed, kb: Math.round(bytes / 1024) });
   } catch (error) {
     log.warn({ event: 'media.gc', err: redactDbError(error, config.databaseUrl) });

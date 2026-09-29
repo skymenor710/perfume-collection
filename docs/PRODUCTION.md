@@ -11,7 +11,7 @@
 | 0 · Git + backup + CI | Repositório local, `.gitignore` sem dados/segredos, `.env.example`, lint, CI sem credenciais, baseline da coleção | ✅ feito — **sem remoto** (push só com autorização) |
 | 1 · Reorganização local | Monorepo, Hono `/api/v1`, jobs, fontes, repositório/storage, config, logs, correções de segurança da §14 | ✅ feito |
 | 2 · Banco | Neon (branch de dev) + Drizzle + migração do `library.json` verificada | 🔶 pronto e ensaiado localmente (Postgres/PGlite: 0 diferenças, API byte a byte, smoke 56/56); **falta o Neon** — conta e `DATABASE_URL` do dono |
-| 3 · Storage | R2 + chaves pelo conteúdo + migração das imagens verificada | ⏳ `StorageProvider` pronto; falta `R2StorageProvider` |
+| 3 · Storage | R2 + chaves pelo conteúdo + migração das imagens verificada | ⏳ 3.0 feita (implementação local testada, ver [R2.md](R2.md)); falta 3.1 (R2 real) e 3.2 (virada) |
 | 4 · Tarefas | pg-boss: importação como tarefa, cache e disjuntores no banco | ⏳ contrato `ImportJobStore` e runner prontos (em memória) |
 | 5 · Deploy privado | Dockerfile, Railway (web + worker), domínio, Cloudflare, HTTPS, Sentry | — |
 | 6 · Contas | Better Auth + código por e-mail | ⏳ ponto de entrada `Authorizer` pronto |
@@ -36,7 +36,9 @@ repositório. Validadas na partida por `apps/server/src/config.ts`.
 |---|---|---|
 | Servidor local | `PERFUMES_PORT`, `PERFUMES_HOST`, `PERFUMES_DATA_DIR`, `PERFUMES_MODELS_DIR`, `PERFUMES_ACCESS_CODE`, `PERFUMES_USERNAME`, `PERFUMES_DISPLAY_NAME`, `PERFUMES_PUBLIC_ORIGIN`, `LOG_LEVEL` | sim |
 | Rede e fontes | `EGRESS_MAX_CONCURRENT`, `EGRESS_MAX_PER_MINUTE`, `SEARCH_PROVIDER_KEY` (ou `BRAVE_SEARCH_API_KEY`), `SOURCES_DISABLED` | sim |
-| Produção | `DATABASE_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`, `AUTH_SECRET`, `EMAIL_PROVIDER_KEY`, `SENTRY_DSN` | validadas, **não usadas** |
+| Banco | `STORAGE_BACKEND`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `TEST_DATABASE_URL`, `NEON_TEST_DATABASE_NAME` | sim (Postgres oficial desde 28/09) |
+| Fotos (FASE 3) | `MEDIA_BACKEND`, `MEDIA_FALLBACK`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_PUBLIC_BASE_URL` | validadas; `MEDIA_BACKEND=local`; R2 ainda sem credenciais |
+| Produção | `AUTH_SECRET`, `EMAIL_PROVIDER_KEY`, `SENTRY_DSN` | validadas, **não usadas** |
 
 ### Antes do primeiro deploy (checklist)
 

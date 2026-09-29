@@ -11,7 +11,8 @@
 | Coleção (fonte oficial) | Neon — branch principal, database `neondb` | app pelo pooler (`DATABASE_URL`); migrations pela conexão direta (`DATABASE_URL_UNPOOLED`) |
 | Marcador de fonte oficial | `data/storage-backend.json` | `official: postgres` + SHA-256 do library.json parado; renovado a cada partida |
 | library.json parado (histórico) | `data/library.json` (SHA-256 `0c63c753…`) | o app NÃO grava mais nele |
-| Imagens | `data/media/` (importadas) e `apps/web/public/bottles/` (planilha) | só neste computador até a FASE 3 (R2) |
+| Imagens | `data/media/` (importadas) e `apps/web/public/bottles/` (planilha) | só neste computador; `MEDIA_BACKEND=local`. R2 implementado e testado localmente (FASE 3.0, [R2.md](R2.md)), nada enviado |
+| Mapa de migração das fotos | `data/media-map.json` | ainda não existe (nada migrado); quando existir, é estado crítico e entra no `db:backup` |
 | Cópias automáticas do Postgres | `data/backups/postgres/library-<data>.json` | na partida e a cada 24 h; nenhuma apagada |
 | Backups antes de marcos | `data/backups/backup-before-neon-…`, `backup-before-storage-backend-postgres-switch-…`, `backup-hardening-2-5-1-…` | `db:backup --label=…` |
 | Exportações | `data/exports/library.postgres-….json` | `npm run db:export` |
@@ -139,3 +140,5 @@ Antes de qualquer rollback, também: `npm run db:backup -- --label=backup-before
 | `npm run state:verify` | nada | 15 perfumes / 32 imagens / Reflection contra o baseline |
 | `npm run db:rollback-json [-- --confirm]` | exportação; com `--confirm`, library.json (arquivando o anterior) | volta explícita ao JSON |
 | `npm run db:migrate` · `db:import` | **banco principal** | só com aprovação; exigem `db:backup` recente |
+| `npm run media:migrate` | relatório local (`data/migrations/media/`) | DRY-RUN das fotos para o R2: SHA-256, chaves, faltantes, divergentes; não envia nada |
+| `npm run media:migrate -- --confirm` | **R2** + `data/media-map.json` | upload com prova (SHA-256 de volta); exige R2 configurado; não muda referências — FASE 3.1, com aprovação |

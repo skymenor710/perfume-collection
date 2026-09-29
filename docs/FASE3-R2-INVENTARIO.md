@@ -2,6 +2,11 @@
 
 > Gerado em 2026-09-28 a partir do pacote de recuperação `recovery-20260928-192903` (conferido: SHA-256 de cada
 > arquivo = original = baseline = banco). **Nada foi migrado.** Este documento só descreve o ponto de partida.
+>
+> **FASE 3.0 (29/09/2026): implementação local concluída** — `R2StorageProvider`, chaves `p/<sha256>.<formato>`,
+> mapa, dry-run, virada/volta e os pontos da seção 3 adaptados e testados sem internet. Nenhum objeto enviado ao R2.
+> Arquitetura e estado atual: [R2.md](R2.md). A estratégia da seção 4 foi mantida; a chave final é
+> `p/<sha256>.<formato>` (sem a variante no nome: a mesma foto é um objeto só).
 
 ## 1. Números
 

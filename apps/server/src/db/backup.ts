@@ -30,6 +30,8 @@ export interface BackupManifest {
   target: { host: string; pooled: boolean; database: string; fingerprint: string } | null;
   libraryJson: { file: string; sha256: string; bytes: number };
   images: { file: string; count: number; missing: number };
+  /** Mapa de migração das fotos (FASE 3). Ausente em backups antigos; nulo quando nada foi migrado. */
+  mediaMap?: { file: string; sha256: string; objects: number; refs: number } | null;
   principalDb: { file: string | null; state: string; migrationsApplied: number; counts: Record<string, number> | null; sha256: string | null };
 }
 

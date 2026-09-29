@@ -44,7 +44,7 @@ describe('configuração validada', () => {
 
   it('.env.example lista as variáveis de produção pedidas', () => {
     const example = readFileSync('.env.example', 'utf8');
-    for (const name of ['DATABASE_URL', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'R2_PUBLIC_URL', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SEARCH_PROVIDER_KEY', 'SENTRY_DSN']) {
+    for (const name of ['DATABASE_URL', 'R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'R2_ENDPOINT', 'R2_PUBLIC_BASE_URL', 'MEDIA_BACKEND', 'MEDIA_FALLBACK', 'AUTH_SECRET', 'EMAIL_PROVIDER_KEY', 'SEARCH_PROVIDER_KEY', 'SENTRY_DSN']) {
       expect(example).toMatch(new RegExp(`^${name}=$`, 'm'));
     }
   });
@@ -55,7 +55,14 @@ describe('configuração validada', () => {
     [{ LOG_LEVEL: 'barulhento' }, 'LOG_LEVEL'],
     [{ AUTH_SECRET: 'curto' }, 'AUTH_SECRET'],
     [{ DATABASE_URL: 'mysql://x' }, 'DATABASE_URL'],
-    [{ R2_PUBLIC_URL: 'http://img.exemplo.com' }, 'R2_PUBLIC_URL'],
+    [{ R2_PUBLIC_BASE_URL: 'http://img.exemplo.test' }, 'R2_PUBLIC_BASE_URL'],
+    [{ R2_PUBLIC_BASE_URL: 'https://img.exemplo.test/?x=1' }, 'R2_PUBLIC_BASE_URL'],
+    [{ R2_ENDPOINT: 'https://conta.exemplo.test/caminho' }, 'R2_ENDPOINT'],
+    [{ R2_BUCKET: 'Bucket_Invalido' }, 'R2_BUCKET'],
+    [{ R2_ACCOUNT_ID: 'nao-e-hex' }, 'R2_ACCOUNT_ID'],
+    [{ MEDIA_BACKEND: 's3' }, 'MEDIA_BACKEND'],
+    [{ MEDIA_FALLBACK: 'sempre' }, 'MEDIA_FALLBACK'],
+    [{ MEDIA_BACKEND: 'r2' }, 'R2_SECRET_ACCESS_KEY: obrigatória com MEDIA_BACKEND=r2'],
     [{ PERFUMES_PUBLIC_ORIGIN: 'perfumes.com' }, 'PERFUMES_PUBLIC_ORIGIN'],
     [{ EGRESS_MAX_CONCURRENT: '0' }, 'EGRESS_MAX_CONCURRENT'],
   ])('valor inválido para no start: %j', (env, key) => {

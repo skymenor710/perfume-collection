@@ -1,8 +1,8 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config';
-import { assertValidKey, contentTypeOf, isValidKey, type PutOptions, type StorageProvider, type StoredEntry, type StoredObject } from './types';
+import { assertValidKey, ChecksumMismatchError, contentTypeOf, isValidKey, type PutOptions, type StorageProvider, type StoredEntry, type StoredObject } from './types';
 
 /**
  * Armazenamento numa pasta local (data/media). Duas travas contra sair da pasta: a chave passa pela validação
@@ -34,8 +34,12 @@ export class LocalStorageProvider implements StorageProvider {
     return file;
   }
 
-  async put(key: string, body: Buffer, _options: PutOptions): Promise<void> {
+  async put(key: string, body: Buffer, options: PutOptions): Promise<void> {
     const file = this.require(key);
+    if (options.sha256) {
+      const actual = createHash('sha256').update(body).digest('hex');
+      if (actual !== options.sha256) throw new ChecksumMismatchError(key, options.sha256, actual);
+    }
     await mkdir(path.dirname(file), { recursive: true });
     const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`;
     await writeFile(tmp, body);

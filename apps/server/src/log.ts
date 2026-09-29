@@ -92,6 +92,10 @@ export type LogEvent =
   | 'model.unavailable'
   | 'model.downloading'
   | 'media.gc'
+  /** Com MEDIA_BACKEND=r2: foto pedida que não está validada no R2 (404, sem fallback). */
+  | 'media.not_migrated'
+  /** Com MEDIA_BACKEND=r2 e MEDIA_FALLBACK=local: foto servida da cópia local porque não está validada no R2. */
+  | 'media.fallback'
   | 'library.migrated'
   | 'library.upgraded'
   | 'library.invalid_entries'

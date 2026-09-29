@@ -36,6 +36,7 @@
     "db:rollback-json": "tsx apps/server/src/db/cli/rollback-json.ts",
     "db:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-db.ps1",
     "db:targets": "tsx apps/server/src/db/cli/targets.ts",
+    "media:migrate": "tsx apps/server/src/media/cli.ts",
     "seed:research": "tsx scripts/research-seed.ts",
     "app": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1",
     "app:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1 -Stop",

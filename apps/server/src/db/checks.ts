@@ -3,10 +3,17 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Library } from '@perfumes/core/library';
 import { config } from '../config';
+import { localFileForKey } from '../media/content';
+import { MediaMap } from '../media/map';
+import { isContentKey } from '../storage/keys';
 import type { ImageResolver } from './importer';
 
-/** "bottles/…" mora no site (apps/web/public); "media/…" nos dados. Nada fora dessas pastas. */
+/**
+ * "bottles/…" mora no site (apps/web/public); "media/…" nos dados. Nada fora dessas pastas.
+ * "p/<sha256>…" (FASE 3): o arquivo local de origem registrado no mapa de migração, só se o SHA-256 bater com a chave.
+ */
 export const resolveImageFile: ImageResolver = (ref) => {
+  if (isContentKey(ref)) return localFileForKey(ref, new MediaMap(config.mediaMapFile))?.file ?? null;
   const roots: [string, string][] = [
     ['bottles/', path.join(config.root, 'apps', 'web', 'public')],
     ['media/', config.dataDir],

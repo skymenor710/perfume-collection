@@ -13,6 +13,8 @@ import { researchSlots } from '../jobs/slots';
 import { saveBottleMedia } from '../media/store';
 import { checkImageBytes } from '../net/sniff';
 import type { LibraryRepository } from '../repositories/library';
+import { contentSecurityPolicy, mediaSettings, routeContentKey, type MediaSettings } from '../media/content';
+import { isContentKey } from '../storage/keys';
 import { mediaStorage } from '../storage/local';
 import type { StorageProvider } from '../storage/types';
 import { store } from '../store';
@@ -34,13 +36,20 @@ const API_HEADERS = {
   'Referrer-Policy': 'no-referrer',
 };
 
-const PAGE_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'no-referrer',
-  'X-Frame-Options': 'DENY',
-  'Content-Security-Policy':
-    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
-};
+type Headers = Record<string, string>;
+
+/**
+ * Cabeçalhos das páginas e arquivos. O CSP vem da configuração de fotos: no modo local é o de sempre; com
+ * MEDIA_BACKEND=r2, img-src libera SÓ a origem pública configurada do R2 (media/content.ts).
+ */
+export function pageHeaders(media: MediaSettings): Headers {
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': contentSecurityPolicy(media),
+  };
+}
 
 function sendJson(res: ServerResponse, status: number, data: unknown, headers: Record<string, string> = {}) {
   if (res.headersSent) return;
@@ -88,6 +97,10 @@ const MIME: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.webp': 'image/webp',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.avif': 'image/avif',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
   '.json': 'application/json',
@@ -97,11 +110,11 @@ const MIME: Record<string, string> = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
-function serveIndex(res: ServerResponse, meta: PageMeta | null = null) {
+function serveIndex(res: ServerResponse, headers: Headers, meta: PageMeta | null = null) {
   const index = inside(config.distDir, 'index.html');
   if (!index) throw new HttpError(503, 'not_built', 'O site ainda não foi montado. Rode npm start.');
   const html = renderIndex(readFileSync(index, 'utf8'), meta);
-  res.writeHead(meta?.status ?? 200, { ...PAGE_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html), 'Cache-Control': 'no-cache' });
+  res.writeHead(meta?.status ?? 200, { ...headers, 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html), 'Cache-Control': 'no-cache' });
   res.end(html);
 }
 
@@ -138,15 +151,15 @@ const meSchema = z.object({
 
 const publicUser = (u: User) => ({ username: u.username, displayName: u.displayName, bio: u.bio, avatarUrl: u.avatarUrl });
 
-function serveBuffer(res: ServerResponse, body: Buffer, contentType: string, cache: string) {
-  res.writeHead(200, { ...PAGE_HEADERS, 'Content-Type': contentType, 'Content-Length': body.length, 'Cache-Control': cache });
+function serveBuffer(res: ServerResponse, headers: Headers, body: Buffer, contentType: string, cache: string) {
+  res.writeHead(200, { ...headers, 'Content-Type': contentType, 'Content-Length': body.length, 'Cache-Control': cache });
   res.end(body);
 }
 
-function serveFile(res: ServerResponse, filePath: string, cache: string) {
+function serveFile(res: ServerResponse, headers: Headers, filePath: string, cache: string) {
   const stat = statSync(filePath);
   res.writeHead(200, {
-    ...PAGE_HEADERS,
+    ...headers,
     'Content-Type': MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream',
     'Content-Length': stat.size,
     'Cache-Control': cache,
@@ -174,6 +187,8 @@ const pairSchema = z.object({ code: z.string().min(4).max(20) });
 export interface HandlerDeps {
   repo?: LibraryRepository;
   media?: StorageProvider;
+  /** Configuração das fotos (backend, R2, mapa). Padrão: a do ambiente. */
+  content?: MediaSettings;
   jobs?: ImportJobRunner;
   authorize?: Authorizer;
 }
@@ -181,6 +196,8 @@ export interface HandlerDeps {
 export function createHandler(deps: HandlerDeps = {}) {
   const repo = deps.repo ?? store;
   const media = deps.media ?? mediaStorage;
+  // Lida a cada pedido: a configuração de fotos pode mudar entre testes; em produção é a mesma instância (cache).
+  const content = () => deps.content ?? mediaSettings();
   // Jobs em memória nesta etapa (sem banco): reiniciar o servidor esquece jobs, nunca a coleção.
   const jobs = deps.jobs ?? new ImportJobRunner(new MemoryImportJobStore());
   // Hoje há um usuário só: quem passou pela proteção (este computador ou aparelho pareado) age como ele.
@@ -190,6 +207,7 @@ export function createHandler(deps: HandlerDeps = {}) {
   return async function handle(req: IncomingMessage, res: ServerResponse) {
     try {
       checkHost(req);
+      const headers = pageHeaders(content());
       const url = new URL(req.url ?? '/', 'http://local');
       const route = `${req.method} ${url.pathname}`;
 
@@ -361,20 +379,38 @@ export function createHandler(deps: HandlerDeps = {}) {
         // O armazenamento recusa chave com "..", barra inicial ou caractere estranho, e confere a pasta de novo.
         const object = await media.get(rel);
         if (!object) throw new HttpError(404, 'not_found', 'Imagem não encontrada.');
-        return serveBuffer(res, object.body, object.contentType, `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`);
+        return serveBuffer(res, headers, object.body, object.contentType, `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`);
+      }
+
+      // Foto por conteúdo (FASE 3): "/p/<sha256>.<formato>". Mesma regra de acesso de /media/. O servidor decide:
+      // R2 validado → redireciona; senão cópia local conferida (modo local, ou fallback explícito) ou 404 com log.
+      if (url.pathname.startsWith('/p/')) {
+        const key = url.pathname.slice(1);
+        if (!isContentKey(key)) throw new HttpError(404, 'not_found', 'Imagem não encontrada.');
+        const isPublic = await repo.isPublicMedia(key);
+        if (!isPublic) requireAuthorized(req);
+        const scope = isPublic ? 'public' : 'private';
+        const target = routeContentKey(key, content());
+        if (target.kind === 'redirect') {
+          res.writeHead(302, { ...headers, Location: target.location, 'Cache-Control': `${scope}, max-age=3600` });
+          res.end();
+          return;
+        }
+        if (target.kind === 'local') return serveFile(res, headers, target.file, `${scope}, max-age=31536000, immutable`);
+        throw new HttpError(404, 'not_found', 'Imagem não encontrada.');
       }
 
       // index.html é servido pelo próprio app, com uma marca: a página sabe que tem servidor e nunca "desce" para o
       // modo só-navegador (que não abre links) só porque uma resposta demorou.
-      if (url.pathname === '/' || url.pathname === '/index.html') return serveIndex(res);
+      if (url.pathname === '/' || url.pathname === '/index.html') return serveIndex(res, headers);
       // Endereços públicos (/username, /username/wishlist, /username/collection): mesmo app, com metadados da página.
       const publicRoute = parsePublicRoute(url.pathname);
-      if (publicRoute) return serveIndex(res, await publicPageMeta(publicRoute, originFor(req.headers.host), repo));
+      if (publicRoute) return serveIndex(res, headers, await publicPageMeta(publicRoute, originFor(req.headers.host), repo, content()));
       const decoded = decodePath(url.pathname);
       const asset = url.pathname !== '/' && decoded !== null && inside(config.distDir, decoded);
       // sw.js sem cache longo: uma versão nova do service worker precisa chegar no próximo acesso.
-      if (asset) return serveFile(res, asset, url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600');
-      return serveIndex(res);
+      if (asset) return serveFile(res, headers, asset, url.pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600');
+      return serveIndex(res, headers);
     } catch (error) {
       if (error instanceof HttpError) return sendJson(res, error.status, { error: { code: error.code, message: error.message } });
       log.error({ event: 'server.error', err: error, route: `${req.method} ${safePath(req.url)}` });

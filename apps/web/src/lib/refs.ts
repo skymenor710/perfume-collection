@@ -8,9 +8,12 @@ const BASE = import.meta.env.BASE_URL;
 /** "api/perfumes" → "/api/perfumes" (servidor) ou "./api/perfumes" (claude.ai, onde a API nem existe). */
 export const apiPath = (path: string) => `${BASE}${path.replace(/^\/+/, '')}`;
 
-/** Foto guardada como "bottles/…" ou "media/…" → endereço absoluto no servidor; o resto (blob:, data:, https:) passa. */
+/**
+ * Foto guardada como "bottles/…", "media/…" ou "p/…" (por conteúdo, FASE 3) → endereço no próprio servidor; o resto
+ * (blob:, data:, https:) passa. "/p/…" é resolvido pelo servidor (R2 ou cópia local): a página não conhece o R2.
+ */
 export function assetRef(ref: string): string;
 export function assetRef(ref: string | null): string | null;
 export function assetRef(ref: string | null): string | null {
-  return ref && /^(bottles|media)\//.test(ref) ? `${BASE}${ref}` : ref;
+  return ref && /^(bottles|media|p)\//.test(ref) ? `${BASE}${ref}` : ref;
 }

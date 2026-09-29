@@ -1,6 +1,7 @@
 import { parsePublicPath, type ListKind, type PublicPath } from '@perfumes/core/library';
 import type { Perfume } from '@perfumes/core/perfume';
 import { config } from '../config';
+import { absoluteImageUrl, mediaSettings, type MediaSettings } from '../media/content';
 import type { LibraryRepository } from '../repositories/library';
 
 /**
@@ -25,7 +26,7 @@ export interface PageMeta {
 
 const LIST_LABEL: Record<ListKind, string> = { wishlist: 'Wishlist', collection: 'Coleção' };
 
-export async function publicPageMeta(route: PublicRoute, origin: string, repo: LibraryRepository): Promise<PageMeta> {
+export async function publicPageMeta(route: PublicRoute, origin: string, repo: LibraryRepository, media: MediaSettings = mediaSettings()): Promise<PageMeta> {
   const profile = await repo.publicProfile(route.username);
   const notPublic: PageMeta = { status: 404, title: 'Meus Perfumes', description: 'Esta página não é pública.', canonical: null, image: null, robots: 'noindex' };
   if (!profile) return notPublic;
@@ -41,7 +42,8 @@ export async function publicPageMeta(route: PublicRoute, origin: string, repo: L
     : `${route.list ? `${LIST_LABEL[route.list]} de ${name}` : `Perfumes de ${name}`} — ainda vazia.`;
   const cover = perfumes.find((p) => p.imageUrl)?.imageUrl ?? null;
   const path = `/${profile.user.username}${route.list ? `/${route.list}` : ''}`;
-  return { status: 200, title, description, canonical: `${origin}${path}`, image: cover ? `${origin}/${cover}` : null, robots: null };
+  // Prévia: foto local (ou por conteúdo sem R2) pelo próprio servidor; com o R2 ativo e a foto validada, a URL pública do R2.
+  return { status: 200, title, description, canonical: `${origin}${path}`, image: cover ? absoluteImageUrl(cover, origin, media) : null, robots: null };
 }
 
 /** Tags de instalação (PWA): manifest, ícone da tela inicial do iPhone, barra de status. */

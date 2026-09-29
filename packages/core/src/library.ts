@@ -185,7 +185,8 @@ export function fromPerfume(p: Perfume, userId: string): { product: Product; ent
             variantId: variantImage,
             // Fotos processadas pelo app (planilha e importadas) são recortes transparentes; fotos antigas enviadas pelo
             // navegador podem não ter sido recortadas.
-            transparent: /^(bottles|media)\//.test(p.imageUrl) ? true : null,
+            // "p/…" (R2, por conteúdo) é a mesma foto processada, só guardada em outro lugar.
+            transparent: /^(bottles|media|p)\//.test(p.imageUrl) ? true : null,
             source: p.imageSource,
             credit: p.imageCredit,
           },

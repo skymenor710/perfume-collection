@@ -1,0 +1,8 @@
+{
+  "name": "meus-perfumes-ad-tools",
+  "private": true,
+  "description": "Ferramentas de produção do anúncio (isoladas do app).",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+  }
+}

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config';
-import { assertValidKey, ChecksumMismatchError, contentTypeOf, isValidKey, type PutOptions, type StorageProvider, type StoredEntry, type StoredObject } from './types';
+import { assertValidKey, assertValidPrefix, ChecksumMismatchError, contentTypeOf, isValidKey, type PutOptions, type StorageProvider, type StoredEntry, type StoredObject } from './types';
 
 /**
  * Armazenamento numa pasta local (data/media). Duas travas contra sair da pasta: a chave passa pela validação
@@ -83,7 +83,8 @@ export class LocalStorageProvider implements StorageProvider {
     return `${this.urlPrefix}${assertValidKey(key)}`;
   }
 
-  async list(): Promise<StoredEntry[]> {
+  async list(prefix?: string): Promise<StoredEntry[]> {
+    assertValidPrefix(prefix);
     const root = path.resolve(this.root());
     const out: StoredEntry[] = [];
     const walk = async (dir: string, prefix: string) => {
@@ -99,7 +100,7 @@ export class LocalStorageProvider implements StorageProvider {
         try {
           const info = await stat(full);
           if (info.isDirectory()) await walk(full, key);
-          else if (info.isFile() && isValidKey(key) && !name.endsWith('.tmp')) out.push({ key, size: info.size, modifiedAt: info.mtime });
+          else if (info.isFile() && isValidKey(key) && !name.endsWith('.tmp') && (!prefix || key.startsWith(prefix))) out.push({ key, size: info.size, modifiedAt: info.mtime });
         } catch {
           /* sumiu no meio da listagem */
         }

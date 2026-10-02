@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { assertValidKey, ChecksumMismatchError, isValidKey, StorageUnavailableError, type PutOptions, type StorageProvider, type StoredEntry, type StoredObject } from '../../apps/server/src/storage/types';
+import { FAILURE_TEXT, type StorageFailure } from '../../apps/server/src/storage/failure';
+import { assertValidKey, assertValidPrefix, ChecksumMismatchError, isValidKey, StorageUnavailableError, type PutOptions, type RemoteStorage, type StoredEntry, type StoredObject } from '../../apps/server/src/storage/types';
 
 /**
  * R2 falso, em memória, para os testes da FASE 3 (sem internet, sem Cloudflare). Cumpre o contrato StorageProvider
@@ -12,11 +13,13 @@ import { assertValidKey, ChecksumMismatchError, isValidKey, StorageUnavailableEr
  *   truncate     put guarda só metade do conteúdo (upload interrompido)
  *   corrupt      get devolve um byte trocado
  *   missing      get/exists respondem "não existe" mesmo com o objeto lá
+ *   <causa>      StorageUnavailableError com a causa classificada (no_such_bucket, access_denied, signature, endpoint…)
  * `latencyMs` com jitter embaralha a ordem das operações simultâneas (concorrência de verdade).
+ * `deleted` guarda TODA chave que recebeu um delete (mesmo as que não existiam): prova de que nada fora do esperado foi apagado.
  */
 
-type Op = 'put' | 'get' | 'exists' | 'delete' | 'list';
-type Fault = 'unavailable' | 'timeout' | 'drop' | 'truncate' | 'corrupt' | 'missing';
+type Op = 'put' | 'get' | 'exists' | 'delete' | 'list' | 'access';
+type Fault = 'unavailable' | 'timeout' | 'drop' | 'truncate' | 'corrupt' | 'missing' | StorageFailure;
 
 interface FakeObject {
   body: Buffer;
@@ -25,10 +28,16 @@ interface FakeObject {
   modifiedAt: Date;
 }
 
-export class FakeR2StorageProvider implements StorageProvider {
+const CAUSES = new Set<string>(Object.keys(FAILURE_TEXT));
+
+export class FakeR2StorageProvider implements RemoteStorage {
   readonly name = 'fake-r2';
   readonly objects = new Map<string, FakeObject>();
-  readonly calls: Record<Op, number> = { put: 0, get: 0, exists: 0, delete: 0, list: 0 };
+  readonly calls: Record<Op, number> = { put: 0, get: 0, exists: 0, delete: 0, list: 0, access: 0 };
+  /** Toda chave que recebeu um delete, na ordem. */
+  readonly deleted: string[] = [];
+  /** Todo prefixo pedido num list (undefined = listagem global). */
+  readonly listed: (string | undefined)[] = [];
   private readonly faults: { op: Op; kind: Fault; times: number; key?: string }[] = [];
   latencyMs = 0;
 
@@ -47,7 +56,8 @@ export class FakeR2StorageProvider implements StorageProvider {
     const fault = this.faults[i]!;
     fault.times--;
     if (fault.kind === 'unavailable') throw new StorageUnavailableError(op, key, 'resposta inesperada HTTP 503');
-    if (fault.kind === 'timeout') throw new StorageUnavailableError(op, key, 'sem resposta em 20000 ms');
+    if (fault.kind === 'timeout') throw new StorageUnavailableError(op, key, 'sem resposta em 20000 ms', 'timeout');
+    if (CAUSES.has(fault.kind)) throw new StorageUnavailableError(op, key, FAILURE_TEXT[fault.kind as StorageFailure], fault.kind as StorageFailure);
     return fault.kind;
   }
 
@@ -80,6 +90,7 @@ export class FakeR2StorageProvider implements StorageProvider {
   async delete(key: string): Promise<boolean> {
     if (!isValidKey(key)) return false;
     await this.enter('delete', key);
+    this.deleted.push(key);
     return this.objects.delete(key);
   }
 
@@ -87,8 +98,14 @@ export class FakeR2StorageProvider implements StorageProvider {
     return `${this.publicBase}/${assertValidKey(key)}`;
   }
 
-  async list(): Promise<StoredEntry[]> {
+  async list(prefix?: string): Promise<StoredEntry[]> {
+    assertValidPrefix(prefix);
+    this.listed.push(prefix);
     await this.enter('list', null);
-    return [...this.objects.entries()].map(([key, o]) => ({ key, size: o.body.length, modifiedAt: o.modifiedAt }));
+    return [...this.objects.entries()].filter(([key]) => !prefix || key.startsWith(prefix)).map(([key, o]) => ({ key, size: o.body.length, modifiedAt: o.modifiedAt }));
+  }
+
+  async checkAccess(): Promise<void> {
+    await this.enter('access', null);
   }
 }

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Meus Perfumes — anúncio 15 s</title>
+    <link rel="stylesheet" href="ad.css" />
+  </head>
+  <body>
+    <!--
+      Compositor do anúncio: cada quadro é desenhado por window.renderAt(t) — nada anda sozinho.
+      O Edge headless (tools/render.mjs) chama renderAt para cada quadro e fotografa.
+      Material real do app: shader da galáxia (galaxy-shaders.js), fonte Archivo, tokens, textos e dados (data.js).
+    -->
+    <div id="frame">
+      <canvas id="galaxy" width="1080" height="1920"></canvas>
+      <div id="world"></div>
+      <canvas id="fx" width="1080" height="1920"></canvas>
+      <div id="hud"></div>
+      <div id="endcard"></div>
+      <div id="vignette"></div>
+      <canvas id="overlay" width="1080" height="1920"></canvas>
+    </div>
+    <script src="timeline.js"></script>
+    <script src="galaxy-shaders.js"></script>
+    <script src="data.js"></script>
+    <script type="module" src="ad.js"></script>
+  </body>
+</html>

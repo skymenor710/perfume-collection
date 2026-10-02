@@ -38,7 +38,8 @@ export interface FakeS3 {
   close(): Promise<void>;
 }
 
-const xmlError = (code: string) => `<?xml version="1.0" encoding="UTF-8"?><Error><Code>${code}</Code><Message>${code}</Message></Error>`;
+/** Corpo de erro no formato S3 (os testes usam para simular NoSuchBucket, AccessDenied, SignatureDoesNotMatch…). */
+export const xmlError = (code: string) => `<?xml version="1.0" encoding="UTF-8"?><Error><Code>${code}</Code><Message>${code}</Message></Error>`;
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export async function startFakeS3(bucket = 'perfumes-teste'): Promise<FakeS3> {
@@ -78,7 +79,8 @@ export async function startFakeS3(bucket = 'perfumes-teste'): Promise<FakeS3> {
         }
         const key = parts.slice(1).join('/');
         if (req.method === 'GET' && !key && url.searchParams.get('list-type') === '2') {
-          const all = [...state.objects.keys()].sort();
+          const prefix = url.searchParams.get('prefix') ?? '';
+          const all = [...state.objects.keys()].filter((k) => k.startsWith(prefix)).sort();
           const start = Number(url.searchParams.get('continuation-token') ?? '0');
           const max = Number(url.searchParams.get('max-keys') ?? '1000');
           const page = all.slice(start, start + max);

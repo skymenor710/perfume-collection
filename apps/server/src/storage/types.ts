@@ -11,6 +11,8 @@
  * `StorageUnavailableError` — nunca vira "não existe", para uma falha não parecer migração incompleta nem o contrário.
  */
 
+import type { StorageFailure } from './failure';
+
 export interface PutOptions {
   contentType: string;
   /** Cache-Control a ser servido com o objeto (R2/CDN). O provedor local ignora. */
@@ -22,12 +24,16 @@ export interface PutOptions {
   sha256?: string;
 }
 
-/** O armazenamento não respondeu como devia. A mensagem nunca carrega credencial nem URL assinada. */
+/**
+ * O armazenamento não respondeu como devia. A mensagem nunca carrega credencial nem URL assinada. `code` diz a causa
+ * quando ela pôde ser determinada (storage/failure.ts); 'unexpected' quando não — nunca um palpite.
+ */
 export class StorageUnavailableError extends Error {
   constructor(
     readonly op: string,
     readonly key: string | null,
     readonly detail: string,
+    readonly code: StorageFailure = 'unexpected',
   ) {
     super(`Armazenamento indisponível (${op}${key ? ` ${key}` : ''}): ${detail}`);
     this.name = 'StorageUnavailableError';
@@ -72,8 +78,21 @@ export interface StorageProvider {
    * próprio servidor. R2: URL absoluta da CDN.
    */
   publicUrl(key: string): string;
-  /** Todos os objetos (para a limpeza de órfãos). */
-  list(): Promise<StoredEntry[]>;
+  /**
+   * Os objetos cuja chave começa com `prefix` (semântica de prefixo do S3: "p/" ou "healthcheck/ab12/"; um pedaço de
+   * nome também vale). Sem prefixo, todos — para a limpeza de órfãos do disco local. Quem audita o R2 passa SEMPRE um
+   * prefixo: nunca lista o bucket inteiro sem precisar.
+   */
+  list(prefix?: string): Promise<StoredEntry[]>;
+}
+
+/**
+ * Armazenamento remoto (R2): além do contrato comum, `checkAccess()` prova endereço + credenciais + bucket + permissão de
+ * listar com UMA listagem mínima (no máximo 1 objeto, sob "healthcheck/"). É o que separa "bucket errado" de "objeto
+ * ausente" — um 404 de HEAD/GET sozinho não separa (storage/failure.ts). Lança `StorageUnavailableError` com a causa.
+ */
+export interface RemoteStorage extends StorageProvider {
+  checkAccess(): Promise<void>;
 }
 
 const KEY = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
@@ -91,6 +110,17 @@ export function isValidKey(key: string): boolean {
 export function assertValidKey(key: string): string {
   if (!isValidKey(key)) throw new InvalidKeyError(key);
   return key;
+}
+
+/** Prefixo de listagem: as mesmas regras de uma chave, mas pode terminar em "/" (ou no meio de um nome). */
+export function isValidPrefix(prefix: string): boolean {
+  return prefix.length > 0 && prefix.length <= 200 && /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\/?$/.test(prefix) && !prefix.split('/').some((part) => part === '..' || part === '.');
+}
+
+export function assertValidPrefix(prefix: string | undefined): string | undefined {
+  if (prefix === undefined) return undefined;
+  if (!isValidPrefix(prefix)) throw new InvalidKeyError(prefix);
+  return prefix;
 }
 
 const TYPES: Record<string, string> = {

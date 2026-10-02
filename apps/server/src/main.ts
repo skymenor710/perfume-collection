@@ -75,7 +75,10 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 server.listen(config.port, config.host, () => {
   const lan = config.host === '0.0.0.0' ? localAddresses() : [];
   // Só o que está configurado — nenhum valor secreto.
-  event('server.started', { ...describeConfig(), lanAddresses: lan.length });
+  const described = describeConfig();
+  event('server.started', { ...described, lanAddresses: lan.length });
+  // R2 a meio caminho (ou com valor inválido) em modo local não derruba nada, mas não pode passar em silêncio: só os nomes.
+  if (described.media.r2Attention.length) event('media.r2_config', { state: described.media.r2State, attention: described.media.r2Attention }, 'warn');
   // O quadro para gente só aparece num terminal: o código de acesso é segredo e não pode ir para o arquivo de log
   // (o atalho da Área de Trabalho grava a saída em data/logs/server.log). O código continua no .env.local.
   if (!process.stdout.isTTY) return;

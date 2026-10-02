@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { isContentKey } from '../storage/keys';
+import { isContentKey, shaOfContentKey } from '../storage/keys';
 
 /**
  * Mapa de migração das fotos (FASE 3): referência antiga ("bottles/…", "media/…") → SHA-256 → chave no R2
@@ -72,12 +72,44 @@ export class MediaMapError extends Error {}
 
 /* ---- leitura (funções puras sobre os dados) ---- */
 
-export const isValidated = (data: MediaMapData, key: string) => data.objects[key]?.status === 'validated';
+/**
+ * Objeto validado E coerente: o SHA-256 registrado é o que a própria chave promete ("p/<sha256>.<ext>"). Entrada com
+ * chave e SHA divergentes NÃO vale como validada (nem para servir, nem para a virada, nem para a semente): a chave
+ * diria uma coisa e o registro outra, e nada garantiria qual foto é.
+ */
+export const isValidated = (data: MediaMapData, key: string) => {
+  const object = data.objects[key];
+  return object?.status === 'validated' && object.sha256 === shaOfContentKey(key);
+};
 
-/** Chave validada para uma referência antiga, ou nulo (não migrada ou sem prova). */
+/** Chave validada para uma referência antiga, ou nulo (não migrada, sem prova ou com registros incoerentes). */
 export function validatedKeyFor(data: MediaMapData, ref: string): string | null {
   const hit = data.refs[ref];
-  return hit && isValidated(data, hit.key) ? hit.key : null;
+  return hit && isValidated(data, hit.key) && data.objects[hit.key]!.sha256 === hit.sha256 ? hit.key : null;
+}
+
+export interface MapProblem {
+  code: 'key_sha_mismatch' | 'ref_sha_mismatch' | 'ref_without_object' | 'duplicate_objects';
+  key?: string;
+  ref?: string;
+  detail: string;
+}
+
+/** Incoerências internas do mapa (puro, só lê). Mapa coerente devolve lista vazia. */
+export function mapProblems(data: MediaMapData): MapProblem[] {
+  const out: MapProblem[] = [];
+  const bySha = new Map<string, string[]>();
+  for (const [key, object] of Object.entries(data.objects)) {
+    if (object.sha256 !== shaOfContentKey(key)) out.push({ code: 'key_sha_mismatch', key, detail: 'o SHA-256 registrado não é o que a chave promete' });
+    bySha.set(object.sha256, [...(bySha.get(object.sha256) ?? []), key]);
+  }
+  for (const [sha, keys] of bySha) if (keys.length > 1) out.push({ code: 'duplicate_objects', key: keys[0], detail: `${keys.length} chaves com o mesmo SHA-256 (${sha.slice(0, 12)}…): o mesmo conteúdo deveria ser um objeto só` });
+  for (const [ref, r] of Object.entries(data.refs)) {
+    const object = data.objects[r.key];
+    if (!object) out.push({ code: 'ref_without_object', ref, key: r.key, detail: 'a referência aponta para uma chave que não está no mapa' });
+    else if (object.sha256 !== r.sha256) out.push({ code: 'ref_sha_mismatch', ref, key: r.key, detail: 'o SHA-256 da referência é diferente do do objeto' });
+  }
+  return out;
 }
 
 /** Todas as referências antigas que viraram esta chave (ordem estável). */

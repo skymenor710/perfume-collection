@@ -96,6 +96,8 @@ export type LogEvent =
   | 'media.not_migrated'
   /** Com MEDIA_BACKEND=r2 e MEDIA_FALLBACK=local: foto servida da cópia local porque não está validada no R2. */
   | 'media.fallback'
+  /** R2 parcial ou inválido com MEDIA_BACKEND=local: o app segue no disco local; só os NOMES dos componentes aparecem. */
+  | 'media.r2_config'
   | 'library.migrated'
   | 'library.upgraded'
   | 'library.invalid_entries'

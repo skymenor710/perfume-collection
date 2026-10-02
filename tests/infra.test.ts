@@ -49,17 +49,21 @@ describe('configuração validada', () => {
     }
   });
 
+  /** R2 completo e válido (valores fictícios) para isolar o campo que cada caso estraga. */
+  const R2_OK = { R2_ACCESS_KEY_ID: 'x', R2_SECRET_ACCESS_KEY: 'y', R2_BUCKET: 'perfumes-teste', R2_ENDPOINT: 'https://conta.exemplo.test', R2_PUBLIC_BASE_URL: 'https://img.exemplo.test' };
+
   it.each([
     [{ PERFUMES_PORT: '70000' }, 'PERFUMES_PORT'],
     [{ PERFUMES_PORT: 'abc' }, 'PERFUMES_PORT'],
     [{ LOG_LEVEL: 'barulhento' }, 'LOG_LEVEL'],
     [{ AUTH_SECRET: 'curto' }, 'AUTH_SECRET'],
     [{ DATABASE_URL: 'mysql://x' }, 'DATABASE_URL'],
-    [{ R2_PUBLIC_BASE_URL: 'http://img.exemplo.test' }, 'R2_PUBLIC_BASE_URL'],
-    [{ R2_PUBLIC_BASE_URL: 'https://img.exemplo.test/?x=1' }, 'R2_PUBLIC_BASE_URL'],
-    [{ R2_ENDPOINT: 'https://conta.exemplo.test/caminho' }, 'R2_ENDPOINT'],
-    [{ R2_BUCKET: 'Bucket_Invalido' }, 'R2_BUCKET'],
-    [{ R2_ACCOUNT_ID: 'nao-e-hex' }, 'R2_ACCOUNT_ID'],
+    // R2_*: o formato só derruba o start com MEDIA_BACKEND=r2 (em modo local o R2 é inativo: veja o teste abaixo).
+    [{ ...R2_OK, MEDIA_BACKEND: 'r2', R2_PUBLIC_BASE_URL: 'http://img.exemplo.test' }, 'R2_PUBLIC_BASE_URL'],
+    [{ ...R2_OK, MEDIA_BACKEND: 'r2', R2_PUBLIC_BASE_URL: 'https://img.exemplo.test/?x=1' }, 'R2_PUBLIC_BASE_URL'],
+    [{ ...R2_OK, MEDIA_BACKEND: 'r2', R2_ENDPOINT: 'https://conta.exemplo.test/caminho' }, 'R2_ENDPOINT'],
+    [{ ...R2_OK, MEDIA_BACKEND: 'r2', R2_BUCKET: 'Bucket_Invalido' }, 'R2_BUCKET'],
+    [{ ...R2_OK, MEDIA_BACKEND: 'r2', R2_ACCOUNT_ID: 'nao-e-hex' }, 'R2_ACCOUNT_ID'],
     [{ MEDIA_BACKEND: 's3' }, 'MEDIA_BACKEND'],
     [{ MEDIA_FALLBACK: 'sempre' }, 'MEDIA_FALLBACK'],
     [{ MEDIA_BACKEND: 'r2' }, 'R2_SECRET_ACCESS_KEY: obrigatória com MEDIA_BACKEND=r2'],
@@ -68,6 +72,13 @@ describe('configuração validada', () => {
   ])('valor inválido para no start: %j', (env, key) => {
     expect(() => parseEnv(env)).toThrowError(ConfigError);
     expect(() => parseEnv(env)).toThrowError(new RegExp(key));
+  });
+
+  it('R2_* com valor inválido NÃO derruba o app em modo local (fica só no diagnóstico); com MEDIA_BACKEND=r2 derruba', () => {
+    for (const bad of [{ R2_PUBLIC_BASE_URL: 'http://img.exemplo.test' }, { R2_ENDPOINT: 'https://conta.exemplo.test/caminho' }, { R2_BUCKET: 'Bucket_Invalido' }, { R2_ACCOUNT_ID: 'nao-e-hex' }]) {
+      expect(() => parseEnv({ ...R2_OK, ...bad })).not.toThrow();
+      expect(() => parseEnv({ ...R2_OK, ...bad, MEDIA_BACKEND: 'r2' })).toThrowError(ConfigError);
+    }
   });
 
   it('a mensagem de erro não repete o valor recebido', () => {

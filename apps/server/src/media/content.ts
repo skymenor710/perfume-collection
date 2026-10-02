@@ -3,10 +3,10 @@ import path from 'node:path';
 import { config } from '../config';
 import { event } from '../log';
 import type { SeedRefs } from '../repositories/rules';
-import { isContentKey, matchesContentKey } from '../storage/keys';
+import { isContentKey, matchesContentKey, sha256Hex } from '../storage/keys';
 import { R2StorageProvider } from '../storage/r2';
 import type { StorageProvider } from '../storage/types';
-import { MediaMap } from './map';
+import { MediaMap, validatedKeyFor } from './map';
 
 /**
  * Onde as fotos moram e como uma referência vira arquivo ou endereço (FASE 3). Um lugar só para:
@@ -163,14 +163,39 @@ export function routeContentKey(key: string, settings: MediaSettings): ContentRo
 
 /* ------------------------------------------------------------------ semente */
 
-/** A semente vista através do mapa: chave por conteúdo que veio de "bottles/…" continua sendo foto da semente. */
+/** SHA-256 do arquivo local de uma referência, ou nulo se o arquivo não existe (cache por caminho + data + tamanho). */
+const fileShas = new Map<string, string>();
+function localRefSha(ref: string): string | null {
+  const file = localFileForRef(ref);
+  if (!file || !existsSync(file)) return null;
+  const info = statSync(file);
+  const stamp = `${file}|${info.mtimeMs}|${info.size}`;
+  let sha = fileShas.get(stamp);
+  if (!sha) {
+    sha = sha256Hex(readFileSync(file));
+    fileShas.set(stamp, sha);
+  }
+  return sha;
+}
+
+/**
+ * A semente vista através do mapa: chave por conteúdo que veio de "bottles/…" continua sendo foto da semente.
+ *
+ * Regra de ouro: uma referência só vira a chave do R2 se existir entrada VALIDADA e COERENTE (objeto validated; a chave,
+ * o SHA do objeto e o SHA da referência dizem a mesma coisa) E, se o arquivo local ainda existe, ele continua sendo a foto
+ * que foi provada (mesmo SHA-256): mesmo nome com outra foto não herda a chave antiga; arquivo ausente não desmente o
+ * mapa. Sem isso a referência fica como está — nunca é trocada às escondidas. Mapa ilegível lança erro (quem chama não
+ * atualiza nada).
+ */
 export function seedRefs(settings: MediaSettings): SeedRefs {
   const data = settings.map.read();
   const keyOf = (ref: string | null) => {
     if (!ref) return null;
     if (isContentKey(ref)) return ref;
-    const hit = data.refs[ref];
-    return hit && data.objects[hit.key]?.status === 'validated' ? hit.key : null;
+    const key = validatedKeyFor(data, ref);
+    if (!key) return null;
+    const onDisk = localRefSha(ref);
+    return onDisk === null || onDisk === data.refs[ref]!.sha256 ? key : null;
   };
   return {
     isSeedPhoto: (ref) => {

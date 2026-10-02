@@ -1,0 +1,6 @@
+frames/
+node_modules/
+tools/node_modules/
+*.log
+frames30/
+frames-mb/

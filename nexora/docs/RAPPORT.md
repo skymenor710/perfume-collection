@@ -26,7 +26,7 @@ Conditions : build de production, `NODE_ENV=production`, serveur local, 3 projet
 
 | Profil | LCP | CLS | TBT | FCP | Speed Index |
 |---|---|---|---|---|---|
-| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4 s | 0 | 20 ms | — | — |
+| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4–1,5 s | 0 | 20 ms | — | — |
 | Ordinateur (RTT 40 ms, 10 Mb/s) | 0,4 s | 0 | 0 ms | — | — |
 
 (Mesures refaites après la version « premium » : logo 4K, visionneuse, finitions. Les mesures précédentes étaient
@@ -72,7 +72,8 @@ Ce qui a été fait pour y arriver :
 | Administration | redirection sans connexion, mauvais mot de passe, connexion, changement de statut, création de projet, envoi de 2 images, textes alternatifs, couverture, reflet immédiat sur le site (position 2, lien, alt, sans mention démo), suppression d’image (contrôles du carrousel masqués avec une seule image), modification des textes, déconnexion |
 | Redémarrage | serveur arrêté puis relancé : projets, images, textes et demandes toujours présents |
 
-Captures (build de production) : `docs/screenshots/` — `home-{1920,1440,768,390,375}-{viewport,full}.webp` et
+Captures (build de production) : `docs/screenshots/` — `home-{1920,1440,768,390,375}-{viewport,full}.webp`,
+visionneuse `lightbox-{1440,390}.webp` et
 administration `a-*.webp`. Comparaison visuelle avec les maquettes faite côte à côte (proportions du hero, taille des
 titres, cartes, section contact) et corrigée en deux passes (tailles de titres et de boutons, découpe du titre, espacements).
 
@@ -86,6 +87,14 @@ titres, cartes, section contact) et corrigée en deux passes (tailles de titres 
 - L’illustration de la section contact (montagne, chemin, porte) est dessinée en SVG (pas de photo générée).
 - Mobile : un seul bouton dans le hero, comme sur la maquette ; « Découvrir nos réalisations » reste accessible par
   l’indicateur de défilement et le menu.
+
+Revue de finition indépendante (agent de revue design, sur captures DPR 2) — corrections appliquées : flèches des
+carrousels visibles au repos comme sur la maquette, points nus sur un dégradé discret, badge opaque, flèches et
+légende masquées pendant le zoom, zoom proposé seulement si l'image apporte réellement du détail (sources 1280 px),
+fond de visionneuse plus opaque, en-tête mobile de la visionneuse sur deux lignes, légende limitée à 2 lignes,
+panneau de contact qui s'arrête sous l'en-tête, lumières du hero un peu plus présentes (toujours diffuses).
+Non retenu : refaire le symbole d'après le rendu 3D de la maquette (le client a demandé le logo du bandeau) et
+supprimer le sur-titre « Aperçus de démonstration » (il signale honnêtement des démonstrations).
 
 ## 4. Sécurité
 

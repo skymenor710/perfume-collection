@@ -16,6 +16,8 @@ interface Shot {
 }
 
 const ZOOM = 2;
+// En dessous de ce gain réel (pixels de l'image ÷ pixels affichés), zoomer ne montrerait rien de plus net.
+const MIN_ZOOM_GAIN = 1.2;
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function readShots(gallery: HTMLElement): Shot[] {
@@ -83,6 +85,20 @@ export function initLightbox() {
     return { pic, img: i };
   }
 
+  // Zoom proposé seulement si la plus grande variante apporte réellement du détail sur cet écran.
+  function maxWidth(shot: Shot) {
+    const ws = [...shot.webp.matchAll(/ (\d+)w/g)].map((m) => Number(m[1]));
+    return ws.length ? Math.max(...ws) : shot.width;
+  }
+  function zoomable() {
+    if (!img) return false;
+    return maxWidth(shots[index]) / (img.clientWidth * window.devicePixelRatio) >= MIN_ZOOM_GAIN;
+  }
+  function updateZoomTool() {
+    zoomBtn.hidden = !zoomable();
+    img?.classList.toggle('is-zoomable', zoomable());
+  }
+
   function preload(i: number) {
     const shot = shots[(i + shots.length) % shots.length];
     if (!shot) return;
@@ -95,6 +111,7 @@ export function initLightbox() {
     img.style.transition = animate && !reduced() ? '' : 'none';
     img.style.transform = zoomed ? `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${ZOOM})` : '';
     stage.classList.toggle('is-zoomed', zoomed);
+    dialog!.classList.toggle('is-zoomed', zoomed);
     zoomBtn.setAttribute('aria-pressed', String(zoomed));
     zoomBtn.setAttribute('aria-label', zoomed ? 'Dézoomer' : 'Zoomer');
   }
@@ -111,6 +128,7 @@ export function initLightbox() {
   }
 
   function setZoom(on: boolean, at?: { x: number; y: number }) {
+    if (on && !zoomable()) return;
     zoomed = on;
     // Agrandi : le navigateur choisit la plus grande variante disponible (détails nets).
     if (on && img) img.parentElement?.querySelectorAll<HTMLImageElement | HTMLSourceElement>('source, img').forEach((el) => (el.sizes = '(min-aspect-ratio: 1/1) 200vh, 200vw'));
@@ -145,6 +163,8 @@ export function initLightbox() {
     zoomed = false;
     pan = { x: 0, y: 0 };
     applyTransform(false);
+    if (next.complete) updateZoomTool();
+    else next.addEventListener('load', updateZoomTool, { once: true });
     counter.textContent = `${index + 1} / ${shots.length}`;
     caption.textContent = shot.alt;
     status.textContent = `Image ${index + 1} sur ${shots.length}`;
@@ -163,6 +183,7 @@ export function initLightbox() {
     if (!shots.length) return;
     title.textContent = g.dataset.gallery || '';
     frame.replaceChildren();
+    closedByKeyboard = false;
     show(i);
     document.documentElement.classList.add('lightbox-open');
     dialog!.showModal();
@@ -176,6 +197,11 @@ export function initLightbox() {
     dialog!.close();
   }
 
+  let closedByKeyboard = false;
+  dialog.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') closedByKeyboard = true;
+  });
+  dialog.addEventListener('pointerdown', () => (closedByKeyboard = false));
   dialog.addEventListener('close', () => {
     document.documentElement.classList.remove('lightbox-open');
     frame.replaceChildren();
@@ -184,7 +210,7 @@ export function initLightbox() {
     if (gallery) {
       gallery.dispatchEvent(new CustomEvent('nx:goto', { detail: index }));
       const back = gallery.querySelector<HTMLElement>('[data-carousel-viewport][tabindex]') ?? gallery.querySelector<HTMLElement>('[data-lightbox-open]');
-      back?.focus({ preventScroll: true });
+      back?.focus({ preventScroll: true, focusVisible: closedByKeyboard } as FocusOptions);
     }
   });
 
@@ -235,7 +261,7 @@ export function initLightbox() {
     if (moved) return;
     const target = e.target as HTMLElement;
     if (target.classList.contains('lightbox__img')) {
-      setZoom(!zoomed, { x: e.clientX, y: e.clientY });
+      if (zoomed || zoomable()) setZoom(!zoomed, { x: e.clientX, y: e.clientY });
     } else if (!zoomed) {
       close();
     }
@@ -281,6 +307,7 @@ export function initLightbox() {
   stage.addEventListener('pointercancel', end);
 
   window.addEventListener('resize', () => {
+    if (dialog.open) updateZoomTool();
     if (zoomed) {
       clampPan();
       applyTransform(false);

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+import sharp from 'sharp';
 import { count, eq } from 'drizzle-orm';
 import { Client, contactPayload, setup, type TestCtx } from '../helpers';
 import { contactRequests, projects } from '../../src/server/db/schema';
@@ -33,7 +35,8 @@ describe('site public', () => {
     expect(html.match(/class="badge-demo"/g)?.length).toBe(3);
     // 1re image de chaque carrousel : chargement paresseux ; les suivantes : différées (data-src, chargées à l'usage).
     // Toutes ont des dimensions (pas de décalage) et un texte alternatif.
-    expect(html.match(/<picture>/g)?.length).toBe(3);
+    // (+ 2 <picture> du symbole N du hero : image et reflet.)
+    expect(html.match(/<picture>\s*<source type="image\/avif" srcset="\/media\//g)?.length).toBe(3);
     expect(html.match(/<picture data-deferred/g)?.length).toBe(9);
     const deferred = [...html.matchAll(/<img data-src="\/media\/[^>]+>/g)].map((m) => m[0]);
     expect(deferred.length).toBe(9);
@@ -45,6 +48,13 @@ describe('site public', () => {
     expect(html).toContain('Entreprise de maçonnerie');
     expect(html).toContain('Laboratoire in vitro');
     expect(html).toContain('EARKO');
+    // Visionneuse plein écran : une seule, avec un bouton « Agrandir » par projet.
+    expect(html.match(/<dialog class="lightbox"/g)?.length).toBe(1);
+    expect(html.match(/data-lightbox-open/g)?.length).toBe(3);
+    expect(html.match(/data-gallery="/g)?.length).toBe(3);
+    // Symbole N 4K : variantes AVIF + WebP jusqu'à 1600 px.
+    expect(html).toContain('/brand/symbol-1600.avif 1600w');
+    expect(html).toContain('/brand/wordmark.svg');
     // Identité des prospects jamais affichée.
     expect(html).not.toMatch(/AWM/i);
     // Jeton du formulaire remplacé à chaque requête.
@@ -60,6 +70,7 @@ describe('site public', () => {
     expect(html).toContain('Projet vide');
     expect(html).toContain('Visuel à venir');
     expect(html).not.toContain('data-carousel-prev');
+    expect(html).not.toContain('<dialog class="lightbox"');
   });
 
   it('envoie les en-têtes de sécurité avec une CSP sans inline', async () => {
@@ -85,6 +96,22 @@ describe('site public', () => {
     const pp = await (await new Client(ctx).req('/politique-de-confidentialite')).text();
     expect(pp).toContain('Vos droits');
     expect(pp).toContain('cnil.fr');
+  });
+
+  it('fichiers de marque reconstruits présents (symbole 4K décliné, masque vectoriel, logotype)', async () => {
+    const dir = path.resolve('public/brand');
+    for (const w of [96, 192, 320, 480, 640, 960, 1280, 1600]) {
+      for (const ext of ['avif', 'webp']) {
+        const meta = await sharp(path.join(dir, `symbol-${w}.${ext}`)).metadata();
+        expect(meta.width, `symbol-${w}.${ext}`).toBe(w);
+        expect(meta.hasAlpha, `symbol-${w}.${ext}`).toBe(true);
+      }
+    }
+    for (const svg of ['symbol-wine.svg', 'wordmark.svg']) {
+      const text = readFileSync(path.join(dir, svg), 'utf8');
+      expect(text).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="[\d. ]+"/);
+      expect(text).not.toMatch(/<script|on\w+=/i);
+    }
   });
 
   it('404 neutre, robots.txt et sitemap', async () => {

@@ -20,8 +20,8 @@ export const LoginPage = ({ assets, preToken, error, email, next }: { assets: As
   <AdminDocument title="Connexion" assets={assets} bodyClass="admin admin--login">
     <main class="login" id="contenu">
       <div class="login__card">
-        <img class="login__logo" src="/brand/symbol-96.webp" width="46" height="48" alt="" />
-        <img class="login__wordmark" src="/brand/wordmark-480.webp" width="146" height="24" alt="Nexora" />
+        <img class="login__logo" src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" />
+        <img class="login__wordmark" src="/brand/wordmark.svg" width="146" height="24" alt="Nexora" />
         <h1>Administration</h1>
         {error ? (
           <div class="flash flash--error" role="alert">

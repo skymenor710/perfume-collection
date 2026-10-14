@@ -16,6 +16,8 @@ export function initCarousel(root: HTMLElement) {
   if (count < 2) return;
   let index = 0;
   let announced = false;
+  let pending: number | null = null;
+  let pendingTimer = 0;
 
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -54,6 +56,10 @@ export function initCarousel(root: HTMLElement) {
     warm(target);
     warm(target + 1);
     announced = user;
+    // Défilement animé en cours : la synchronisation au défilement attend l'arrivée (pas de points qui clignotent).
+    pending = target;
+    clearTimeout(pendingTimer);
+    pendingTimer = window.setTimeout(() => (pending = null), 1200);
     viewport!.scrollTo({ left: target * viewport!.clientWidth, behavior: reduced() ? 'auto' : 'smooth' });
     render(target);
   }
@@ -66,6 +72,10 @@ export function initCarousel(root: HTMLElement) {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const i = Math.round(viewport.scrollLeft / Math.max(1, viewport.clientWidth));
+        if (pending !== null) {
+          if (Math.abs(viewport.scrollLeft - pending * viewport.clientWidth) < 2) pending = null;
+          return;
+        }
         if (i !== index && i >= 0 && i < count) {
           announced = true;
           render(i);
@@ -76,6 +86,9 @@ export function initCarousel(root: HTMLElement) {
     },
     { passive: true },
   );
+
+  // La visionneuse plein écran renvoie l'image vue en dernier.
+  root.addEventListener('nx:goto', (e) => goTo((e as CustomEvent<number>).detail, false));
 
   prev?.addEventListener('click', () => goTo(index - 1));
   next?.addEventListener('click', () => goTo(index + 1));

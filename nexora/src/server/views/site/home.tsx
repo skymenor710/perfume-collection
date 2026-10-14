@@ -5,9 +5,9 @@ import { PROJECT_TYPES, defaultContent } from '../../lib/content';
 const DEMO_EYEBROW = defaultContent.projects.eyebrow;
 import type { ProjectWithImages } from '../../lib/repo';
 import { pickVariant } from '../../lib/images';
-import { ArrowUpRight, ChevronLeft, ChevronRight, ExternalIcon, MouseIcon, CheckIcon, AlertIcon } from '../icons';
+import { ArrowUpRight, ChevronLeft, ChevronRight, CloseIcon, ExpandIcon, ExternalIcon, MouseIcon, CheckIcon, AlertIcon, ZoomIcon } from '../icons';
 import { Footer, Header } from '../layout';
-import { DOOR, FACETS, FAR, FRONT_L, FRONT_R, MID, RIDGE, TRAIL } from './landscape-paths';
+import { DOOR, FAR, FRONT_L, FRONT_R, MID, RIDGE, TRAIL } from './landscape-paths';
 
 export const FORM_TOKEN_PLACEHOLDER = '__NX_FORM_TOKEN__';
 
@@ -25,6 +25,7 @@ export const HomePage = ({ content, projects }: HomeProps) => (
       <Contact content={content} />
     </main>
     <Footer content={content} />
+    {projects.some((p) => p.images.length > 0) ? <Lightbox /> : null}
   </>
 );
 
@@ -71,45 +72,46 @@ const Hero = ({ content }: { content: SiteContent }) => {
   );
 };
 
+/** Symbole N reconstruit en 4K (assets-src/logo4k) : variantes AVIF + WebP de 320 à 1600 px. */
+const SYMBOL_SIZES = '(max-width: 860px) min(64vw, 380px), min(36vw, 540px)';
+const symbolSrcset = (fmt: 'avif' | 'webp') =>
+  [320, 480, 640, 960, 1280, 1600].map((w) => `/brand/symbol-${w}.${fmt} ${w}w`).join(', ');
+
+const SymbolPicture = ({ priority }: { priority?: boolean }) => (
+  <picture>
+    <source type="image/avif" srcset={symbolSrcset('avif')} sizes={SYMBOL_SIZES} />
+    <img
+      class={priority ? 'symbol__img' : undefined}
+      src="/brand/symbol-960.webp"
+      srcset={symbolSrcset('webp')}
+      sizes={SYMBOL_SIZES}
+      width="2805"
+      height="2915"
+      alt=""
+      fetchpriority={priority ? 'high' : undefined}
+      decoding="async"
+    />
+  </picture>
+);
+
 /**
- * Le symbole N : fichier original détouré (pas de redessin). Les effets sont des calques superposés :
- *  - arêtes discrètes des panneaux sombres (effet verre),
- *  - lumière statique puis reflet néon animé, tous deux découpés par le masque de la bande vin uniquement,
- *  - reflet au sol (copie retournée et estompée).
+ * Le symbole N : calques superposés —
+ *  - l'image 4K (géométrie du fichier HD, rendu du bandeau),
+ *  - un reflet néon fin qui parcourt la bande vin, découpé par son tracé vectoriel exact (aucun débordement),
+ *  - un reflet au sol (mêmes fichiers, retournés et estompés : aucune requête supplémentaire).
  */
 const SymbolVisual = () => (
   <div class="hero__visual" aria-hidden="true">
     <div class="symbol" data-parallax-symbol>
       <span class="symbol__halo"></span>
       <div class="symbol__stage">
-        <img
-          class="symbol__img"
-          src="/brand/symbol-960.webp"
-          srcset="/brand/symbol-320.webp 320w, /brand/symbol-480.webp 480w, /brand/symbol-640.webp 640w, /brand/symbol-960.webp 960w"
-          sizes="(max-width: 860px) min(64vw, 380px), min(36vw, 540px)"
-          width="919"
-          height="955"
-          alt=""
-          fetchpriority="high"
-          decoding="async"
-        />
-        <span class="symbol__edges"></span>
-        <span class="symbol__sheen"></span>
+        <SymbolPicture priority />
         <span class="symbol__neon" data-neon>
           <span class="symbol__neon-band"></span>
         </span>
       </div>
       <div class="symbol__reflection">
-        {/* Mêmes fichiers que le symbole : aucune requête supplémentaire. */}
-        <img
-          src="/brand/symbol-960.webp"
-          srcset="/brand/symbol-320.webp 320w, /brand/symbol-480.webp 480w, /brand/symbol-640.webp 640w, /brand/symbol-960.webp 960w"
-          sizes="(max-width: 860px) min(64vw, 380px), min(36vw, 540px)"
-          width="919"
-          height="955"
-          alt=""
-          decoding="async"
-        />
+        <SymbolPicture />
       </div>
     </div>
   </div>
@@ -163,10 +165,11 @@ const ProjectCard = ({ project, index, visitLabel }: { project: ProjectWithImage
         aria-roledescription="carrousel"
         aria-label={`Images du projet ${project.name}`}
         data-carousel={multi ? '' : undefined}
+        data-gallery={imgs.length > 0 ? project.name : undefined}
       >
         {imgs.length === 0 ? (
           <div class="carousel__empty">
-            <img src="/brand/symbol-96.webp" width="46" height="48" alt="" />
+            <img src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" />
             <span>Visuel à venir</span>
           </div>
         ) : (
@@ -210,6 +213,11 @@ const ProjectCard = ({ project, index, visitLabel }: { project: ProjectWithImage
           </div>
         )}
         {project.isDemo ? <span class="badge-demo">Démonstration</span> : null}
+        {imgs.length > 0 ? (
+          <button class="carousel__expand" type="button" data-lightbox-open aria-label={`Agrandir les images du projet ${project.name}`}>
+            <ExpandIcon />
+          </button>
+        ) : null}
         {multi ? (
           <>
             <button class="carousel__btn carousel__btn--prev" type="button" aria-controls={id} aria-label="Image précédente" data-carousel-prev>
@@ -246,6 +254,38 @@ const ProjectCard = ({ project, index, visitLabel }: { project: ProjectWithImage
     </article>
   );
 };
+
+/**
+ * Visionneuse plein écran des captures (une seule pour la page) : <dialog> natif — fond inerte, piège du focus et
+ * touche Échap fournis par le navigateur. Remplie par src/client/lightbox.ts à partir du carrousel cliqué.
+ */
+const Lightbox = () => (
+  <dialog class="lightbox" aria-labelledby="lightbox-title" data-lightbox>
+    <div class="lightbox__bar">
+      <p class="lightbox__title" id="lightbox-title" data-lightbox-title></p>
+      <p class="lightbox__count" data-lightbox-count></p>
+      <div class="lightbox__tools">
+        <button class="lightbox__tool" type="button" aria-pressed="false" aria-label="Zoomer" data-lightbox-zoom>
+          <ZoomIcon />
+        </button>
+        <button class="lightbox__tool" type="button" aria-label="Fermer la visionneuse" data-lightbox-close>
+          <CloseIcon />
+        </button>
+      </div>
+    </div>
+    <div class="lightbox__stage" data-lightbox-stage>
+      <div class="lightbox__frame" data-lightbox-frame></div>
+    </div>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" aria-label="Image précédente" data-lightbox-prev>
+      <ChevronLeft />
+    </button>
+    <button class="lightbox__nav lightbox__nav--next" type="button" aria-label="Image suivante" data-lightbox-next>
+      <ChevronRight />
+    </button>
+    <p class="lightbox__caption" data-lightbox-caption></p>
+    <p class="sr-only" aria-live="polite" aria-atomic="true" data-lightbox-status></p>
+  </dialog>
+);
 
 const Contact = ({ content }: { content: SiteContent }) => {
   const c = content.contact;
@@ -403,7 +443,6 @@ const Landscape = () => (
       <path d={FAR} fill="url(#ls-far)" opacity="0.55" filter="url(#ls-haze)" />
       <path d={MID} fill="url(#ls-mid)" />
       <path d={RIDGE} fill="none" stroke="url(#ls-rim)" stroke-width="1.4" opacity="0.8" />
-      <path d={FACETS} fill="none" stroke="#c9496e" stroke-opacity="0.16" stroke-width="1.2" stroke-linecap="round" />
       <path d={FRONT_L} fill="url(#ls-front)" opacity="0.92" />
       <path d={FRONT_R} fill="url(#ls-front)" opacity="0.85" />
       <g class="landscape__trail">

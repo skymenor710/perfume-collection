@@ -30,23 +30,6 @@ mid = ridge([(380, 460), (470, 380), (560, 350), (640, 300), (700, 255), (745, 2
 front_l = ridge([(430, 460), (520, 420), (600, 395), (660, 370), (700, 360), (760, 330)], 6)
 front_r = ridge([(820, 300), (880, 280), (930, 300), (1000, 330)], 6)
 
-# Facettes rocheuses : petites crêtes claires sur le versant principal.
-facets = []
-for _ in range(26):
-    x = random.uniform(560, 990)
-    top = None
-    # hauteur de la crête à cette abscisse
-    for (px, py) in mid:
-        if px >= x:
-            top = py
-            break
-    if top is None:
-        continue
-    y = random.uniform(top + 12, min(H, top + 220))
-    L = random.uniform(18, 60)
-    a = random.uniform(-0.9, -0.35) if x < 840 else random.uniform(0.35, 0.9)
-    facets.append('M%.1f %.1f l%.1f %.1f' % (x, y, L * math.cos(a), L * math.sin(a) * -1))
-
 # Chemin sinueux : du bas vers la porte au sommet (courbes de Bézier).
 path = ('M560 460 C 610 430, 700 420, 735 392 S 700 345, 760 322 S 880 300, 812 262 '
         'S 760 228, 820 205 S 905 180, 846 156 S 822 132, 850 124')
@@ -60,7 +43,6 @@ with open('src/server/views/site/landscape-paths.ts', 'w') as f:
     f.write('export const RIDGE = %r;\n' % poly(mid, False))
     f.write('export const FRONT_L = %r;\n' % poly(front_l))
     f.write('export const FRONT_R = %r;\n' % poly(front_r))
-    f.write('export const FACETS = %r;\n' % ' '.join(facets))
     f.write('export const TRAIL = %r;\n' % path)
     f.write('export const DOOR = %r as const;\n' % door)
 print('ok', len(mid))

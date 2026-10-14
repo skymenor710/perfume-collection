@@ -65,3 +65,28 @@ export const AlertIcon = () => (
     <path d="M12 16.5h.01" />
   </svg>
 );
+
+export const CloseIcon = () => (
+  <svg {...base} width="22" height="22" viewBox="0 0 24 24" class="icon">
+    <path d="M6 6l12 12" />
+    <path d="M18 6 6 18" />
+  </svg>
+);
+
+export const ExpandIcon = () => (
+  <svg {...base} width="18" height="18" viewBox="0 0 24 24" class="icon">
+    <path d="M14 4h6v6" />
+    <path d="M20 4l-6.5 6.5" />
+    <path d="M10 20H4v-6" />
+    <path d="M4 20l6.5-6.5" />
+  </svg>
+);
+
+export const ZoomIcon = () => (
+  <svg {...base} width="20" height="20" viewBox="0 0 24 24" class="icon icon--zoom">
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <path d="M15.5 15.5 20 20" />
+    <path class="plus-v" d="M10.5 8v5" />
+    <path d="M8 10.5h5" />
+  </svg>
+);

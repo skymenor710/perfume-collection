@@ -11,3 +11,5 @@ reports/lighthouse/*.json
 .impeccable/hook.cache.json
 docs/*.png
 docs/nexora-apercu.html
+assets-src/logo4k/out/
+.impeccable/review/

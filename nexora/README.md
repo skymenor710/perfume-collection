@@ -139,6 +139,7 @@ npm run restore -- backups/nexora-… --force   # vide d’abord la base cible
 | `npm test` | tests d’intégration (Vitest, PGlite en mémoire) |
 | `npm run test:e2e` | tests navigateur (Playwright) sur le build ; `E2E_DATABASE_URL=postgres://…` pour PostgreSQL |
 | `node scripts/screenshots.mjs [url] [dossier] [largeurs]` | captures d’écran + contrôle du débordement |
+| `npm run brand:logo` | régénère le logo 4K et tous ses dérivés (voir § 7) — Python 3 + `opencv-python-headless`, `potracer` |
 
 ---
 
@@ -155,8 +156,10 @@ src/server/
   views/             gabarits JSX (site + admin)
 src/client/          JS du navigateur (menu, carrousels, mouvement, formulaire, admin)
 src/styles/          CSS du site et de l’admin
-public/brand/        logo d’origine détouré, masques du néon, icônes ; public/fonts : Figtree (OFL)
-assets-src/          fichiers ORIGINAUX fournis + scripts d’extraction (logo, masques, illustrations, démos)
+public/brand/        logo reconstruit (symbole AVIF/WebP 96→1600 px, masque vectoriel du néon, logotype SVG), icônes
+brand/               logo 4K livrable (PNG transparents, version UHD sur fond noir, SVG) — voir § 7
+public/fonts/        Figtree (OFL)
+assets-src/          fichiers ORIGINAUX fournis + scripts (logo 4K, illustrations, captures des démos)
 drizzle/             migrations SQL versionnées
 seed/demo/           captures des 3 projets du portfolio (assets-src/portfolio/)
 tests/               unit/ (Vitest) et e2e/ (Playwright)
@@ -166,6 +169,31 @@ docs/                rapport de tests, captures d’écran, informations manquan
 Identité : noir `#09090C`, vin `#751B35`, vin de mise en avant `#982B49`, blanc chaud `#EAE6E8`. Pour le **texte** vin
 sur fond noir, une teinte plus lumineuse (`#AD3158` grands titres, `#CF5277` petit texte) est utilisée afin de respecter
 les contrastes WCAG AA ; les surfaces et boutons utilisent les couleurs d’origine.
+
+---
+
+## 7. Logo 4K
+
+Le logo du site est **reconstruit en haute définition** à partir des fichiers fournis (aucun redessin à main levée) :
+
+* **Géométrie** : tracée sur le fichier symbole d’origine (1254 px). Il n’a pas d’anticrénelage (bords en escalier
+  d’1 px et liseré de pixels parasites rouges/bleus) : ces pixels sont écartés, les portions droites sont remplacées par
+  leur droite des moindres carrés, les angles vifs par l’intersection exacte de leurs deux droites, les courbes sont
+  lissées, puis le tout est vectorisé en courbes de Bézier (potrace). Bords nets à toute taille, sans escalier ni liseré.
+* **Rendu** : celui du **symbole du bandeau** (bande vin plus lumineuse, panneaux « verre » avec un liseré doux) : le
+  bandeau est recalé sur le fichier HD (même dessin, IoU 0,94) et son éclairage est transféré (gain basse fréquence).
+* **Logotype NEXORA** : tracé depuis le bandeau, lettres reconstruites de la même façon (le O est une ellipse exacte).
+
+| Fichier (`brand/`) | Contenu |
+|---|---|
+| `nexora-symbole-4k.png` | symbole, 3695 × 3840, fond transparent |
+| `nexora-logo-4k.png` | symbole + logotype (disposition du bandeau), 3840 px de large, fond transparent |
+| `nexora-logo-4k-fond-noir.png` | même verrouillage en 3840 × 2160 (UHD) sur fond `#09090C` |
+| `nexora-logotype.svg`, `nexora-logotype-noir.svg`, `nexora-symbole-silhouette.svg` | vectoriels (blanc chaud / noir / silhouette) |
+
+Sur le site : symbole en AVIF + WebP de 96 à 1600 px (choisis selon l’écran), logotype en SVG, reflet néon découpé par
+le tracé vectoriel de la bande vin, icônes et image de partage régénérées depuis le 4K.
+Chaîne : `assets-src/logo4k/` (`trace.py` → `rasterize.mjs` → `compose.py` → `export.mjs`), lancée par `npm run brand:logo`.
 
 Voir aussi : [docs/RAPPORT.md](docs/RAPPORT.md) (tests, sécurité, performance) et
 [docs/A-COMPLETER.md](docs/A-COMPLETER.md) (informations et accès encore nécessaires).

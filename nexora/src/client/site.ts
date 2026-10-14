@@ -2,6 +2,7 @@ import '../styles/site.css';
 import { initCarousel } from './carousel';
 import { initMotion } from './motion';
 import { initContactForm } from './contact-form';
+import { initLightbox } from './lightbox';
 
 document.documentElement.classList.add('js');
 
@@ -89,6 +90,7 @@ function boot() {
   initMobileMenu();
   initMotion();
   document.querySelectorAll<HTMLElement>('[data-carousel]').forEach(initCarousel);
+  initLightbox();
   initContactForm();
 }
 

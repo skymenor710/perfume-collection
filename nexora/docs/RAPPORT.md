@@ -8,8 +8,8 @@ développement (conteneur Linux, Node 22.22, Chromium 141, PostgreSQL 16.15 loca
 | Contrôle | Résultat |
 |---|---|
 | TypeScript strict (`npm run typecheck`) | ✅ 0 erreur |
-| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 50 / 50 |
-| Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 10 / 10 sur **PostgreSQL 16.15** et ✅ 10 / 10 sur PGlite |
+| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 51 / 51 |
+| Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 13 / 13 sur **PostgreSQL 16.15** |
 | Audit des dépendances (`npm audit`) | ✅ 0 vulnérabilité (après passage de sharp 0.35.4 → 0.35.5, CVE librsvg) |
 | Revue de sécurité du code (revue dédiée + sondages manuels) | ✅ aucune vulnérabilité exploitable identifiée ; 1 durcissement appliqué |
 | Lighthouse 12.8.2, mobile | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
@@ -26,8 +26,11 @@ Conditions : build de production, `NODE_ENV=production`, serveur local, 3 projet
 
 | Profil | LCP | CLS | TBT | FCP | Speed Index |
 |---|---|---|---|---|---|
-| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) — 2 passages | 1,8 s / 1,9 s | 0 | 20 ms / 0 ms | 1,0 s / 0,9 s | 1,0 s / 0,9 s |
-| Ordinateur (RTT 40 ms, 10 Mb/s) — 2 passages | 0,5 s / 0,5 s | 0 | 0 ms | 0,3 s | 0,3–0,4 s |
+| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4 s | 0 | 20 ms | — | — |
+| Ordinateur (RTT 40 ms, 10 Mb/s) | 0,4 s | 0 | 0 ms | — | — |
+
+(Mesures refaites après la version « premium » : logo 4K, visionneuse, finitions. Les mesures précédentes étaient
+LCP 1,8–1,9 s mobile et 0,5 s ordinateur.)
 
 Objectifs demandés : Performance ≥ 90, Accessibilité ≥ 95, Bonnes pratiques ≥ 95, SEO ≥ 95, LCP ≤ 2,5 s, CLS ≤ 0,1 —
 **tous atteints** dans ces conditions. Limite : serveur local (temps de réponse quasi nul) ; en production, la latence
@@ -59,7 +62,9 @@ Ce qui a été fait pour y arriver :
 | Navigation | liens internes : la section s’arrête sous l’en-tête fixe (84 px / 68 px) ; en-tête flouté au défilement |
 | Menu mobile | ouverture, focus piégé, Échap, retour du focus, fermeture au clic + navigation |
 | Carrousels | flèches, points, boucle, clavier (←, →, Début, Fin), **glissement tactile réel** (événements touch) ; les deux autres carrousels ne bougent jamais |
-| Néon | animation `neon-sweep` 8,5 s (passage + pause), découpée par le masque de la bande vin, en pause hors écran |
+| Néon | animation `neon-sweep` 8,5 s (passage + pause), découpée par le tracé vectoriel de la bande vin, en pause hors écran |
+| Visionneuse | clic sur une capture → plein écran, titre, compteur, légende = texte alternatif, variante ≥ 1200 px ; ←/→ et boutons en boucle ; zoom au clic et dézoom ; Échap ; focus rendu au carrousel, qui affiche l’image vue en dernier ; bouton « Agrandir » au clavier ; **glisser au doigt** sur mobile |
+| Texte non éditable | clic dans un titre : aucun point d’insertion (`caret-color` transparent), curseur flèche, aucun focus ; les champs du formulaire gardent curseur et point d’insertion ; liens = main |
 | Parallaxe | transformation appliquée au défilement, défilement natif intact |
 | Mouvement réduit | néon figé, aucune parallaxe, tout le contenu visible |
 | Formulaire | ouverture accessible, erreurs par champ, **échec serveur simulé : données conservées**, succès affiché seulement après HTTP 201 |
@@ -75,8 +80,8 @@ titres, cartes, section contact) et corrigée en deux passes (tailles de titres 
 - Cartes **carrées** (exigence), alors que la maquette les montre légèrement plus hautes que larges.
 - Le titre mobile de la section est « Des projets concrets. Des résultats visibles. » (texte demandé), pas « Nos réalisations. ».
 - Menu « Accueil / Réalisations / Contact » (demandé) au lieu de « Expertises » de la maquette.
-- Le hero de la maquette est un rendu 3D ; le site utilise le **fichier original** du logo (aucun redessin), mis en
-  lumière par des calques (halo, arêtes de verre, reflet, néon). Le texte vin sur noir est éclairci (`#AD3158`,
+- Le hero de la maquette est un rendu 3D ; le site utilise le logo **reconstruit en 4K depuis les fichiers fournis**
+  (géométrie du symbole HD, rendu du bandeau — voir README § 7), mis en lumière par des calques (halo, reflet, néon). Le texte vin sur noir est éclairci (`#AD3158`,
   `#CF5277`) pour respecter le contraste WCAG AA ; les fonds et boutons gardent `#751B35` / `#982B49`.
 - L’illustration de la section contact (montagne, chemin, porte) est dessinée en SVG (pas de photo générée).
 - Mobile : un seul bouton dans le hero, comme sur la maquette ; « Découvrir nos réalisations » reste accessible par

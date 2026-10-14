@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run build && node --env-file-if-exists=.env --import tsx --watch src/server/main.ts",
     "build": "vite build",
+    "brand:logo": "python3 -I assets-src/logo4k/trace.py && node assets-src/logo4k/rasterize.mjs 3840 && python3 -I assets-src/logo4k/compose.py 3840 && node assets-src/logo4k/export.mjs",
     "start": "node --env-file-if-exists=.env --import tsx src/server/main.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",

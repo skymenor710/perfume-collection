@@ -100,6 +100,43 @@ body {
   overflow-x: clip;
 }
 
+/* Lecture seule hors formulaire : flèche et AUCUN point d'insertion clignotant quand on clique dans un texte
+   (le texte reste sélectionnable pour la copie). Les champs du formulaire gardent leur curseur de saisie. */
+html {
+  cursor: default;
+  caret-color: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+a[href],
+button,
+summary,
+label[for],
+select,
+[role='button'] {
+  cursor: pointer;
+}
+input,
+textarea,
+[contenteditable='true'] {
+  cursor: text;
+  caret-color: var(--wine-glow);
+}
+button,
+.btn,
+.site-nav,
+.menu-toggle,
+.scroll-cue,
+.carousel__btn,
+.carousel__dots,
+.badge-demo,
+.lightbox__bar {
+  -webkit-user-select: none;
+  user-select: none;
+}
+img {
+  -webkit-user-drag: none;
+}
+
 ::selection {
   background: var(--wine);
   color: var(--white-pure);
@@ -305,17 +342,16 @@ em {
   top: 0;
   z-index: 50;
   height: var(--header-h);
-  background: rgb(9 9 12 / 0.88);
+  background: rgb(9 9 12 / 0.72);
+  -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  backdrop-filter: saturate(1.8) blur(20px);
   border-bottom: 1px solid var(--line);
   transition:
-    background-color 0.4s var(--ease-out),
-    border-color 0.4s var(--ease-out);
+    background-color 0.5s var(--ease-out),
+    border-color 0.5s var(--ease-out);
 }
 .site-header.is-scrolled {
-  background: rgb(9 9 12 / 0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  backdrop-filter: blur(16px) saturate(1.2);
-  border-bottom-color: var(--line-2);
+  background: rgb(9 9 12 / 0.64);
 }
 .site-header__inner {
   height: 100%;
@@ -484,7 +520,6 @@ section[id],
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
 }
 .hero__bg {
   position: absolute;
@@ -492,6 +527,9 @@ section[id],
   z-index: -1;
   pointer-events: none;
   will-change: transform;
+  /* Les lueurs s'éteignent avant le bas du hero : aucune coupure nette avec la section suivante. */
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 98%);
+  mask-image: linear-gradient(180deg, #000 72%, transparent 98%);
 }
 .hero__glow {
   position: absolute;
@@ -519,19 +557,21 @@ section[id],
   top: -4%;
   width: 46%;
   height: 120%;
-  background: linear-gradient(105deg, transparent 38%, rgb(224 70 110 / 0.08) 48%, rgb(224 70 110 / 0.16) 50%, rgb(224 70 110 / 0.06) 53%, transparent 62%);
+  background: linear-gradient(105deg, transparent 36%, rgb(224 70 110 / 0.07) 47%, rgb(224 70 110 / 0.12) 50%, rgb(224 70 110 / 0.05) 54%, transparent 64%);
   transform: rotate(8deg);
+  filter: blur(14px);
 }
 .hero__streak {
   position: absolute;
   left: 50%;
   right: 24%;
   top: 69%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgb(224 70 110 / 0.5) 60%, rgb(255 130 160 / 0.7) 85%, transparent);
-  box-shadow: 0 0 18px 2px rgb(224 70 110 / 0.35);
+  height: 14px;
+  /* Traînée de lumière diffuse (aucun trait net). */
+  background: radial-gradient(50% 50% at 75% 50%, rgb(255 120 155 / 0.5), rgb(224 70 110 / 0.18) 55%, transparent 100%);
   transform: rotate(-4deg);
-  opacity: 0.7;
+  filter: blur(7px);
+  opacity: 0.75;
 }
 .hero__grid {
   flex: 1;
@@ -600,43 +640,22 @@ section[id],
 }
 .symbol__stage {
   position: relative;
-  aspect-ratio: 919 / 955;
+  aspect-ratio: 2805 / 2915;
   filter: drop-shadow(0 30px 60px rgb(0 0 0 / 0.55));
 }
-.symbol__img {
+.symbol__stage picture,
+.symbol__stage img {
+  display: block;
   width: 100%;
   height: 100%;
 }
-.symbol__edges,
-.symbol__sheen,
+/* Néon : reflet fin qui parcourt la bande vin, découpé par le tracé vectoriel exact de la bande (net à toute taille). */
 .symbol__neon {
   position: absolute;
   inset: 0;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-/* Arêtes « verre » des panneaux sombres, éclairées par le haut. */
-.symbol__edges {
-  -webkit-mask-image: url('/brand/symbol-edges-960.webp');
-  mask-image: url('/brand/symbol-edges-960.webp');
-  background: linear-gradient(170deg, rgb(255 210 222 / 0.55), rgb(224 70 110 / 0.22) 45%, rgb(234 230 232 / 0.05) 80%);
-  opacity: 0.55;
-}
-/* Lumière statique sur la bande vin (volume) — reste dans la forme. */
-.symbol__sheen {
-  -webkit-mask-image: url('/brand/symbol-wine-mask-960.webp');
-  mask-image: url('/brand/symbol-wine-mask-960.webp');
-  background:
-    radial-gradient(70% 45% at 30% 12%, rgb(255 120 150 / 0.32), transparent 70%),
-    linear-gradient(160deg, rgb(224 70 110 / 0.22), transparent 55%, rgb(0 0 0 / 0.12));
-}
-/* Néon : reflet fin qui parcourt la bande vin (masque = forme exacte de la bande). */
-.symbol__neon {
-  -webkit-mask-image: url('/brand/symbol-wine-mask-960.webp');
-  mask-image: url('/brand/symbol-wine-mask-960.webp');
   overflow: hidden;
+  -webkit-mask: url('/brand/symbol-wine.svg') 0 0 / 100% 100% no-repeat;
+  mask: url('/brand/symbol-wine.svg') 0 0 / 100% 100% no-repeat;
 }
 .symbol__neon-band {
   position: absolute;
@@ -756,8 +775,7 @@ section[id],
 /* ---------- Réalisations ---------- */
 .projects {
   position: relative;
-  padding: clamp(52px, 4.6vw, 68px) 0 clamp(52px, 4.4vw, 66px);
-  border-bottom: 1px solid var(--line);
+  padding: clamp(52px, 4.6vw, 68px) 0 clamp(64px, 5.6vw, 88px);
   background: linear-gradient(180deg, #0a0a0d, var(--black) 40%);
 }
 .section-head {
@@ -978,6 +996,263 @@ html:not(.js) .carousel__dots {
   color: var(--white);
 }
 
+/* Agrandir : bouton discret (en haut à gauche) + clic direct sur l'image. */
+.carousel__slide img {
+  cursor: zoom-in;
+}
+.carousel__expand {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  background: rgb(18 16 20 / 0.55);
+  -webkit-backdrop-filter: saturate(1.6) blur(10px);
+  backdrop-filter: saturate(1.6) blur(10px);
+  color: #fff;
+  transition:
+    opacity 0.35s var(--ease-out),
+    background-color 0.3s var(--ease-out),
+    transform 0.3s var(--ease-out);
+}
+.carousel__expand:hover {
+  background: rgb(117 27 53 / 0.85);
+}
+.carousel__expand:active {
+  transform: scale(0.94);
+}
+.carousel__expand:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+html:not(.js) .carousel__expand {
+  display: none;
+}
+/* Souris : commandes révélées au survol (la capture reste nette au repos). Écrans tactiles : toujours visibles. */
+@media (hover: hover) and (pointer: fine) {
+  .carousel__btn,
+  .carousel__expand {
+    opacity: 0;
+  }
+  .carousel:hover .carousel__btn,
+  .carousel:hover .carousel__expand,
+  .carousel:focus-within .carousel__btn,
+  .carousel:focus-within .carousel__expand {
+    opacity: 1;
+  }
+  .carousel__slide img {
+    transition: transform 1.2s var(--ease-out);
+  }
+  .carousel:hover .carousel__slide img {
+    transform: scale(1.015);
+  }
+}
+
+/* ---------- Visionneuse plein écran ---------- */
+html.lightbox-open {
+  overflow: hidden;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--white);
+  overflow: hidden;
+  display: none;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-out);
+}
+.lightbox[open] {
+  display: grid;
+}
+.lightbox.is-open {
+  opacity: 1;
+}
+.lightbox::backdrop {
+  background: rgb(9 9 12 / 0.9);
+  -webkit-backdrop-filter: saturate(1.4) blur(24px);
+  backdrop-filter: saturate(1.4) blur(24px);
+}
+.lightbox__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: max(14px, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right)) 10px max(var(--gutter), env(safe-area-inset-left));
+}
+.lightbox__title {
+  font-size: 1rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lightbox__count {
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.lightbox__tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.lightbox__tool,
+.lightbox__nav {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.06);
+  color: #fff;
+  transition:
+    background-color 0.3s var(--ease-out),
+    border-color 0.3s var(--ease-out),
+    transform 0.3s var(--ease-out);
+}
+.lightbox__tool {
+  width: 44px;
+  height: 44px;
+}
+.lightbox__tool:hover,
+.lightbox__nav:hover {
+  background: rgb(117 27 53 / 0.75);
+  border-color: rgb(255 255 255 / 0.3);
+}
+.lightbox__tool:active,
+.lightbox__nav:active {
+  transform: scale(0.94);
+}
+.lightbox__tool[aria-pressed='true'] .plus-v {
+  opacity: 0;
+}
+.lightbox__stage {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px max(calc(var(--gutter) + 56px), 72px);
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
+}
+.lightbox__stage.is-zoomed {
+  touch-action: none;
+}
+.lightbox__frame {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+.lightbox__frame > picture {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.lightbox__img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 40px 120px -40px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(255 255 255 / 0.06);
+  cursor: zoom-in;
+  transition: transform 0.5s var(--ease-out);
+  will-change: transform;
+}
+.lightbox__stage.is-zoomed .lightbox__img {
+  cursor: zoom-out;
+  border-radius: 4px;
+}
+.lightbox__stage.is-panning .lightbox__img {
+  cursor: grabbing;
+}
+.lightbox__frame > .is-entering {
+  animation: lightbox-in 0.45s var(--ease-out) both;
+}
+.lightbox__frame > .is-leaving {
+  animation: lightbox-out 0.3s var(--ease-out) both;
+  pointer-events: none;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--from, 0));
+  }
+}
+@keyframes lightbox-out {
+  to {
+    opacity: 0;
+  }
+}
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  width: 52px;
+  height: 52px;
+  z-index: 2;
+}
+.lightbox__nav--prev {
+  left: max(calc(var(--gutter) - 8px), 12px, env(safe-area-inset-left));
+}
+.lightbox__nav--next {
+  right: max(calc(var(--gutter) - 8px), 12px, env(safe-area-inset-right));
+}
+.lightbox__nav[hidden] {
+  display: none;
+}
+.lightbox__caption {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 10px var(--gutter) max(18px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--text-2);
+}
+@media (max-width: 640px) {
+  .lightbox__bar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+  }
+  .lightbox__stage {
+    padding: 8px 12px;
+  }
+  .lightbox__nav {
+    top: auto;
+    bottom: max(56px, calc(env(safe-area-inset-bottom) + 44px));
+    translate: none;
+    width: 46px;
+    height: 46px;
+    background: rgb(18 16 20 / 0.7);
+  }
+  .lightbox__caption {
+    padding-left: 72px;
+    padding-right: 72px;
+    min-height: 64px;
+  }
+}
+
 .project-card__body {
   padding-top: 18px;
 }
@@ -1023,7 +1298,8 @@ html:not(.js) .carousel__dots {
     radial-gradient(80% 120% at 0% 0%, rgb(117 27 53 / 0.38), transparent 60%),
     radial-gradient(60% 90% at 30% 100%, rgb(60 12 26 / 0.5), transparent 70%),
     linear-gradient(180deg, #120609, #0c0508 60%, #0b070a);
-  border-bottom: 1px solid var(--line);
+  /* Bandeau délimité par deux filets, comme sur la maquette. */
+  border-block: 1px solid var(--line);
 }
 .contact__art {
   position: absolute;
@@ -1038,7 +1314,6 @@ html:not(.js) .carousel__dots {
   width: 90%;
   height: 210%;
   border-radius: 50%;
-  border-left: 1px solid rgb(224 70 110 / 0.18);
   background: radial-gradient(closest-side at 30% 50%, rgb(152 43 73 / 0.2), transparent 80%);
   transform: rotate(-24deg);
 }
@@ -1461,16 +1736,6 @@ html.js-motion .project-grid__item:nth-child(3) [data-reveal] {
   :root {
     --header-h: 68px;
   }
-  /* Masques en demi-résolution sur petit écran (symbole affiché à 380 px maximum). */
-  .symbol__sheen,
-  .symbol__neon {
-    -webkit-mask-image: url('/brand/symbol-wine-mask-480.webp');
-    mask-image: url('/brand/symbol-wine-mask-480.webp');
-  }
-  .symbol__edges {
-    -webkit-mask-image: url('/brand/symbol-edges-480.webp');
-    mask-image: url('/brand/symbol-edges-480.webp');
-  }
   .site-nav {
     display: none;
   }
@@ -1611,6 +1876,13 @@ html.js-motion .project-grid__item:nth-child(3) [data-reveal] {
 
 /* ---------- Mouvement réduit : tout est statique et immédiatement visible ---------- */
 @media (prefers-reduced-motion: reduce) {
+  .lightbox,
+  .lightbox__img,
+  .lightbox__frame > .is-entering,
+  .lightbox__frame > .is-leaving {
+    transition: none;
+    animation: none;
+  }
   *,
   *::before,
   *::after {

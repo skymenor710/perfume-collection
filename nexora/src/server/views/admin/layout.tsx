@@ -60,9 +60,9 @@ export const AdminShell = ({
     <div class="shell">
       <aside class="sidebar">
         <a class="sidebar__brand" href="/admin">
-          <img src="/brand/symbol-96.webp" width="34" height="36" alt="" />
+          <img src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="34" height="36" alt="" />
           <span>
-            <img src="/brand/wordmark-480.webp" width="104" height="17" alt="Nexora" />
+            <img src="/brand/wordmark.svg" width="104" height="17" alt="Nexora" />
             <small>Administration</small>
           </span>
         </a>

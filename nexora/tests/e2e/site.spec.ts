@@ -170,13 +170,108 @@ test('carrousels : glissement tactile réel sur mobile, sans entraîner les autr
   await context.close();
 });
 
+test('visionneuse : clic sur une capture, navigation, zoom, Échap, retour au carrousel', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const problems = watch(page);
+  await page.goto(BASE);
+  await page.locator('#carousel-1').scrollIntoViewIfNeeded();
+  const dialog = page.locator('dialog.lightbox');
+  await expect(dialog).not.toBeVisible();
+
+  // Clic direct sur l'image.
+  await page.locator('#carousel-1 .carousel__slide').first().locator('img').click();
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('[data-lightbox-title]')).toHaveText('Entreprise de maçonnerie');
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
+  const alt = await page.locator('#carousel-1 .carousel__slide').first().locator('img').getAttribute('alt');
+  await expect(page.locator('[data-lightbox-caption]')).toHaveText(alt!);
+  // Image plus grande que dans la carte (variante haute définition).
+  await expect.poll(() => page.locator('.lightbox__img').last().evaluate((e) => Number(/\/(\d+)\.(?:avif|webp)$/.exec((e as HTMLImageElement).currentSrc)?.[1] ?? 0))).toBeGreaterThanOrEqual(1200);
+  // Fond inerte : le focus est dans la visionneuse.
+  expect(await page.evaluate(() => !!document.activeElement?.closest('dialog'))).toBe(true);
+
+  // Navigation clavier et boutons, en boucle.
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('2 / 4');
+  await page.locator('[data-lightbox-prev]').click();
+  await page.locator('[data-lightbox-prev]').click();
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('4 / 4');
+  await page.locator('[data-lightbox-next]').click();
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('2 / 4');
+
+  // Zoom au clic sur l'image, puis dézoom.
+  const img = page.locator('.lightbox__img').last();
+  await img.click();
+  await expect(page.locator('[data-lightbox-zoom]')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => img.evaluate((e) => getComputedStyle(e).transform)).toContain('matrix(2');
+  await page.locator('[data-lightbox-zoom]').click();
+  await expect(page.locator('[data-lightbox-zoom]')).toHaveAttribute('aria-pressed', 'false');
+
+  // Échap : fermeture, focus rendu au carrousel, qui affiche l'image vue en dernier.
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  expect(await page.evaluate(() => document.activeElement?.closest('#carousel-1') !== null)).toBe(true);
+  await expect.poll(() => scrollLeftOf(page, 1)).toBe(1);
+  await expect(page.locator('#carousel-1 [data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
+  expect(await scrollLeftOf(page, 2)).toBe(0);
+
+  // Bouton « Agrandir » (clavier) et projet suivant.
+  await page.locator('#carousel-3 [data-lightbox-open]').focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('[data-lightbox-title]')).toHaveText('EARKO');
+  await page.locator('[data-lightbox-close]').click();
+  await expect(dialog).not.toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test('visionneuse mobile : toucher pour ouvrir, glisser pour changer d’image', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  await page.goto(BASE);
+  await page.locator('#carousel-2').scrollIntoViewIfNeeded();
+  await page.locator('#carousel-2 .carousel__slide').first().locator('img').tap();
+  await expect(page.locator('dialog.lightbox')).toBeVisible();
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
+  const box = (await page.locator('[data-lightbox-stage]').boundingBox())!;
+  const cdp = await context.newCDPSession(page);
+  const y = Math.round(box.y + box.height / 2);
+  const x0 = Math.round(box.x + box.width * 0.8);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
+  for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - i * 30, y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('2 / 4');
+  await expect(page.locator('dialog.lightbox')).toBeVisible();
+  await context.close();
+});
+
+test('texte non éditable : pas de curseur de saisie hors des champs du formulaire', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(BASE);
+  const title = page.locator('.hero__title');
+  await title.click({ position: { x: 40, y: 20 } });
+  const style = await title.evaluate((el) => ({ caret: getComputedStyle(el).caretColor, cursor: getComputedStyle(el).cursor, editable: (el as HTMLElement).isContentEditable }));
+  expect(style).toEqual({ caret: 'rgba(0, 0, 0, 0)', cursor: 'default', editable: false });
+  // Aucun élément de saisie n'a pris le focus en cliquant dans le texte.
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
+  // Les champs, eux, gardent le curseur et le point d'insertion.
+  await page.locator('[data-contact-toggle]').click();
+  const field = page.locator('#cf-name');
+  await expect(field).toBeVisible();
+  expect(await field.evaluate((el) => ({ caret: getComputedStyle(el).caretColor, cursor: getComputedStyle(el).cursor }))).toEqual({ caret: 'rgb(224, 70, 110)', cursor: 'text' });
+  // Liens et boutons : main.
+  expect(await page.locator('.hero__actions a').first().evaluate((el) => getComputedStyle(el).cursor)).toBe('pointer');
+});
+
 test('néon : animé, découpé par le masque de la bande vin, en pause hors écran', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(BASE);
   const band = page.locator('.symbol__neon-band');
   expect(await band.evaluate((el) => getComputedStyle(el).animationName)).toBe('neon-sweep');
   const mask = await page.locator('.symbol__neon').evaluate((el) => getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage);
-  expect(mask).toContain('symbol-wine-mask');
+  expect(mask).toContain('symbol-wine.svg');
   const duration = await band.evaluate((el) => parseFloat(getComputedStyle(el).animationDuration));
   expect(duration).toBeGreaterThanOrEqual(6);
   expect(duration).toBeLessThanOrEqual(10);

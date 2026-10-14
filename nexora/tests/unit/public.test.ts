@@ -40,11 +40,13 @@ describe('site public', () => {
     const imgs = [...html.matchAll(/<img (?:data-)?src="\/media\/[^>]+>/g)].map((m) => m[0]);
     for (const img of imgs) {
       expect(img).toMatch(/width="\d+"/);
-      expect(img).toMatch(/alt="Site d/);
+      expect(img).toMatch(/alt="Site /);
     }
-    expect(html).toContain('href="https://www.snohetta.com"');
-    expect(html).toContain('Opinel');
-    expect(html).toContain('Wavestone');
+    expect(html).toContain('Entreprise de maçonnerie');
+    expect(html).toContain('Laboratoire in vitro');
+    expect(html).toContain('EARKO');
+    // Identité des prospects jamais affichée.
+    expect(html).not.toMatch(/AWM/i);
     // Jeton du formulaire remplacé à chaque requête.
     expect(html).not.toContain('__NX_FORM_TOKEN__');
   }, 180_000);

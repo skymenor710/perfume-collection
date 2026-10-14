@@ -7,43 +7,46 @@ import { processAndStoreImage } from '../lib/images';
 import { bumpContentVersion } from '../lib/repo';
 
 /**
- * Projets d'EXEMPLE affichés tant que Nexora n'a pas ajouté ses propres réalisations : trois sites publics de
- * référence (Snøhetta, Opinel, Wavestone), capturés le 14/10/2026 par assets-src/real-sites/capture.mjs.
- * Ils NE SONT PAS des réalisations de Nexora : is_demo = true → mention « Démonstration » sur le site.
+ * Projets du portfolio affichés au départ : trois sites conçus par Nexora avec Claude Code.
+ *  - maçonnerie et laboratoire : maquettes de prospection (pas des clients livrés), noms et coordonnées floutés,
+ *    comme dans le dossier de présentation ;
+ *  - EARKO : page produit de la marque EARKO.
+ * Captures : assets-src/portfolio/ (capture.mjs pour les sites ouverts dans le navigateur, frame.py pour les
+ * captures existantes du dossier). is_demo = true → mention « Démonstration » : ce ne sont pas des références clients.
  * N'agit que si la base ne contient encore aucun projet.
  */
 const DEMOS = [
   {
-    name: 'Snøhetta',
-    category: 'Architecture · Site institutionnel',
-    url: 'https://www.snohetta.com',
+    name: 'Entreprise de maçonnerie',
+    category: 'Bâtiment · Site vitrine',
+    url: null,
     images: [
-      ['snohetta-1', 'Site de Snøhetta, haut de page : présentation de l’agence et liste des disciplines (architecture, paysage, intérieur, design produit).'],
-      ['snohetta-2', 'Site de Snøhetta, milieu de page : actualités de projets et agenda des conférences.'],
-      ['snohetta-3', 'Site de Snøhetta, milieu de page : liste des projets phares, de la Bibliotheca Alexandrina à l’Opéra national de Norvège.'],
-      ['snohetta-4', 'Site de Snøhetta, bas de page : contact et pied de page.'],
+      ['maconnerie-1', 'Site d’une entreprise de maçonnerie, haut de page : « De multiples savoir-faire, un seul interlocuteur », illustration d’une maison et bouton de devis.'],
+      ['maconnerie-2', 'Site d’une entreprise de maçonnerie : « Sept corps d’état, une seule entreprise », liste des prestations.'],
+      ['maconnerie-3', 'Site d’une entreprise de maçonnerie : la méthode en quatre étapes, de la demande à la réception du chantier.'],
+      ['maconnerie-4', 'Site d’une entreprise de maçonnerie : galerie des réalisations filtrable par métier.'],
     ],
   },
   {
-    name: 'Opinel',
-    category: 'Artisanat · E-commerce',
-    url: 'https://www.opinel.com/fr-fr/',
+    name: 'Laboratoire in vitro',
+    category: 'Biotechnologie · Site vitrine trilingue',
+    url: null,
     images: [
-      ['opinel-1', 'Site d’Opinel, haut de page : couteau de poche en édition limitée mis en avant.'],
-      ['opinel-2', 'Site d’Opinel, milieu de page : personnalisation par gravure et collections de couteaux.'],
-      ['opinel-3', 'Site d’Opinel, milieu de page : articles et conseils autour des couteaux.'],
-      ['opinel-4', 'Site d’Opinel, bas de page : histoire de la marque depuis 1890 et pied de page.'],
+      ['labo-1', 'Site d’un laboratoire de culture in vitro, haut de page : le mot « in vitro » en grand sur fond vert sombre.'],
+      ['labo-2', 'Site d’un laboratoire de culture in vitro : animation de multiplication des plants pilotée par le défilement.'],
+      ['labo-3', 'Site d’un laboratoire de culture in vitro : cycle de production de 142 semaines et section sur le palmier dattier.'],
+      ['labo-4', 'Site d’un laboratoire de culture in vitro, bas de page : appel à projet et coordonnées (masquées).'],
     ],
   },
   {
-    name: 'Wavestone',
-    category: 'Services · Conseil',
-    url: 'https://www.wavestone.com/fr/',
+    name: 'EARKO',
+    category: 'E-commerce · Page produit',
+    url: null,
     images: [
-      ['wavestone-1', 'Site de Wavestone, haut de page : actualité du cabinet et accroche sur les transformations par l’IA.'],
-      ['wavestone-2', 'Site de Wavestone, milieu de page : dernières publications et informations.'],
-      ['wavestone-3', 'Site de Wavestone, milieu de page : section Talents & Culture.'],
-      ['wavestone-4', 'Site de Wavestone, bas de page : prochains événements, contact et pied de page.'],
+      ['earko-1', 'Site EARKO, haut de page : « Stay in motion », écouteur SecureFit, prix et bouton d’achat.'],
+      ['earko-2', 'Site EARKO : section « No more constant adjustments » avec photo du produit porté.'],
+      ['earko-3', 'Site EARKO : choix de la couleur parmi quatre finitions.'],
+      ['earko-4', 'Site EARKO, bas de page : rappel du prix, garanties d’achat et pied de page.'],
     ],
   },
 ] as const;

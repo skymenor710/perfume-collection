@@ -35,6 +35,6 @@ Facultatif : e-mail et téléphone à afficher publiquement dans la section cont
 
 ## Contenus
 
-- [ ] Vrais projets (nom, catégorie, lien, 1 à 10 images carrées, textes alternatifs) pour remplacer les 3 sites de référence (Snøhetta, Opinel, Wavestone), qui ne sont pas des réalisations de Nexora.
+- [ ] Vrais projets (nom, catégorie, lien, 1 à 10 images carrées, textes alternatifs) pour compléter ou remplacer les 3 maquettes affichées (maçonnerie, laboratoire, EARKO), signalées « Démonstration ».
 - [ ] Validation des textes (titre, accroche, messages) — ceux des maquettes sont en place et modifiables.
 - [ ] Logo vectoriel (SVG/AI) si disponible : le site utilise le PNG original détouré (net jusqu’à 960 px).

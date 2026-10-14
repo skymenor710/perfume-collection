@@ -76,9 +76,8 @@ export const LegalNotice = ({ content, publicUrl }: { content: SiteContent; publ
             protégé par le droit de la propriété intellectuelle. Toute reproduction sans autorisation préalable est interdite.
           </p>
           <p>
-            Les projets signalés « Démonstration » sont des sites publics de référence présentés à titre d’exemple : ils n’ont pas été
-            réalisés par Nexora et ne représentent pas des clients. Les captures d’écran, noms et marques appartiennent à leurs
-            propriétaires respectifs.
+            Les projets signalés « Démonstration » sont des maquettes conçues par Nexora (prospection ou projets internes) : ils ne
+            représentent pas des clients. Les noms et coordonnées des entreprises concernées sont masqués.
           </p>
 
           <h2>Données personnelles et cookies</h2>

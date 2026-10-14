@@ -57,10 +57,10 @@ contenu » en base, et toutes les instances re-génèrent la page à la requête
 5. Ordre des images : flèches ↑ ↓ ; **Définir comme couverture** place l’image en premier.
 6. Cocher **Publié**, choisir la **position 1, 2 ou 3** sur la page d’accueil, enregistrer.
 
-**Remplacer les démonstrations** : les trois projets fournis (Snøhetta, Opinel, Wavestone) sont des **sites publics de
-référence**, capturés pour l’exemple — ils n’ont **pas** été réalisés par Nexora et restent affichés avec la mention
-« Démonstration ». Ne pas décocher cette mention : les présenter comme vos réalisations serait trompeur (et leurs
-captures appartiennent à leurs propriétaires). Une fois vos projets publiés et placés en positions 1–3, dépubliez ou
+**Projets fournis** : trois sites conçus par Nexora avec Claude Code — une entreprise de maçonnerie et un laboratoire in
+vitro (maquettes de prospection, noms et coordonnées floutés) et la page produit EARKO. Ils sont affichés avec la
+mention « Démonstration » car ce ne sont pas des clients livrés ; dès qu’un site est livré à un client, ajoutez-le comme
+projet normal (sans la mention). Une fois vos projets publiés et placés en positions 1–3, dépubliez ou
 supprimez les démonstrations. Le sur-titre « Aperçus de démonstration » disparaît automatiquement dès qu’un vrai projet
 est affiché. Le tableau de bord rappelle tant qu’une démonstration est publiée.
 
@@ -158,7 +158,7 @@ src/styles/          CSS du site et de l’admin
 public/brand/        logo d’origine détouré, masques du néon, icônes ; public/fonts : Figtree (OFL)
 assets-src/          fichiers ORIGINAUX fournis + scripts d’extraction (logo, masques, illustrations, démos)
 drizzle/             migrations SQL versionnées
-seed/demo/           captures des 3 sites de référence (assets-src/real-sites/capture.mjs)
+seed/demo/           captures des 3 projets du portfolio (assets-src/portfolio/)
 tests/               unit/ (Vitest) et e2e/ (Playwright)
 docs/                rapport de tests, captures d’écran, informations manquantes
 ```

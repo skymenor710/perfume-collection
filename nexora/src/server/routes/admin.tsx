@@ -9,7 +9,7 @@ import { createSession, destroyOtherSessions, destroySession, loadSession, preCo
 import { PASSWORD_MAX, PASSWORD_MIN, dummyHash, hashPassword, randomToken, safeEqual, verifyPassword } from '../lib/crypto';
 import { hit, peek, reset } from '../lib/rate-limit';
 import { fingerprint } from '../lib/security';
-import { audit, bumpContentVersion, getContent, getProject, listProjects, saveContent } from '../lib/repo';
+import { audit, bumpContentVersion, getContent, getProject, listProjects, saveContent, getTeamPhoto, setTeamPhoto } from '../lib/repo';
 import { contentSchema, missingLegal, type SiteContent, rows } from '../lib/content';
 import { ImageRejected, processAndStoreImage } from '../lib/images';
 import { renderHtml } from '../views/render';
@@ -81,7 +81,10 @@ const projectFormSchema = z.object({
   url: httpUrl('Adresse'),
   challenge: z.string().trim().max(500, '500 caractères maximum.'),
   solution: z.string().trim().max(500, '500 caractères maximum.'),
+  principles: z.string().trim().max(600, '600 caractères maximum.'),
   results: z.string().trim().max(500, '500 caractères maximum.'),
+  testimonialQuote: z.string().trim().max(500, '500 caractères maximum.'),
+  testimonialAuthor: z.string().trim().max(120, '120 caractères maximum.'),
   caseUrl: httpUrl('Adresse de l’étude de cas'),
   featuredPosition: z.enum(['', '1', '2', '3']),
   published: z.boolean(),
@@ -179,13 +182,13 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
     // Taille maximale vérifiée AVANT toute lecture du corps (y compris pour le contrôle CSRF) :
     // envois d'images = 10 fichiers max, tout le reste = 256 Ko.
     if (c.req.method !== 'POST') return requireCsrf(deps)(c, next);
-    const isUpload = /^\/admin\/projets\/[0-9a-f-]{36}\/images$/.test(c.req.path);
+    const isUpload = /^\/admin\/projets\/[0-9a-f-]{36}\/images$/.test(c.req.path) || c.req.path === '/admin/contenus/photo';
     return bodyLimit({
       maxSize: isUpload ? config.uploadMaxBytes * MAX_FILES + 1024 * 1024 : 256 * 1024,
       onError: (c) => {
         if (isUpload) {
           setFlash(c, { type: 'error', lines: ['Envoi trop volumineux. Envoyez moins d’images à la fois.'] });
-          return c.redirect(c.req.path.replace(/\/images$/, ''), 303);
+          return c.redirect(c.req.path === '/admin/contenus/photo' ? '/admin/contenus#photo-equipe' : c.req.path.replace(/\/images$/, ''), 303);
         }
         return c.text('Requête trop volumineuse.', 413);
       },
@@ -236,10 +239,12 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
     }
     // Conversion : contenus à remplir avec des données RÉELLES (sections masquées sur le site tant qu'elles sont vides).
     const todo: string[] = [];
-    if (!content.contact.bookingUrl) todo.push('lien de prise de rendez-vous (les boutons « Réserver » mènent au formulaire)');
+    if (!content.contact.bookingUrl) todo.push('lien de prise de rendez-vous (les boutons affichent « Demander un diagnostic » et mènent au formulaire)');
+    if (!content.team.name.trim() || !content.team.text.trim()) todo.push('section « Derrière Nexora » (masquée)');
     if (!rows(content.proof, 'item', 4, ['Value', 'Label'] as const).some((r) => r.Value && r.Label)) todo.push('chiffres de preuve sociale (bande masquée)');
     if (!rows(content.testimonials, 't', 3, ['Quote', 'Author'] as const).some((r) => r.Quote && r.Author)) todo.push('témoignages clients (section masquée)');
-    if (all.some((p) => p.published && !p.isDemo && !p.results.trim())) todo.push('résultats mesurables des projets réels');
+    if (!all.some((p) => p.published && !p.isDemo)) todo.push('projets clients avec résultats vérifiables (section « Résultats clients » masquée)');
+    else if (all.some((p) => p.published && !p.isDemo && !p.results.trim())) todo.push('résultats vérifiables des projets clients');
     if (todo.length) {
       warnings.push({ title: 'Contenus de conversion à compléter', detail: `${todo.join(' ; ')}.`, href: '/admin/contenus', linkLabel: 'Compléter' });
     }
@@ -299,7 +304,10 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
       url: p.url ?? '',
       challenge: p.challenge,
       solution: p.solution,
+      principles: p.principles,
       results: p.results,
+      testimonialQuote: p.testimonialQuote,
+      testimonialAuthor: p.testimonialAuthor,
       caseUrl: p.caseUrl ?? '',
       published: p.published,
       isDemo: p.isDemo,
@@ -332,7 +340,10 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
       url: String(body.url ?? ''),
       challenge: String(body.challenge ?? '').replace(/\r\n/g, '\n'),
       solution: String(body.solution ?? '').replace(/\r\n/g, '\n'),
+      principles: String(body.principles ?? '').replace(/\r\n/g, '\n'),
       results: String(body.results ?? '').replace(/\r\n/g, '\n'),
+      testimonialQuote: String(body.testimonialQuote ?? '').replace(/\r\n/g, '\n'),
+      testimonialAuthor: String(body.testimonialAuthor ?? ''),
       caseUrl: String(body.caseUrl ?? ''),
       featuredPosition: String(body.featuredPosition ?? ''),
       published: body.published === '1',
@@ -367,7 +378,10 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
         url: v.url || null,
         challenge: v.challenge,
         solution: v.solution,
+        principles: v.principles,
         results: v.results,
+        testimonialQuote: v.testimonialQuote,
+        testimonialAuthor: v.testimonialAuthor,
         caseUrl: v.caseUrl || null,
         published: v.published,
         isDemo: v.isDemo,
@@ -579,7 +593,54 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
   /* ------------------------------------------------------------ Contenus */
   app.get('/contenus', async (c) => {
     const s = c.get('session')!;
-    return html(c, <ContentPage session={s} assets={assets} flash={takeFlash(c)} newRequests={await newCount()} values={await getContent(db)} />);
+    return html(
+      c,
+      <ContentPage
+        session={s}
+        assets={assets}
+        flash={takeFlash(c)}
+        newRequests={await newCount()}
+        values={await getContent(db)}
+        teamPhoto={await getTeamPhoto(db)}
+        maxMb={Math.round(config.uploadMaxBytes / 1048576)}
+      />,
+    );
+  });
+
+  /** Photo de la section « Derrière Nexora » : même traitement que les images de projets (vérifiée, nettoyée, AVIF + WebP). */
+  app.post('/contenus/photo', async (c) => {
+    const s = c.get('session')!;
+    const body = await c.req.parseBody();
+    const file = body.photo;
+    if (!(file instanceof File) || !file.size) {
+      setFlash(c, { type: 'error', lines: ['Aucune photo sélectionnée.'] });
+      return c.redirect('/admin/contenus#photo-equipe', 303);
+    }
+    try {
+      const img = await processAndStoreImage(deps.storage, 'equipe', Buffer.from(await file.arrayBuffer()), config.uploadMaxBytes);
+      const previous = await getTeamPhoto(db);
+      await setTeamPhoto(db, { id: img.id, width: img.width, height: img.height, storagePrefix: img.storagePrefix, variants: img.variants });
+      if (previous) await deps.storage.deletePrefix(previous.storagePrefix).catch(() => {});
+      await audit(db, s.adminId, 'team.photo');
+      await published();
+      setFlash(c, { type: 'ok', lines: ['Photo enregistrée. Pensez à renseigner sa description (texte alternatif).'] });
+    } catch (e) {
+      setFlash(c, { type: 'error', lines: [e instanceof ImageRejected ? e.message : 'Traitement de la photo impossible.'] });
+    }
+    return c.redirect('/admin/contenus#photo-equipe', 303);
+  });
+
+  app.post('/contenus/photo/supprimer', async (c) => {
+    const s = c.get('session')!;
+    const previous = await getTeamPhoto(db);
+    if (previous) {
+      await setTeamPhoto(db, null);
+      await deps.storage.deletePrefix(previous.storagePrefix).catch(() => {});
+      await audit(db, s.adminId, 'team.photo.delete');
+      await published();
+    }
+    setFlash(c, { type: 'ok', lines: ['Photo supprimée.'] });
+    return c.redirect('/admin/contenus#photo-equipe', 303);
   });
 
   app.post('/contenus', async (c) => {
@@ -609,6 +670,7 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
           newRequests={await newCount()}
           values={next as unknown as SiteContent}
           errors={errors}
+          teamPhoto={await getTeamPhoto(db)}
         />,
         422,
       );

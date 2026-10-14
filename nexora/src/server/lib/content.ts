@@ -28,15 +28,23 @@ export const contentSchema = z.object({
     titleHighlight: line(60),
     titleAfter: line(80),
     subtitle: line(240),
+    /** Public visé (positionnement) : texte neutre par défaut, à préciser avec la cible réelle. */
+    audience: line(140),
+    /** « Réserver… » uniquement si un lien de rendez-vous est configuré ; sinon « Demander… » (vers le formulaire). */
     primaryCta: line(40).min(1),
+    primaryCtaFallback: line(40).min(1),
+    /** « Découvrir nos concepts » tant qu'aucun projet client avec résultats n'est publié. */
     secondaryCta: line(40).min(1),
+    secondaryCtaResults: line(40).min(1),
     reassurance: line(80),
   }),
-  header: z.object({ cta: line(32).min(1) }),
+  header: z.object({ cta: line(32).min(1), ctaFallback: line(32).min(1) }),
   /** Preuve sociale : uniquement des données RÉELLES (chiffres vérifiables, avis publics…). Vide = section masquée. */
   proof: z.object({ title: line(80), ...numbered('item', 4, { Value: 16, Label: 80 }) }),
   services: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), cta: line(40), ...numbered('s', 4, { Title: 50, Text: 200 }) }),
   method: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), ...numbered('m', 3, { Title: 50, Text: 300 }) }),
+  /** « Derrière Nexora » : personne RÉELLE uniquement (nom, fonction, texte ; photo envoyée dans l'admin). Vide = masqué. */
+  team: z.object({ title: line(60), name: line(80), role: line(120), text: line(700), photoAlt: line(160) }),
   projects: z.object({
     eyebrow: line(60),
     titleLine1: line(60),
@@ -46,6 +54,9 @@ export const contentSchema = z.object({
     visitLabel: line(30).min(1),
     caseLabel: line(30).min(1),
     emptyText: line(160),
+    /** Section « Résultats clients » : projets clients publiés (jamais les concepts). */
+    resultsTitle: line(60),
+    resultsSubtitle: line(200),
   }),
   /** Témoignages : uniquement des citations RÉELLES, avec l'accord écrit de la personne. Vide = section masquée. */
   testimonials: z.object({ title: line(60), ...numbered('t', 3, { Quote: 400, Author: 80, Role: 120 }) }),
@@ -59,6 +70,7 @@ export const contentSchema = z.object({
     successMessage: line(240).min(1),
     bookingUrl: optionalHttpsUrl,
     bookingLabel: line(40).min(1),
+    bookingText: line(160),
     whatsappNumber: optionalWhatsapp,
     whatsappMessage: line(160),
     publicEmail: optionalEmail,
@@ -95,11 +107,15 @@ export const defaultContent: SiteContent = {
     titleAfter: 'pas seulement des compliments.',
     subtitle:
       'Nous concevons des sites rapides et sur mesure pour les entreprises qui veulent transformer leur présence en ligne en opportunités commerciales.',
+    // Texte NEUTRE par défaut : à préciser (secteurs, taille, zone géographique) seulement avec la cible réelle.
+    audience: 'Sites vitrines, refontes, e-commerce et automatisations pour PME, indépendants et entreprises de services.',
     primaryCta: 'Réserver un diagnostic de 20 min',
-    secondaryCta: 'Voir des résultats clients',
+    primaryCtaFallback: 'Demander un diagnostic',
+    secondaryCta: 'Découvrir nos concepts',
+    secondaryCtaResults: 'Voir des résultats clients',
     reassurance: 'Sans engagement · Réponse sous 1 jour ouvré',
   },
-  header: { cta: 'Réserver un diagnostic' },
+  header: { cta: 'Réserver un diagnostic', ctaFallback: 'Demander un diagnostic' },
   // À REMPLIR uniquement avec des données réelles (ex. : « 4,9/5 » + « note moyenne sur Google, 32 avis »).
   proof: { title: 'En quelques chiffres', ...empty('item', 4, ['Value', 'Label']) } as SiteContent['proof'],
   services: {
@@ -132,14 +148,18 @@ export const defaultContent: SiteContent = {
   },
   projects: {
     eyebrow: '',
-    titleLine1: 'Nos réalisations,',
-    titleLine2Before: 'du défi',
-    titleLine2Highlight: 'au résultat.',
-    subtitle: 'Pour chaque projet : le contexte, la solution apportée et les résultats mesurés. Les concepts sont signalés comme tels.',
+    titleLine1: 'Nos concepts de sites',
+    titleLine2Before: '',
+    titleLine2Highlight: 'à forte conversion.',
+    subtitle: 'Découvrez notre approche : contexte, solution apportée et principes de conversion appliqués à chaque concept.',
     visitLabel: 'Voir le projet',
     caseLabel: 'Lire l’étude de cas',
-    emptyText: 'Nos premières études de cas seront bientôt présentées ici.',
+    emptyText: 'Nos premiers concepts seront bientôt présentés ici.',
+    resultsTitle: 'Résultats clients',
+    resultsSubtitle: 'Des projets livrés, avec leurs résultats vérifiables et l’avis de nos clients.',
   },
+  // « Derrière Nexora » : À REMPLIR avec la personne réelle (aucun nom, parcours ni photo inventés). Vide = masqué.
+  team: { title: 'Derrière Nexora', name: '', role: '', text: '', photoAlt: '' },
   // À REMPLIR uniquement avec des témoignages réels (citation exacte, nom et fonction, accord écrit).
   testimonials: { title: 'Ils nous ont confié leur site', ...empty('t', 3, ['Quote', 'Author', 'Role']) } as SiteContent['testimonials'],
   faq: {
@@ -173,6 +193,7 @@ export const defaultContent: SiteContent = {
     successMessage: 'Merci, votre demande a bien été enregistrée. Nous vous répondons sous 1 jour ouvré.',
     bookingUrl: '',
     bookingLabel: 'Réserver un créneau de 20 min',
+    bookingText: 'Choisissez directement un créneau pour un premier échange de 20 minutes, sans engagement.',
     whatsappNumber: '',
     whatsappMessage: 'Bonjour, je souhaite parler d’un projet de site web.',
     publicEmail: '',

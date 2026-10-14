@@ -1,3 +1,5 @@
+import { track } from './track';
+
 /**
  * Formulaire de contact : affiché directement dans la page, envoyé en arrière-plan.
  * Le succès n'est affiché QUE si le serveur confirme l'enregistrement (HTTP 201). En cas d'erreur, les champs
@@ -25,13 +27,33 @@ export function initContactForm() {
   const submitLabel = form.querySelector<HTMLElement>('[data-submit-label]')!;
   const typeSelect = form.querySelector<HTMLSelectElement>('#cf-type');
 
-  // « Parler de ce projet » (services) : le type de projet est présélectionné, le défilement reste natif (ancre).
+  // « Parler de ce projet » (services) : l'intention est conservée — type de projet présélectionné, défilement doux
+  // jusqu'au formulaire, champ mis en évidence et focalisé (la valeur choisie est visible et annoncée).
   document.querySelectorAll<HTMLAnchorElement>('[data-project-type]').forEach((a) =>
-    a.addEventListener('click', () => {
+    a.addEventListener('click', (e) => {
       const t = a.dataset.projectType;
-      if (typeSelect && t && [...typeSelect.options].some((o) => o.value === t)) typeSelect.value = t;
+      if (!typeSelect || !t || ![...typeSelect.options].some((o) => o.value === t)) return;
+      e.preventDefault();
+      typeSelect.value = t;
+      typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      form.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      history.replaceState(null, '', '#formulaire-contact');
+      const field = typeSelect.closest<HTMLElement>('.field');
+      field?.classList.remove('is-preselected');
+      void field?.offsetWidth; // relance l'animation
+      field?.classList.add('is-preselected');
+      setTimeout(() => typeSelect.focus({ preventScroll: true }), reduced ? 0 : 450);
     }),
   );
+
+  // Début de remplissage (une fois) : événement de conversion.
+  let started = false;
+  form.addEventListener('input', () => {
+    if (started) return;
+    started = true;
+    track('form_start');
+  });
 
   // Retour du formulaire sans JavaScript (?envoi=ok) : confirmation affichée.
   const params = new URLSearchParams(location.search);
@@ -117,6 +139,7 @@ export function initContactForm() {
       if (res.status === 201) {
         form.reset();
         showErrors({});
+        track('form_submit_success', { type: String(data.get('projectType') ?? '') });
         setStatus('ok', body.message ?? form.dataset.success ?? 'Merci, votre demande a bien été enregistrée.');
       } else if (res.status === 422 && body.errors) {
         showErrors(body.errors);

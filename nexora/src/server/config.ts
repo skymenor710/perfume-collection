@@ -39,8 +39,13 @@ const schema = z.object({
   MAIL_TO: z.string().optional(),
 
   UPLOAD_MAX_MB: z.coerce.number().positive().max(50).default(12),
-  /** Emplacements à compléter (preuve sociale, témoignages) visibles sur le site : auto = hors production seulement. */
-  SHOW_PLACEHOLDERS: z.enum(['auto', 'true', 'false']).default('auto'),
+  /**
+   * Mesure d'audience (facultative) : chargée UNIQUEMENT après consentement du visiteur (bandeau). none = aucun outil
+   * tiers ; les événements de conversion restent émis localement (window, « nexora:track ») sans rien envoyer.
+   */
+  ANALYTICS_PROVIDER: z.enum(['none', 'plausible']).default('none'),
+  ANALYTICS_DOMAIN: z.string().trim().max(200).optional(),
+  ANALYTICS_SCRIPT_URL: z.string().url().startsWith('https://').default('https://plausible.io/js/script.manual.js'),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -48,7 +53,7 @@ export type Env = z.infer<typeof schema>;
 export interface Config {
   env: Env['NODE_ENV'];
   isProd: boolean;
-  showPlaceholders: boolean;
+  analytics: { provider: 'plausible'; domain: string; scriptUrl: string; origin: string } | null;
   host: string;
   port: number;
   publicUrl: string;
@@ -122,7 +127,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
   return {
     env: e.NODE_ENV,
     isProd,
-    showPlaceholders: e.SHOW_PLACEHOLDERS === 'auto' ? !isProd : e.SHOW_PLACEHOLDERS === 'true',
+    analytics:
+      e.ANALYTICS_PROVIDER === 'plausible' && e.ANALYTICS_DOMAIN
+        ? { provider: 'plausible', domain: e.ANALYTICS_DOMAIN, scriptUrl: e.ANALYTICS_SCRIPT_URL, origin: new URL(e.ANALYTICS_SCRIPT_URL).origin }
+        : null,
     host: e.HOST,
     port: e.PORT,
     publicUrl,

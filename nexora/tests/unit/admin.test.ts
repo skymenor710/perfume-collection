@@ -323,6 +323,33 @@ describe('projets', () => {
 });
 
 describe('contenus', () => {
+  it('« Derrière Nexora » : masquée tant que vide, puis nom, texte et photo envoyée (servie publiquement)', async () => {
+    const c = await loggedIn();
+    expect(await (await new Client(ctx).req('/')).text()).not.toContain('id="equipe"');
+    let token = await c.csrf('/admin/contenus');
+    const fd = new FormData();
+    fd.set('_csrf', token);
+    fd.append('photo', new File([new Uint8Array(await pngBuffer(800, 1000))], 'portrait.png', { type: 'image/png' }));
+    const up = await c.req('/admin/contenus/photo', { method: 'POST', body: fd });
+    expect(up.status).toBe(303);
+    // Photo seule : la section reste masquée (pas de personne sans nom ni texte).
+    expect(await (await new Client(ctx).req('/')).text()).not.toContain('id="equipe"');
+    token = await c.csrf('/admin/contenus');
+    expect((await c.form('/admin/contenus', { _csrf: token, 'team.name': 'Prénom Nom', 'team.role': 'Fondateur', 'team.text': 'Texte réel.', 'team.photoAlt': 'Portrait' })).status).toBe(303);
+    const home = await (await new Client(ctx).req('/')).text();
+    expect(home).toContain('id="equipe"');
+    expect(home).toContain('alt="Portrait"');
+    const src = /<picture class="team__photo"[\s\S]*?<img src="([^"]+)"/.exec(home)![1];
+    const img = await new Client(ctx).req(src);
+    expect(img.status).toBe(200);
+    expect(img.headers.get('content-type')).toBe('image/webp');
+    // Suppression : la photo n'est plus servie, la section reste (texte seul).
+    token = await c.csrf('/admin/contenus');
+    expect((await c.form('/admin/contenus/photo/supprimer', { _csrf: token })).status).toBe(303);
+    expect((await new Client(ctx).req(src)).status).toBe(404);
+    expect(await (await new Client(ctx).req('/')).text()).not.toContain('team__photo');
+  });
+
   it('modifie les textes du site, publiés immédiatement (cache invalidé)', async () => {
     const c = await loggedIn();
     const before = await (await new Client(ctx).req('/')).text();

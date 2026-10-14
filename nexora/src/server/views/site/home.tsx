@@ -1,7 +1,8 @@
 import type { SiteContent } from '../../lib/content';
 import { BUDGETS, PROJECT_TYPES, TIMELINES, rows, whatsappHref } from '../../lib/content';
-import type { ProjectWithImages } from '../../lib/repo';
+import { hasVerifiedResults, type ProjectWithImages, type TeamPhoto } from '../../lib/repo';
 import { pickVariant } from '../../lib/images';
+import type { Config } from '../../config';
 import { ArrowUpRight, ChevronLeft, ChevronRight, CloseIcon, ExpandIcon, ExternalIcon, MouseIcon, CheckIcon, AlertIcon, ZoomIcon } from '../icons';
 import { BookingCta, Footer, Header, bookingLink } from '../layout';
 import { DOOR, FAR, FRONT_L, FRONT_R, MID, RIDGE, TRAIL } from './landscape-paths';
@@ -10,33 +11,46 @@ export const FORM_TOKEN_PLACEHOLDER = '__NX_FORM_TOKEN__';
 
 export interface HomeProps {
   content: SiteContent;
-  projects: ProjectWithImages[];
-  /** Emplacements « à compléter » visibles (hors production) pour la preuve sociale et les témoignages. */
-  showPlaceholders?: boolean;
+  /** Projets CLIENTS publiés → « Résultats clients ». */
+  results: ProjectWithImages[];
+  /** Concepts / démonstrations publiés → « Nos concepts ». */
+  concepts: ProjectWithImages[];
+  teamPhoto?: TeamPhoto | null;
+  analytics?: Config['analytics'];
 }
 
 /**
- * Page d'accueil orientée acquisition : promesse → preuve → offre → méthode → études de cas → témoignages → FAQ →
- * contact. Tous les textes viennent de Admin › Contenus ; la preuve sociale et les témoignages n'affichent que des
- * données réelles (sections masquées tant qu'elles sont vides).
+ * Page d'accueil orientée acquisition : promesse → preuve → offre → méthode → équipe → résultats clients → concepts →
+ * témoignages → FAQ → contact. Tous les textes viennent de Admin › Contenus. Les sections de preuve (chiffres,
+ * équipe, résultats clients, témoignages) n'existent sur la page QUE si des données réelles sont saisies : aucun
+ * texte d'exemple, d'instruction ou d'emplacement « à compléter » n'est jamais montré aux visiteurs.
  */
-export const HomePage = ({ content, projects, showPlaceholders = false }: HomeProps) => (
-  <>
-    <Header content={content} />
-    <main id="contenu">
-      <Hero content={content} />
-      <ProofBand content={content} showPlaceholders={showPlaceholders} />
-      <Services content={content} />
-      <Method content={content} />
-      <Projects content={content} projects={projects} />
-      <Testimonials content={content} showPlaceholders={showPlaceholders} />
-      <Faq content={content} />
-      <Contact content={content} />
-    </main>
-    <Footer content={content} />
-    {projects.some((p) => p.images.length > 0) ? <Lightbox /> : null}
-  </>
-);
+export const HomePage = ({ content, results, concepts, teamPhoto = null, analytics = null }: HomeProps) => {
+  // Le bouton secondaire ne promet des « résultats clients » que s'il en existe vraiment.
+  const withResults = results.some(hasVerifiedResults);
+  const hasImages = [...results, ...concepts].some((p) => p.images.length > 0);
+  return (
+    <>
+      <Header content={content} />
+      <main id="contenu">
+        <Hero content={content} withResults={withResults} />
+        <ProofBand content={content} />
+        <Services content={content} />
+        <Method content={content} />
+        <Team content={content} photo={teamPhoto} />
+        {results.length ? <ClientResults content={content} projects={results} /> : null}
+        <Concepts content={content} projects={concepts} anchor={results.length ? 'concepts' : 'realisations'} />
+        <Testimonials content={content} />
+        <Faq content={content} />
+        <Contact content={content} />
+      </main>
+      <Footer content={content} consent={!!analytics} />
+      {hasImages ? <Lightbox /> : null}
+      {content.contact.bookingUrl ? <BookingDialog label={content.hero.primaryCta} /> : null}
+      {analytics ? <ConsentBanner provider={analytics.provider} domain={analytics.domain} script={analytics.scriptUrl} /> : null}
+    </>
+  );
+};
 
 /** Titre de section en deux parties, la seconde en vin. */
 const SectionTitle = ({ id, before, highlight }: { id: string; before: string; highlight: string }) => (
@@ -46,7 +60,7 @@ const SectionTitle = ({ id, before, highlight }: { id: string; before: string; h
   </h2>
 );
 
-const Hero = ({ content }: { content: SiteContent }) => {
+const Hero = ({ content, withResults }: { content: SiteContent; withResults: boolean }) => {
   const h = content.hero;
   return (
     <section class="hero" id="accueil" aria-labelledby="hero-title" data-hero>
@@ -64,10 +78,11 @@ const Hero = ({ content }: { content: SiteContent }) => {
             {h.titleAfter ? <span> {h.titleAfter}</span> : null}
           </h1>
           {h.subtitle ? <p class="hero__lead">{h.subtitle}</p> : null}
+          {h.audience ? <p class="hero__audience">{h.audience}</p> : null}
           <div class="hero__actions">
-            <BookingCta content={content} label={h.primaryCta} class="btn btn--primary btn--lg hero__cta-primary" />
-            <a class="btn btn--outline btn--lg hero__cta-secondary" href="#realisations">
-              <span>{h.secondaryCta}</span>
+            <BookingCta content={content} label={h.primaryCta} fallback={h.primaryCtaFallback} class="btn btn--primary btn--lg hero__cta-primary" track="cta_primary" />
+            <a class="btn btn--outline btn--lg hero__cta-secondary" href="#realisations" data-track="cta_secondary">
+              <span>{withResults ? h.secondaryCtaResults : h.secondaryCta}</span>
               <ArrowUpRight />
             </a>
           </div>
@@ -133,38 +148,26 @@ const SymbolVisual = () => (
 );
 
 /**
- * Preuve sociale : uniquement des chiffres RÉELS saisis dans l'admin. Vide → rien n'est affiché aux visiteurs ;
- * hors production, des emplacements « à compléter » signalent où mettre les données.
+ * « En quelques chiffres » : affichée UNIQUEMENT si au moins un chiffre réel (valeur + légende) est saisi dans
+ * Admin › Contenus › Preuve sociale. Sinon la section n'existe pas dans la page (aucun texte de remplacement).
  */
-const ProofBand = ({ content, showPlaceholders }: { content: SiteContent; showPlaceholders: boolean }) => {
-  const items = rows(content.proof, 'item', 4, ['Value', 'Label'] as const).filter((r) => r.Value && r.Label);
-  if (!items.length && !showPlaceholders) return null;
+const ProofBand = ({ content }: { content: SiteContent }) => {
+  const items = rows(content.proof, 'item', 4, ['Value', 'Label'] as const).filter((r) => r.Value.trim() && r.Label.trim());
+  if (!items.length) return null;
   return (
     <section class="proof" aria-labelledby="proof-title">
       <div class="container">
         <h2 class="sr-only" id="proof-title">
           {content.proof.title || 'En quelques chiffres'}
         </h2>
-        {items.length ? (
-          <ul class="proof__list" role="list">
-            {items.map((r) => (
-              <li class="proof__item">
-                <span class="proof__value">{r.Value}</span>
-                <span class="proof__label">{r.Label}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          // EMPLACEMENT À COMPLÉTER (jamais affiché en production) : chiffres réels uniquement.
-          <ul class="proof__list proof__list--placeholder" role="list" data-placeholder="proof">
-            {[1, 2, 3, 4].map((n) => (
-              <li class="proof__item placeholder">
-                <span class="proof__value">—</span>
-                <span class="proof__label">Chiffre réel n° {n} à compléter (Admin › Contenus › Preuve sociale)</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul class={`proof__list proof__list--${items.length}`} role="list">
+          {items.map((r) => (
+            <li class="proof__item">
+              <span class="proof__value">{r.Value}</span>
+              <span class="proof__label">{r.Label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -192,7 +195,7 @@ const Services = ({ content }: { content: SiteContent }) => {
                 <h3 class="service__title">{it.Title}</h3>
                 {it.Text ? <p class="service__text">{it.Text}</p> : null}
                 {sv.cta ? (
-                  <a class="service__link" href="#contact" data-project-type={SERVICE_TYPES[i]}>
+                  <a class="service__link" href="#formulaire-contact" data-project-type={SERVICE_TYPES[i]} data-track="service_click" data-track-service={SERVICE_TYPES[i]}>
                     {sv.cta}
                     <span class="sr-only"> : {it.Title}</span>
                     <ArrowUpRight size={16} />
@@ -236,14 +239,97 @@ const Method = ({ content }: { content: SiteContent }) => {
   );
 };
 
-const Projects = ({ content, projects }: HomeProps) => {
+/**
+ * « Derrière Nexora » : affichée UNIQUEMENT quand un nom et un texte réels sont saisis (Admin › Contenus › Derrière
+ * Nexora) ; la photo est facultative (envoyée dans l'admin). Aucune personne, parcours ni photo n'est inventé.
+ */
+const Team = ({ content, photo }: { content: SiteContent; photo: TeamPhoto | null }) => {
+  const t = content.team;
+  if (!t.name.trim() || !t.text.trim()) return null;
+  const webp = photo
+    ? photo.variants
+        .filter((v) => v.format === 'webp')
+        .sort((a, b) => a.width - b.width)
+        .map((v) => `/media/${photo.id}/${v.width}.webp ${v.width}w`)
+        .join(', ')
+    : '';
+  const avif = photo
+    ? photo.variants
+        .filter((v) => v.format === 'avif')
+        .sort((a, b) => a.width - b.width)
+        .map((v) => `/media/${photo.id}/${v.width}.avif ${v.width}w`)
+        .join(', ')
+    : '';
+  const sizes = '(max-width: 860px) calc(100vw - 40px), 420px';
+  return (
+    <section class="team section" id="equipe" aria-labelledby="team-title">
+      <div class={`container team__inner${photo ? '' : ' team__inner--text'}`}>
+        {photo ? (
+          <picture class="team__photo" data-reveal>
+            <source type="image/avif" srcset={avif} sizes={sizes} />
+            <img
+              src={`/media/${photo.id}/${pickVariant(photo.variants, 'webp', 800).width}.webp`}
+              srcset={webp}
+              sizes={sizes}
+              width={photo.width}
+              height={photo.height}
+              alt={t.photoAlt || `Photo de ${t.name}`}
+              loading="lazy"
+              decoding="async"
+            />
+          </picture>
+        ) : null}
+        <div class="team__body" data-reveal>
+          <h2 class="section-title" id="team-title">
+            {t.title}
+          </h2>
+          <p class="team__text">{t.text}</p>
+          <p class="team__person">
+            <span class="team__name">{t.name}</span>
+            {t.role ? <span class="team__role">{t.role}</span> : null}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+/**
+ * « Résultats clients » : projets CLIENTS publiés uniquement (is_demo = false) — client, défi, solution, résultats
+ * vérifiables, témoignage autorisé, lien. Un concept n'apparaît jamais ici.
+ */
+const ClientResults = ({ content, projects }: { content: SiteContent; projects: ProjectWithImages[] }) => {
   const p = content.projects;
   return (
-    <section class="projects section" id="realisations" aria-labelledby="projects-title">
+    <section class="projects section" id="realisations" aria-labelledby="results-title">
+      <div class="container">
+        <header class="section-head" data-reveal>
+          <h2 class="section-title" id="results-title">
+            {p.resultsTitle}
+          </h2>
+          {p.resultsSubtitle ? <p class="section-lead">{p.resultsSubtitle}</p> : null}
+        </header>
+        <ol class="cases" role="list">
+          {projects.map((project, i) => (
+            <li>
+              <CaseStudy project={project} index={i} prefix="client" visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+};
+
+/** « Nos concepts » : concepts / démonstrations, avec l'objectif de conversion et les principes appliqués. */
+const Concepts = ({ content, projects, anchor }: { content: SiteContent; projects: ProjectWithImages[]; anchor: string }) => {
+  const p = content.projects;
+  return (
+    <section class="projects section" id={anchor} aria-labelledby="concepts-title">
       <div class="container">
         <header class="section-head" data-reveal>
           {p.eyebrow ? <p class="eyebrow">{p.eyebrow}</p> : null}
-          <h2 class="section-title" id="projects-title">
+          <h2 class="section-title" id="concepts-title">
             {p.titleLine1 ? <span class="section-title__line">{p.titleLine1}</span> : null}
             <span class="section-title__line">
               {p.titleLine2Before ? <>{p.titleLine2Before} </> : null}
@@ -256,7 +342,7 @@ const Projects = ({ content, projects }: HomeProps) => {
           <ol class="cases" role="list">
             {projects.map((project, i) => (
               <li>
-                <CaseStudy project={project} index={i} visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
+                <CaseStudy project={project} index={i} prefix="concept" visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
               </li>
             ))}
           </ol>
@@ -280,17 +366,32 @@ const srcsets = (img: Img) => {
 };
 
 /**
- * Étude de cas : visuel (clic = visionneuse plein écran) + contexte / solution / résultats. Les concepts portent la
- * mention « Concept / Démonstration » et n'affichent jamais de résultat chiffré. Un vrai projet se remplit dans
- * Admin › Projets, sans toucher au code.
+ * Étude de cas (concept ou projet client) : visuel (clic = visionneuse plein écran) + texte. Le contenu affiché dépend
+ * du type, jamais l'inverse : un concept montre son objectif de conversion, un projet client ses résultats vérifiables
+ * et le témoignage autorisé. Tout se remplit dans Admin › Projets, sans toucher au code.
  */
-const CaseStudy = ({ project, index, visitLabel, caseLabel }: { project: ProjectWithImages; index: number; visitLabel: string; caseLabel: string }) => {
+const CaseStudy = ({
+  project,
+  index,
+  prefix,
+  visitLabel,
+  caseLabel,
+}: {
+  project: ProjectWithImages;
+  index: number;
+  prefix: string;
+  visitLabel: string;
+  caseLabel: string;
+}) => {
   const imgs = project.images;
-  const id = `cas-${index + 1}`;
+  const id = `${prefix}-${index + 1}`;
   const cover = imgs[0];
   const coverSet = cover ? srcsets(cover) : null;
-  const coverSizes = '(max-width: 960px) calc(100vw - 40px), 56vw';
-  const results = project.results.trim();
+  const coverSizes = '(max-width: 1024px) calc(100vw - 40px), 56vw';
+  const isClient = !project.isDemo;
+  const results = isClient ? project.results.trim() : '';
+  const principles = project.isDemo ? project.principles.trim() : '';
+  const quote = isClient ? project.testimonialQuote.trim() : '';
   return (
     <article class={`case${index % 2 ? ' case--flip' : ''}`} aria-labelledby={`${id}-title`} data-reveal>
       <div class="case__media" data-gallery={imgs.length ? project.name : undefined}>
@@ -344,7 +445,7 @@ const CaseStudy = ({ project, index, visitLabel, caseLabel }: { project: Project
       </div>
       <div class="case__body">
         <p class="case__meta">
-          {project.isDemo ? <span class="badge-demo">Concept / Démonstration</span> : <span class="badge-client">Projet client</span>}
+          {isClient ? <span class="badge-client">Projet client</span> : <span class="badge-demo">Concept / Démonstration</span>}
           {project.category ? <span class="case__category">{project.category}</span> : null}
         </p>
         <h3 class="case__title" id={`${id}-title`}>
@@ -364,18 +465,27 @@ const CaseStudy = ({ project, index, visitLabel, caseLabel }: { project: Project
               <dd>{project.solution}</dd>
             </div>
           ) : null}
+          {principles ? (
+            <div>
+              <dt>Objectif de conversion</dt>
+              <dd>{principles}</dd>
+            </div>
+          ) : null}
           {results ? (
             <div class="case__results">
-              <dt>Résultats mesurables</dt>
+              <dt>Résultats obtenus</dt>
               <dd>{results}</dd>
-            </div>
-          ) : project.isDemo ? (
-            <div class="case__results case__results--none">
-              <dt>Résultats mesurables</dt>
-              <dd>Concept non mis en ligne : aucun résultat mesuré à ce jour.</dd>
             </div>
           ) : null}
         </dl>
+        {quote ? (
+          <figure class="case__quote">
+            <blockquote>
+              <p>“{quote}”</p>
+            </blockquote>
+            {project.testimonialAuthor ? <figcaption>{project.testimonialAuthor}</figcaption> : null}
+          </figure>
+        ) : null}
         <div class="case__actions">
           {project.caseUrl ? (
             <a class="btn btn--primary btn--sm" href={project.caseUrl} target="_blank" rel="noopener noreferrer">
@@ -403,11 +513,14 @@ const CaseStudy = ({ project, index, visitLabel, caseLabel }: { project: Project
   );
 };
 
-/** Témoignages : uniquement des citations RÉELLES saisies dans l'admin (accord écrit). Vide → masqué en production. */
-const Testimonials = ({ content, showPlaceholders }: { content: SiteContent; showPlaceholders: boolean }) => {
+/**
+ * Témoignages : uniquement des citations RÉELLES saisies dans l'admin (citation exacte, nom et fonction réels, accord
+ * écrit). Vide → la section n'existe pas dans la page.
+ */
+const Testimonials = ({ content }: { content: SiteContent }) => {
   const t = content.testimonials;
-  const items = rows(t, 't', 3, ['Quote', 'Author', 'Role'] as const).filter((r) => r.Quote && r.Author);
-  if (!items.length && !showPlaceholders) return null;
+  const items = rows(t, 't', 3, ['Quote', 'Author', 'Role'] as const).filter((r) => r.Quote.trim() && r.Author.trim());
+  if (!items.length) return null;
   return (
     <section class="testimonials section" id="temoignages" aria-labelledby="testimonials-title">
       <div class="container">
@@ -416,40 +529,21 @@ const Testimonials = ({ content, showPlaceholders }: { content: SiteContent; sho
             {t.title}
           </h2>
         </header>
-        {items.length ? (
-          <ul class="testimonials__grid" role="list">
-            {items.map((r) => (
-              <li data-reveal>
-                <figure class="quote">
-                  <blockquote>
-                    <p>{r.Quote}</p>
-                  </blockquote>
-                  <figcaption>
-                    <span class="quote__author">{r.Author}</span>
-                    {r.Role ? <span class="quote__role">{r.Role}</span> : null}
-                  </figcaption>
-                </figure>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          // EMPLACEMENT À COMPLÉTER (jamais affiché en production) : aucun nom, entreprise ni citation inventés.
-          <ul class="testimonials__grid" role="list" data-placeholder="testimonials">
-            {[1, 2, 3].map((n) => (
-              <li>
-                <figure class="quote placeholder">
-                  <blockquote>
-                    <p>Témoignage client réel n° {n} à compléter (citation exacte, avec l’accord écrit du client).</p>
-                  </blockquote>
-                  <figcaption>
-                    <span class="quote__author">Nom du client</span>
-                    <span class="quote__role">Fonction · Entreprise — Admin › Contenus › Témoignages</span>
-                  </figcaption>
-                </figure>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul class={`testimonials__grid testimonials__grid--${items.length}`} role="list">
+          {items.map((r) => (
+            <li data-reveal>
+              <figure class="quote">
+                <blockquote>
+                  <p>“{r.Quote.replace(/^[“"«]\s*|\s*[”"»]$/g, '')}”</p>
+                </blockquote>
+                <figcaption>
+                  <span class="quote__author">{r.Author}</span>
+                  {r.Role ? <span class="quote__role">{r.Role}</span> : null}
+                </figcaption>
+              </figure>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -513,6 +607,49 @@ const Lightbox = () => (
   </dialog>
 );
 
+/**
+ * Fenêtre de réservation (Cal.com / Calendly) : ouverte par les boutons « Réserver… » quand le lien de rendez-vous
+ * appartient à l'un de ces services (src/client/booking.ts) ; sinon le lien s'ouvre dans un nouvel onglet. L'iframe
+ * n'est chargée qu'à l'ouverture. Réservation confirmée → événement « booking_completed ».
+ */
+const BookingDialog = ({ label }: { label: string }) => (
+  <dialog class="booking" aria-labelledby="booking-title" data-booking-dialog>
+    <div class="booking__bar">
+      <p class="booking__title" id="booking-title">
+        {label}
+      </p>
+      <a class="booking__external" href="#" target="_blank" rel="noopener" data-booking-external>
+        Ouvrir dans un nouvel onglet
+      </a>
+      <button class="lightbox__tool" type="button" aria-label="Fermer la réservation" data-booking-close>
+        <CloseIcon />
+      </button>
+    </div>
+    <div class="booking__frame" data-booking-frame></div>
+  </dialog>
+);
+
+/**
+ * Consentement à la mesure d'audience (RGPD / CNIL) : affiché seulement si un outil est configuré ; rien n'est chargé
+ * avant « Accepter ». Le choix est mémorisé dans le navigateur et modifiable depuis le pied de page.
+ */
+const ConsentBanner = ({ provider, domain, script }: { provider: string; domain: string; script: string }) => (
+  <div class="consent" role="region" aria-label="Mesure d’audience" hidden data-consent data-provider={provider} data-domain={domain} data-script={script}>
+    <p class="consent__text">
+      Nous aimerions mesurer l’audience de ce site (pages vues, clics sur les boutons) pour l’améliorer. Aucune donnée
+      n’est collectée sans votre accord. <a href="/politique-de-confidentialite">En savoir plus</a>
+    </p>
+    <div class="consent__actions">
+      <button class="btn btn--outline btn--sm" type="button" data-consent-choice="denied">
+        Refuser
+      </button>
+      <button class="btn btn--light btn--sm" type="button" data-consent-choice="granted">
+        Accepter
+      </button>
+    </div>
+  </div>
+);
+
 const Contact = ({ content }: { content: SiteContent }) => {
   const c = content.contact;
   const wa = whatsappHref(c);
@@ -533,25 +670,29 @@ const Contact = ({ content }: { content: SiteContent }) => {
               <span>{c.responsePromise}</span>
             </p>
           ) : null}
-          {booking.external || wa || c.publicEmail || c.publicPhone ? (
+          {booking.external ? (
+            <div class="contact__booking">
+              <p class="contact__alt-title">Vous préférez échanger de vive voix ?</p>
+              {c.bookingText ? <p class="contact__booking-text">{c.bookingText}</p> : null}
+              <a class="btn btn--light btn--sm" href={booking.href} target="_blank" rel="noopener" data-booking data-track="booking_open">
+                <span>{c.bookingLabel}</span>
+                <span class="sr-only"> (nouvel onglet)</span>
+                <ArrowUpRight size={16} />
+              </a>
+            </div>
+          ) : null}
+          {wa || c.publicEmail || c.publicPhone ? (
             <div class="contact__alt">
-              <p class="contact__alt-title">Vous préférez échanger directement ?</p>
-              <div class="contact__alt-actions">
-                {booking.external ? (
-                  <a class="btn btn--light btn--sm" href={booking.href} target="_blank" rel="noopener">
-                    <span>{c.bookingLabel}</span>
-                    <span class="sr-only"> (nouvel onglet)</span>
-                    <ArrowUpRight size={16} />
-                  </a>
-                ) : null}
-                {wa ? (
-                  <a class="btn btn--outline btn--sm" href={wa} target="_blank" rel="noopener">
+              {!booking.external ? <p class="contact__alt-title">Vous préférez échanger directement ?</p> : null}
+              {wa ? (
+                <div class="contact__alt-actions">
+                  <a class="btn btn--outline btn--sm" href={wa} target="_blank" rel="noopener" data-track="whatsapp_click">
                     <span>Écrire sur WhatsApp</span>
                     <span class="sr-only"> (nouvel onglet)</span>
                     <ArrowUpRight size={16} />
                   </a>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
               {c.publicEmail || c.publicPhone ? (
                 <ul class="contact__direct">
                   {c.publicEmail ? (

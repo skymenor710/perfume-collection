@@ -815,3 +815,15 @@ input.is-missing {
   padding: 0 6px;
   font-weight: 600;
 }
+
+/* Photo de la section « Derrière Nexora ». */
+.team-photo {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 12px 0 16px;
+}
+.team-photo img {
+  border-radius: 12px;
+  border: 1px solid rgb(234 230 232 / 0.12);
+}

@@ -3,7 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { eq } from 'drizzle-orm';
 import type { AppEnv, Deps } from '../context';
 import { contactRequests, projectImages, projects } from '../db/schema';
-import { getContent, getContentVersion, getHomeProjects } from '../lib/repo';
+import { getContent, getContentVersion, getHomeProjects, getTeamPhoto } from '../lib/repo';
 import { checkFormToken, contactSchema, fieldErrors, issueFormToken, looksLikeSpam } from '../lib/contact';
 import { hit } from '../lib/rate-limit';
 import { fingerprint, } from '../lib/security';
@@ -51,7 +51,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
 
   app.get('/', async (c) => {
     const html = await cached('home', async () => {
-      const [content, list] = await Promise.all([getContent(db), getHomeProjects(db)]);
+      const [content, home, teamPhoto] = await Promise.all([getContent(db), getHomeProjects(db), getTeamPhoto(db)]);
       return renderHtml(
         <Document
           meta={{ title: content.seo.title, description: content.seo.description, canonical: `${config.publicUrl}/`, publicUrl: config.publicUrl }}
@@ -65,7 +65,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
             description: content.seo.description,
           }}
         >
-          <HomePage content={content} projects={list} showPlaceholders={config.showPlaceholders} />
+          <HomePage content={content} results={home.results} concepts={home.concepts} teamPhoto={teamPhoto} analytics={config.analytics} />
         </Document>,
       );
     });
@@ -102,7 +102,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
           }}
           assets={assets}
         >
-          <PrivacyPolicy content={content} />
+          <PrivacyPolicy content={content} analytics={config.analytics ? 'Plausible Analytics' : null} />
         </Document>,
       );
     });
@@ -229,7 +229,12 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
       .innerJoin(projects, eq(projects.id, projectImages.projectId))
       .where(eq(projectImages.id, imageId))
       .limit(1);
-    const row = rows[0];
+    let row = rows[0];
+    // Photo de la section « Derrière Nexora » : publique dès qu'elle est enregistrée.
+    if (!row) {
+      const team = await getTeamPhoto(db);
+      if (team?.id === imageId) row = { variants: team.variants, published: true };
+    }
     if (!row) return c.notFound();
     const isAdmin = !!c.get('session');
     if (!row.published && !isAdmin) return c.notFound();

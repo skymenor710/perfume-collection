@@ -11,8 +11,8 @@ import { bumpContentVersion } from '../lib/repo';
  *  - maçonnerie et laboratoire : maquettes de prospection, noms et coordonnées floutés, comme dans le dossier de
  *    présentation ; EARKO : concept de page produit.
  * Captures 16:10 : assets-src/portfolio/capture.mjs (1440 × 900 à densité 2, soit 2880 × 1800) ; maçonnerie : captures
- * 1600 × 1000 du dossier. is_demo = true → mention « Concept / Démonstration », et aucun résultat chiffré : un concept
- * n'a pas de résultats mesurés. N'agit que si la base ne contient encore aucun projet.
+ * 1600 × 1000 du dossier. is_demo = true → mention « Concept / Démonstration » ; on y décrit l'objectif de conversion et
+ * les principes appliqués, jamais des résultats (un concept n'en a pas). N'agit que si la base ne contient encore aucun projet.
  */
 const DEMOS = [
   {
@@ -21,7 +21,9 @@ const DEMOS = [
     challenge:
       'Concept de prospection pour une entreprise qui réalise sept corps d’état : rendre lisible une offre très large et transformer les visites en demandes de devis.',
     solution:
-      'Site vitrine au message clair dès l’accueil (« un seul interlocuteur »), prestations classées par métier, méthode en quatre étapes et réalisations filtrables. Le bouton de devis reste visible à chaque écran.',
+      'Site vitrine au message clair dès l’accueil (« un seul interlocuteur »), prestations classées par métier, méthode en quatre étapes et réalisations filtrables.',
+    principles:
+      'Obtenir des demandes de devis qualifiées. Bouton « Devis gratuit » visible à chaque écran, preuves de sérieux (qualifications, délai de réponse) placées juste sous la promesse, et méthode expliquée pour lever la crainte du chantier mal coordonné.',
     images: [
       ['maconnerie-1', 'Site d’une entreprise de maçonnerie, haut de page : « De multiples savoir-faire, un seul interlocuteur », illustration d’une maison et bouton de devis.'],
       ['maconnerie-2', 'Site d’une entreprise de maçonnerie : « Sept corps d’état, une seule entreprise », liste des prestations par métier.'],
@@ -36,6 +38,8 @@ const DEMOS = [
       'Concept pour un laboratoire de culture in vitro du palmier dattier, présent en France et aux Émirats arabes unis : expliquer un procédé scientifique à des exploitants et des investisseurs, en trois langues.',
     solution:
       'Site trilingue (français, anglais, arabe) à l’esthétique sobre : récit du procédé guidé par le défilement, chiffres clés de production et prise de contact pour les projets de plantation.',
+    principles:
+      'Transformer une visite de découverte en prise de contact pour un programme de plantation. Le procédé est expliqué étape par étape pour inspirer confiance, chaque langue a son parcours complet, et l’appel « Parler de votre programme » revient en tête et en fin de page.',
     images: [
       ['labo-1', 'Site d’un laboratoire de culture in vitro, haut de page : le mot « in vitro » en grand sur fond vert sombre.'],
       ['labo-2', 'Site d’un laboratoire de culture in vitro : « 64 plants en culture », grille animée de jeunes plants.'],
@@ -49,7 +53,9 @@ const DEMOS = [
     challenge:
       'Concept de page produit pour des écouteurs ouverts : rendre un produit technique désirable et mener le visiteur jusqu’à l’achat sur une seule page.',
     solution:
-      'Page de vente : bénéfice clé dès l’accueil, prix et bouton d’achat toujours à portée, choix de la finition, puis réassurance (paiement sécurisé, livraison suivie, retours) avant le pied de page.',
+      'Page de vente unique : bénéfice clé dès l’accueil, démonstration du port, choix de la finition, puis réassurance avant le pied de page.',
+    principles:
+      'L’achat en une seule page. Prix et bouton d’achat toujours à portée, objections traitées dans l’ordre où elles se posent (confort, maintien, couleur), et garanties (paiement sécurisé, livraison suivie, retours) au moment de la décision.',
     images: [
       ['earko-1', 'Site EARKO, haut de page : « Stay in motion », écouteur SecureFit, prix et bouton d’achat.'],
       ['earko-2', 'Site EARKO : section « No more constant adjustments » avec la photo du produit porté.'],
@@ -66,7 +72,7 @@ export async function seedDemo(deps: Deps, seedDir: string) {
   for (const [i, demo] of DEMOS.entries()) {
     const [p] = await deps.db
       .insert(projects)
-      .values({ name: demo.name, category: demo.category, challenge: demo.challenge, solution: demo.solution, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
+      .values({ name: demo.name, category: demo.category, challenge: demo.challenge, solution: demo.solution, principles: demo.principles, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
       .returning({ id: projects.id });
     for (const [k, [file, alt]] of demo.images.entries()) {
       const buf = await readFile(path.join(seedDir, `${file}.webp`));

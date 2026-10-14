@@ -48,30 +48,39 @@ Sans terminal interactif (conteneur, CI) : `printf '%s\n' "$MOT_DE_PASSE" | npm 
 Tout se fait dans `/admin`. Chaque modification est publiée immédiatement : le serveur incrémente une « version de
 contenu » en base, et toutes les instances re-génèrent la page à la requête suivante.
 
-**Ajouter une vraie étude de cas** (sans toucher au code)
+**Ajouter un projet client (section « Résultats clients »)** (sans toucher au code)
 1. *Projets* → **Nouveau projet** (créé en brouillon, invisible).
-2. Nom, catégorie (ex. « Artisan · Site vitrine »), description facultative, adresse du site (https://… → bouton
-   « Voir le projet »).
-3. **Étude de cas** : *Contexte / défi*, *Solution apportée*, *Résultats mesurables* (uniquement des chiffres réels et
-   vérifiables) et, si elle existe, l’adresse de l’étude complète (→ bouton « Lire l’étude de cas »).
-4. **Images** : jusqu’à 10 captures (JPEG, PNG, WebP, AVIF ; 12 Mo max), format **16:10**, idéalement **2880 × 1800**
-   (capture 1440 × 900 en densité 2) pour un texte net dans la visionneuse plein écran. Elles sont vérifiées, nettoyées
-   (GPS/EXIF supprimés) et converties en AVIF + WebP de 480 à 2400 px. La première est la couverture.
-5. Renseigner le **texte alternatif** de chaque image (lu par les lecteurs d’écran, repris en légende plein écran).
-6. Décocher **Concept de démonstration**, cocher **Publié**, choisir la **position 1, 2 ou 3**, enregistrer.
+2. Nom du client, catégorie (ex. « Artisan · Site vitrine »), adresse du site (→ bouton « Voir le projet »).
+3. *Étude de cas* : *Contexte / défi*, *Solution apportée*.
+4. *Projet client* : **Résultats vérifiables** (chiffres réels, avec l’accord du client), **témoignage** (citation exacte
+   + nom · fonction, accord écrit) et, si elle existe, l’adresse de l’étude complète (→ « Lire l’étude de cas »).
+5. **Images** : captures 16:10, idéalement 2880 × 1800, avec leur texte alternatif. La première est la couverture.
+6. Laisser **Concept de démonstration** décoché, cocher **Publié**, enregistrer.
+
+Les projets clients forment la section **« Résultats clients »** ; les concepts (case cochée) la section **« Nos concepts »**
+avec leur *Objectif de conversion et principes de conception* — jamais de résultat chiffré. Les deux ne se mélangent
+jamais, et le bouton secondaire du hero dit « Voir des résultats clients » seulement si un projet client avec résultats
+est publié (sinon « Découvrir nos concepts »).
 
 **Projets fournis** : trois **concepts** conçus par Nexora avec Claude Code — une entreprise de maçonnerie et un
-laboratoire in vitro (maquettes de prospection, noms et coordonnées floutés) et la page produit EARKO. Ils portent la
-mention « Concept / Démonstration » et n’affichent aucun résultat chiffré (« aucun résultat mesuré à ce jour »). Dès
-qu’un site est livré, ajoutez-le comme projet client (mention « Projet client ») et dépubliez les concepts. Le
-tableau de bord rappelle tant qu’un concept est publié.
+laboratoire in vitro (maquettes de prospection, noms et coordonnées floutés) et la page produit EARKO, signalés
+« Concept / Démonstration ».
 
-**Rendez-vous, WhatsApp, preuve sociale, témoignages** : *Contenus du site* → sections *Contact*, *Preuve sociale*,
-*Témoignages*. La bande de chiffres et la section témoignages **n’apparaissent pas** pour les visiteurs tant qu’elles
-sont vides (aucun contenu inventé) ; hors production, des emplacements « à compléter » montrent leur place
-(`SHOW_PLACEHOLDERS`, voir `.env.example`). Le lien de rendez-vous (Cal.com, Calendly…, en `https://`) est utilisé par
-tous les boutons « Réserver un diagnostic » ; vide, ils mènent au formulaire. Le numéro WhatsApp (format `+33 6 …`)
-ajoute un bouton « Écrire sur WhatsApp ».
+**Rendez-vous, WhatsApp, preuve sociale, témoignages, équipe** : *Contenus du site*. Règle du code : ces sections
+n’existent sur la page que lorsqu’elles contiennent des données réelles — aucun texte d’exemple ou d’administration
+n’est jamais montré aux visiteurs.
+- **Lien de rendez-vous** (`https://`) : vide → « Demander un diagnostic » (formulaire) ; renseigné → « Réserver un
+  diagnostic de 20 min ». Cal.com et Calendly s’ouvrent dans une fenêtre intégrée (la confirmation de réservation déclenche
+  l’événement `booking_completed`) ; tout autre service dans un nouvel onglet.
+- **WhatsApp** (`+33 6 …`) : bouton « Écrire sur WhatsApp » près du formulaire.
+- **Derrière Nexora** : nom + texte (+ photo envoyée en bas de la page *Contenus du site*).
+- **Public visé** : ligne de positionnement sous l’accroche du hero (texte neutre par défaut).
+
+**Mesure d’audience et événements de conversion** : les événements `cta_primary`, `cta_secondary`, `cta_header`,
+`service_click` (avec le service), `form_start`, `form_submit_success`, `booking_open`, `booking_completed`,
+`whatsapp_click` sont émis dans la page (`window` → `nexora:track`) sans rien envoyer. Pour les transmettre à Plausible :
+`ANALYTICS_PROVIDER=plausible` et `ANALYTICS_DOMAIN=…` ; un bandeau demande alors le consentement, aucun script n’est
+chargé avant « Accepter », le choix est modifiable en pied de page et la politique de confidentialité s’adapte.
 
 **Pages légales** : `/mentions-legales` et `/politique-de-confidentialite` existent et sont liées depuis le pied de page
 et le formulaire ; leurs informations (raison sociale, SIRET, hébergeur…) se remplissent dans *Contenus du site →

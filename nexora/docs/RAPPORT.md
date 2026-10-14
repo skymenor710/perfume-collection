@@ -8,7 +8,7 @@ développement (conteneur Linux, Node 22.22, Chromium 141, PostgreSQL 16.15 loca
 | Contrôle | Résultat |
 |---|---|
 | TypeScript strict (`npm run typecheck`) | ✅ 0 erreur |
-| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 53 / 53 |
+| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 55 / 55 |
 | Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 12 / 12 sur **PostgreSQL 16.15** |
 | Audit des dépendances (`npm audit`) | ✅ 0 vulnérabilité (après passage de sharp 0.35.4 → 0.35.5, CVE librsvg) |
 | Revue de sécurité du code (revue dédiée + sondages manuels) | ✅ aucune vulnérabilité exploitable identifiée ; 1 durcissement appliqué |
@@ -26,8 +26,8 @@ Conditions : build de production, `NODE_ENV=production`, serveur local, 3 projet
 
 | Profil | LCP | CLS | TBT | FCP | Speed Index |
 |---|---|---|---|---|---|
-| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4 s | 0 | 30 ms | — | — |
-| Ordinateur (RTT 40 ms, 10 Mb/s) | 0,4 s | 0 | 0 ms | — | — |
+| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,5 s | 0 | 70 ms | — | — |
+| Ordinateur (RTT 40 ms, 10 Mb/s) | 0,3 s | 0 | 0 ms | — | — |
 
 (Mesures refaites après la refonte « acquisition » : services, méthode, études de cas, FAQ, formulaire visible. Les mesures précédentes étaient
 LCP 1,8–1,9 s mobile et 0,5 s ordinateur.)
@@ -61,13 +61,13 @@ Ce qui a été fait pour y arriver :
 | Largeurs 375, 390, 768, 1440, 1920 px | aucun débordement horizontal, aucune erreur console ni requête en échec, cartes strictement carrées, pas de chevauchement texte / bouton / symbole sur mobile |
 | Navigation | Accueil, Services, Méthode, Réalisations, FAQ, Contact : chaque section s’arrête sous l’en-tête fixe (84 px / 68 px) ; en-tête flouté au défilement ; menu compact sous 1100 px |
 | Menu mobile | ouverture, focus piégé, Échap, retour du focus, fermeture au clic + navigation |
-| Études de cas | 3 cas avec contexte / défi, solution, résultats ; concepts signalés « Concept / Démonstration » sans résultat chiffré ; visuels 16:10, images chargées seulement à l’approche |
+| Concepts et résultats clients | concepts : contexte, solution, **objectif de conversion**, mention « Concept / Démonstration », jamais de « résultat » ; projet client créé dans l’admin → section « Résultats clients » séparée (résultats vérifiables, témoignage, lien), avant les concepts ; le bouton du hero passe alors à « Voir des résultats clients » |
 | Néon | animation `neon-sweep` 8,5 s (passage + pause), découpée par le tracé vectoriel de la bande vin, en pause hors écran |
 | Visionneuse | couverture ou vignette → plein écran ; fenêtre basse et large (1920 × 871) : **image entière, jamais recadrée**, ≥ 1100 px de large, variante ≥ 1600 px ; ←/→ et boutons en boucle ; zoom au clic ; Échap ; focus rendu au bouton d’origine ; vignette au clavier ; **glisser au doigt** sur mobile |
 | Texte non éditable | clic dans un titre : aucun point d’insertion (`caret-color` transparent), curseur flèche, aucun focus ; les champs du formulaire gardent curseur et point d’insertion ; liens = main |
 | Parallaxe | transformation appliquée au défilement, défilement natif intact |
 | Mouvement réduit | néon figé, aucune parallaxe, tout le contenu visible |
-| Formulaire | visible d’emblée (aucun bouton à cliquer pour l’afficher) ; « Réserver un diagnostic » y mène sous l’en-tête ; « Parler de ce projet » présélectionne le type ; budget et délai facultatifs ; erreurs par champ ; **échec serveur simulé : données conservées** ; succès affiché seulement après HTTP 201 |
+| Formulaire et conversion | visible d’emblée ; sans agenda : « Demander un diagnostic » → formulaire ; avec agenda Cal.com : « Réserver… » → fenêtre de réservation, confirmation reçue depuis l’origine du service → `booking_completed` ; chaque service présélectionne son type, défile jusqu’au formulaire et focalise le champ ; événements `cta_primary`, `service_click`, `form_start`, `form_submit_success` vérifiés ; budget et délai facultatifs ; échec serveur simulé : données conservées ; succès seulement après HTTP 201 |
 | Persistance | demande visible dans l’admin |
 | Administration | redirection sans connexion, mauvais mot de passe, connexion, changement de statut, création de projet, envoi de 2 images, textes alternatifs, couverture, reflet immédiat sur le site (position 2, lien, alt, sans mention démo), suppression d’image (contrôles du carrousel masqués avec une seule image), modification des textes, déconnexion |
 | Redémarrage | serveur arrêté puis relancé : projets, images, textes et demandes toujours présents |

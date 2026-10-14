@@ -2,6 +2,9 @@ import '../styles/site.css';
 import { initMotion } from './motion';
 import { initContactForm } from './contact-form';
 import { initLightbox } from './lightbox';
+import { initBooking } from './booking';
+import { initConsent } from './consent';
+import { initTrackedClicks } from './track';
 
 document.documentElement.classList.add('js');
 
@@ -89,6 +92,9 @@ function boot() {
   initMobileMenu();
   initMotion();
   initLightbox();
+  initBooking();
+  initTrackedClicks();
+  initConsent();
   initContactForm();
 }
 

@@ -1,7 +1,7 @@
 import type { Assets } from '../../lib/assets';
 import type { SessionInfo } from '../../context';
 import type { SiteContent } from '../../lib/content';
-import type { ProjectWithImages } from '../../lib/repo';
+import type { ProjectWithImages, TeamPhoto } from '../../lib/repo';
 import { pickVariant } from '../../lib/images';
 import type { contactRequests } from '../../db/schema';
 import { AdminDocument, AdminShell, Csrf, STATUS_LABELS, formatDate, type Flash } from './layout';
@@ -265,7 +265,10 @@ export interface ProjectFormValues {
   url: string;
   challenge: string;
   solution: string;
+  principles: string;
   results: string;
+  testimonialQuote: string;
+  testimonialAuthor: string;
   caseUrl: string;
   published: boolean;
   isDemo: boolean;
@@ -312,33 +315,58 @@ export const ProjectEditPage = ({
           <Field label="Adresse du site (facultatif)" name="url" type="url" value={values.url} max={300} error={errors?.url} hint="https://… — un bouton « Voir le projet » est ajouté." />
           <fieldset class="subgroup">
             <legend>Étude de cas</legend>
-          <div class="field">
-            <label for="f-challenge">Contexte / défi</label>
-            <textarea id="f-challenge" name="challenge" rows={3} maxlength={500} aria-describedby="f-challenge-hint">
-              {values.challenge}
-            </textarea>
-            <p class={errors?.challenge ? 'field__error' : 'field__hint'} id="f-challenge-hint">
-              {errors?.challenge ?? 'La situation du client et ce qui devait changer.'}
-            </p>
-          </div>
-          <div class="field">
-            <label for="f-solution">Solution apportée</label>
-            <textarea id="f-solution" name="solution" rows={3} maxlength={500} aria-describedby="f-solution-hint">
-              {values.solution}
-            </textarea>
-            <p class={errors?.solution ? 'field__error' : 'field__hint'} id="f-solution-hint">
-              {errors?.solution ?? 'Ce qui a été conçu et pourquoi.'}
-            </p>
-          </div>
-          <div class="field">
-            <label for="f-results">Résultats mesurables</label>
-            <textarea id="f-results" name="results" rows={3} maxlength={500} aria-describedby="f-results-hint">
-              {values.results}
-            </textarea>
-            <p class={errors?.results ? 'field__error' : 'field__hint'} id="f-results-hint">
-              {errors?.results ?? 'Uniquement des chiffres réels et vérifiables (ex. : « +38 % de demandes de devis en 3 mois »). Vide pour un projet de démonstration.'}
-            </p>
-          </div>
+            <div class="field">
+              <label for="f-challenge">Contexte / défi</label>
+              <textarea id="f-challenge" name="challenge" rows={3} maxlength={500} aria-describedby="f-challenge-hint">
+                {values.challenge}
+              </textarea>
+              <p class={errors?.challenge ? 'field__error' : 'field__hint'} id="f-challenge-hint">
+                {errors?.challenge ?? 'La situation et ce qui devait changer.'}
+              </p>
+            </div>
+            <div class="field">
+              <label for="f-solution">Solution apportée</label>
+              <textarea id="f-solution" name="solution" rows={3} maxlength={500} aria-describedby="f-solution-hint">
+                {values.solution}
+              </textarea>
+              <p class={errors?.solution ? 'field__error' : 'field__hint'} id="f-solution-hint">
+                {errors?.solution ?? 'Ce qui a été conçu et pourquoi.'}
+              </p>
+            </div>
+          </fieldset>
+          <fieldset class="subgroup">
+            <legend>Concept / démonstration</legend>
+            <div class="field">
+              <label for="f-principles">Objectif de conversion et principes de conception</label>
+              <textarea id="f-principles" name="principles" rows={3} maxlength={600} aria-describedby="f-principles-hint">
+                {values.principles}
+              </textarea>
+              <p class={errors?.principles ? 'field__error' : 'field__hint'} id="f-principles-hint">
+                {errors?.principles ?? 'Affiché pour un concept : l’objectif commercial visé et les choix d’UX / de conversion. Jamais de résultat chiffré.'}
+              </p>
+            </div>
+          </fieldset>
+          <fieldset class="subgroup">
+            <legend>Projet client (section « Résultats clients »)</legend>
+            <div class="field">
+              <label for="f-results">Résultats vérifiables</label>
+              <textarea id="f-results" name="results" rows={3} maxlength={500} aria-describedby="f-results-hint">
+                {values.results}
+              </textarea>
+              <p class={errors?.results ? 'field__error' : 'field__hint'} id="f-results-hint">
+                {errors?.results ?? 'Uniquement des chiffres réels, vérifiables, avec l’accord du client (ex. : « +38 % de demandes de devis en 3 mois »).'}
+              </p>
+            </div>
+            <div class="field">
+              <label for="f-testimonialQuote">Témoignage du client (citation exacte)</label>
+              <textarea id="f-testimonialQuote" name="testimonialQuote" rows={3} maxlength={500} aria-describedby="f-testimonialQuote-hint">
+                {values.testimonialQuote}
+              </textarea>
+              <p class={errors?.testimonialQuote ? 'field__error' : 'field__hint'} id="f-testimonialQuote-hint">
+                {errors?.testimonialQuote ?? 'Avec l’accord écrit du client. Sans guillemets.'}
+              </p>
+            </div>
+            <Field label="Auteur du témoignage (nom · fonction)" name="testimonialAuthor" value={values.testimonialAuthor} max={120} error={errors?.testimonialAuthor} hint="Ex. : Prénom Nom · Gérante, Entreprise" />
             <Field label="Lien vers l’étude de cas complète (facultatif)" name="caseUrl" type="url" value={values.caseUrl} max={300} error={errors?.caseUrl} hint="https://… — un bouton « Lire l’étude de cas » est ajouté." />
           </fieldset>
           <div class="field">
@@ -361,7 +389,7 @@ export const ProjectEditPage = ({
           </label>
           <label class="check">
             <input type="checkbox" name="isDemo" value="1" checked={values.isDemo} />
-            <span>Concept de démonstration (affiche la mention « Concept / Démonstration »)</span>
+            <span>Concept de démonstration (section « Nos concepts », mention « Concept / Démonstration ») — décochez pour un projet client livré</span>
           </label>
           <div class="form__actions">
             <button class="btn btn--primary" type="submit">
@@ -374,7 +402,7 @@ export const ProjectEditPage = ({
       <section class="panel" aria-labelledby="img-title">
         <h2 id="img-title">Images</h2>
         <p class="muted">
-          Format carré recommandé (1600 × 1600 px). JPEG, PNG, WebP ou AVIF, {maxMb} Mo maximum par fichier, 10 fichiers par envoi. Les
+          Format 16:10 recommandé, idéalement 2880 × 1800 px (capture 1440 × 900 en densité 2). JPEG, PNG, WebP ou AVIF, {maxMb} Mo maximum par fichier, 10 fichiers par envoi. Les
           images sont optimisées automatiquement (AVIF + WebP) et leurs métadonnées (GPS, appareil) supprimées.
         </p>
         <form method="post" action={`/admin/projets/${project.id}/images`} enctype="multipart/form-data" class="upload" data-upload>
@@ -543,23 +571,34 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
   {
     section: 'hero',
     title: 'Bannière d’accueil',
-    intro: 'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin. Le bouton principal ouvre le lien de rendez-vous s’il est renseigné (section Contact), sinon le formulaire.',
+    intro:
+      'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin. Bouton principal : texte « avec agenda » si un lien de rendez-vous est renseigné (section Contact), sinon texte « sans agenda » et lien vers le formulaire. Bouton secondaire : « résultats clients » seulement si un projet client avec résultats est publié.',
     fields: [
       { key: 'titleBefore', label: 'Titre — début', max: 80 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
       { key: 'titleAfter', label: 'Titre — fin', max: 80 },
       { key: 'subtitle', label: 'Sous-titre', max: 240, multiline: true },
-      { key: 'primaryCta', label: 'Bouton principal', max: 40 },
-      { key: 'secondaryCta', label: 'Bouton secondaire (vers les réalisations)', max: 40 },
+      { key: 'audience', label: 'Public visé (positionnement)', max: 140, hint: 'Texte neutre par défaut : précisez secteurs, taille ou zone UNIQUEMENT s’ils correspondent à votre cible réelle.' },
+      { key: 'primaryCta', label: 'Bouton principal — avec agenda', max: 40 },
+      { key: 'primaryCtaFallback', label: 'Bouton principal — sans agenda (formulaire)', max: 40 },
+      { key: 'secondaryCta', label: 'Bouton secondaire — concepts', max: 40 },
+      { key: 'secondaryCtaResults', label: 'Bouton secondaire — résultats clients', max: 40 },
       { key: 'reassurance', label: 'Mention sous les boutons', max: 80 },
     ],
   },
-  { section: 'header', title: 'En-tête', fields: [{ key: 'cta', label: 'Bouton de l’en-tête', max: 32 }] },
+  {
+    section: 'header',
+    title: 'En-tête',
+    fields: [
+      { key: 'cta', label: 'Bouton — avec agenda', max: 32 },
+      { key: 'ctaFallback', label: 'Bouton — sans agenda (formulaire)', max: 32 },
+    ],
+  },
   {
     section: 'proof',
     title: 'Preuve sociale (chiffres)',
     intro:
-      'UNIQUEMENT des données réelles et vérifiables (note Google et nombre d’avis, nombre de sites livrés, résultats mesurés…). Tant que tout est vide, la bande n’apparaît pas sur le site.',
+      'UNIQUEMENT des données réelles et vérifiables (note Google et nombre d’avis, nombre de sites livrés…). Un chiffre s’affiche quand sa valeur ET sa légende sont remplies ; tant que tout est vide, la bande n’existe pas sur le site.',
     fields: [{ key: 'title', label: 'Titre (lu par les lecteurs d’écran)', max: 80 }, ...repeat('item', 4, 'Chiffre', [{ key: 'Value', label: 'valeur (ex. : 4,9/5)', max: 16 }, { key: 'Label', label: 'légende', max: 80 }])],
   },
   {
@@ -584,9 +623,22 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
     ],
   },
   {
+    section: 'team',
+    title: 'Derrière Nexora',
+    intro: 'Personne RÉELLE uniquement. La section apparaît quand le nom et le texte sont remplis ; la photo s’envoie plus bas sur cette page.',
+    fields: [
+      { key: 'title', label: 'Titre', max: 60 },
+      { key: 'name', label: 'Nom', max: 80 },
+      { key: 'role', label: 'Fonction / spécialité', max: 120 },
+      { key: 'text', label: 'Texte (manière de travailler : écoute, stratégie, clarté, accompagnement)', max: 700, multiline: true },
+      { key: 'photoAlt', label: 'Description de la photo (texte alternatif)', max: 160 },
+    ],
+  },
+  {
     section: 'projects',
-    title: 'Réalisations (études de cas)',
-    intro: 'Le contexte, la solution et les résultats de chaque projet se remplissent dans Projets.',
+    title: 'Concepts et résultats clients',
+    intro:
+      'Les textes de chaque projet se remplissent dans Projets. Un projet « concept » va dans « Nos concepts » ; un projet client (case décochée) va dans la section « Résultats clients », qui n’apparaît qu’à partir du premier projet client publié.',
     fields: [
       { key: 'eyebrow', label: 'Sur-titre (facultatif)', max: 60 },
       { key: 'titleLine1', label: 'Titre — ligne 1', max: 60 },
@@ -595,13 +647,15 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
       { key: 'subtitle', label: 'Sous-titre', max: 200, multiline: true },
       { key: 'visitLabel', label: 'Bouton vers le site', max: 30 },
       { key: 'caseLabel', label: 'Bouton vers l’étude de cas', max: 30 },
-      { key: 'emptyText', label: 'Texte si aucun projet', max: 160 },
+      { key: 'emptyText', label: 'Texte si aucun concept', max: 160 },
+      { key: 'resultsTitle', label: 'Résultats clients — titre', max: 60 },
+      { key: 'resultsSubtitle', label: 'Résultats clients — sous-titre', max: 200 },
     ],
   },
   {
     section: 'testimonials',
     title: 'Témoignages',
-    intro: 'UNIQUEMENT des citations réelles, avec l’accord écrit de la personne (nom et fonction exacts). Tant que tout est vide, la section n’apparaît pas sur le site.',
+    intro: 'UNIQUEMENT des citations réelles, avec l’accord écrit de la personne (nom et fonction exacts). Un témoignage s’affiche quand la citation ET le nom sont remplis ; tant que tout est vide, la section n’existe pas sur le site.',
     fields: [
       { key: 'title', label: 'Titre', max: 60 },
       ...repeat('t', 3, 'Témoignage', [
@@ -631,8 +685,9 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
       { key: 'responsePromise', label: 'Engagement de réponse', max: 80 },
       { key: 'formTitle', label: 'Titre du formulaire', max: 60 },
       { key: 'successMessage', label: 'Message après envoi', max: 240, multiline: true },
-      { key: 'bookingUrl', label: 'Lien de prise de rendez-vous (Cal.com, Calendly…)', max: 300, type: 'url', hint: 'https://… — vide : les boutons « Réserver » mènent au formulaire.' },
+      { key: 'bookingUrl', label: 'Lien de prise de rendez-vous (Cal.com, Calendly…)', max: 300, type: 'url', hint: 'https://… — Cal.com et Calendly s’ouvrent dans une fenêtre intégrée, les autres dans un nouvel onglet. Vide : « Demander un diagnostic » mène au formulaire.' },
       { key: 'bookingLabel', label: 'Bouton de prise de rendez-vous', max: 40 },
+      { key: 'bookingText', label: 'Texte du bloc de prise de rendez-vous', max: 160 },
       { key: 'whatsappNumber', label: 'Numéro WhatsApp (facultatif)', max: 24, type: 'tel', hint: 'Format international : +33 6 12 34 56 78. Vide : pas de bouton WhatsApp.' },
       { key: 'whatsappMessage', label: 'Message WhatsApp prérempli', max: 160 },
       { key: 'publicEmail', label: 'E-mail affiché (facultatif)', max: 160, type: 'email' },
@@ -677,7 +732,9 @@ export const ContentPage = ({
   newRequests,
   values,
   errors,
-}: Base & { values: SiteContent; errors?: Record<string, string> }) => (
+  teamPhoto,
+  maxMb,
+}: Base & { values: SiteContent; errors?: Record<string, string>; teamPhoto?: TeamPhoto | null; maxMb?: number }) => (
   <AdminShell title="Contenus du site" section="content" session={session} assets={assets} flash={flash} newRequests={newRequests}>
     <p class="lede">Les textes sont publiés dès l’enregistrement. La mise en page est fixe : seuls les textes changent, avec une longueur maximale pour préserver le design.</p>
     <form method="post" action="/admin/contenus" class="form" novalidate>
@@ -715,6 +772,33 @@ export const ContentPage = ({
         </button>
       </div>
     </form>
+
+    <section class="panel" aria-labelledby="team-photo-title" id="photo-equipe">
+      <h2 id="team-photo-title">Photo — Derrière Nexora</h2>
+      <p class="muted">
+        Photo RÉELLE du fondateur ou de l’équipe, format portrait (4:5) conseillé, {maxMb ?? 12} Mo maximum. Optimisée automatiquement,
+        métadonnées supprimées. Elle n’apparaît que si la section « Derrière Nexora » a un nom et un texte.
+      </p>
+      {teamPhoto ? (
+        <div class="team-photo">
+          <img src={`/media/${teamPhoto.id}/480.webp`} width="240" height={Math.round((240 * teamPhoto.height) / teamPhoto.width)} alt="Photo actuelle" />
+          <form method="post" action="/admin/contenus/photo/supprimer" class="form" data-confirm="Supprimer la photo ?">
+            <Csrf token={session.csrfToken} />
+            <button class="btn btn--danger" type="submit">
+              Supprimer la photo
+            </button>
+          </form>
+        </div>
+      ) : null}
+      <form method="post" action="/admin/contenus/photo" enctype="multipart/form-data" class="upload">
+        <Csrf token={session.csrfToken} />
+        <label for="f-team-photo">{teamPhoto ? 'Remplacer la photo' : 'Choisir une photo'}</label>
+        <input id="f-team-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/avif" required />
+        <button class="btn btn--primary" type="submit">
+          Envoyer
+        </button>
+      </form>
+    </section>
   </AdminShell>
 );
 

@@ -58,10 +58,15 @@ export const projects = pgTable(
     category: text('category').notNull().default(''),
     description: text('description').notNull().default(''),
     url: text('url'),
-    /** Étude de cas : contexte / défi, solution apportée, résultats mesurables (texte simple). */
+    /** Étude de cas : contexte / défi et solution apportée (texte simple). */
     challenge: text('challenge').notNull().default(''),
     solution: text('solution').notNull().default(''),
+    /** Concepts : objectif de conversion et principes de conception (jamais de résultat chiffré). */
+    principles: text('principles').notNull().default(''),
+    /** Projets clients uniquement : résultats vérifiables et témoignage autorisé (citation exacte + nom, fonction). */
     results: text('results').notNull().default(''),
+    testimonialQuote: text('testimonial_quote').notNull().default(''),
+    testimonialAuthor: text('testimonial_author').notNull().default(''),
     /** Lien vers l'étude de cas complète (page, article, PDF) — facultatif. */
     caseUrl: text('case_url'),
     isDemo: boolean('is_demo').notNull().default(false),

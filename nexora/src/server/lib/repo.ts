@@ -40,18 +40,51 @@ export async function attachImages(db: Db, list: ProjectRow[]): Promise<ProjectW
 }
 
 /**
- * Projets de la page d'accueil : les projets publiés mis en avant (positions 1 à 3).
- * Si aucun n'est mis en avant, les trois premiers projets publiés (ordre de l'admin).
+ * Projets de la page d'accueil, en deux groupes qui ne se mélangent jamais :
+ *  - `results` : projets CLIENTS publiés (is_demo = false) → section « Résultats clients » ;
+ *  - `concepts` : concepts / démonstrations publiés → section « Nos concepts ».
+ * Ordre : position mise en avant (1 à 3) puis ordre de l'admin ; 3 projets au plus par groupe.
  */
-export async function getHomeProjects(db: Db): Promise<ProjectWithImages[]> {
+export async function getHomeProjects(db: Db): Promise<{ results: ProjectWithImages[]; concepts: ProjectWithImages[] }> {
   const published = await db
     .select()
     .from(projects)
     .where(eq(projects.published, true))
     .orderBy(asc(projects.sortOrder), asc(projects.createdAt));
-  const featured = published.filter((p) => p.featuredPosition != null).sort((a, b) => a.featuredPosition! - b.featuredPosition!);
-  const chosen = featured.length ? featured.slice(0, 3) : published.slice(0, 3);
-  return attachImages(db, chosen);
+  const ordered = [...published].sort((a, b) => (a.featuredPosition ?? 99) - (b.featuredPosition ?? 99));
+  const results = ordered.filter((p) => !p.isDemo).slice(0, 3);
+  const concepts = ordered.filter((p) => p.isDemo).slice(0, 3);
+  const all = await attachImages(db, [...results, ...concepts]);
+  return { results: all.slice(0, results.length), concepts: all.slice(results.length) };
+}
+
+/** Un projet client compte comme « résultat » seulement s'il a des résultats vérifiables renseignés. */
+export const hasVerifiedResults = (p: ProjectRow) => !p.isDemo && p.results.trim().length > 0;
+
+/** Photo de la section « Derrière Nexora » (envoyée dans l'admin, mêmes variantes que les images de projets). */
+export interface TeamPhoto {
+  id: string;
+  width: number;
+  height: number;
+  storagePrefix: string;
+  variants: ImageRow['variants'];
+}
+
+export async function getTeamPhoto(db: Db): Promise<TeamPhoto | null> {
+  const rows = await db.select().from(siteSettings).where(eq(siteSettings.key, 'teamPhoto')).limit(1);
+  const v = rows[0]?.value as TeamPhoto | undefined;
+  return v && typeof v.id === 'string' && Array.isArray(v.variants) ? v : null;
+}
+
+export async function setTeamPhoto(db: Db, photo: TeamPhoto | null) {
+  if (!photo) {
+    await db.delete(siteSettings).where(eq(siteSettings.key, 'teamPhoto'));
+    return;
+  }
+  await db
+    .insert(siteSettings)
+    .values({ key: 'teamPhoto', value: photo })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { value: photo, updatedAt: new Date() } });
 }
 
 export async function listProjects(db: Db) {

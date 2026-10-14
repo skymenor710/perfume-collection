@@ -33,19 +33,45 @@ export const NAV = [
 ];
 
 /**
- * Lien « Réserver un diagnostic » : la page de prise de rendez-vous (Cal.com, Calendly…) si elle est configurée dans
- * Admin › Contenus › Contact, sinon le formulaire de contact.
+ * Appel à l'action « diagnostic », toujours cohérent avec ce qu'il fait :
+ *  - lien de rendez-vous configuré (Admin › Contenus › Contact) → « Réserver… », ouvre la réservation (fenêtre intégrée
+ *    pour Cal.com / Calendly via src/client/booking.ts, sinon nouvel onglet) ;
+ *  - sinon → « Demander… », mène au formulaire de contact. Jamais « Réserver » sans réservation réelle.
  */
 export function bookingLink(content: SiteContent) {
   const url = content.contact.bookingUrl;
-  return url ? { href: url, target: '_blank', rel: 'noopener', external: true } : { href: '/#contact', external: false };
+  return url ? { href: url, external: true } : { href: '/#contact', external: false };
 }
 
-export const BookingCta = ({ content, label, class: cls, size = 18, menu }: { content: SiteContent; label: string; class: string; size?: number; menu?: boolean }) => {
+export const BookingCta = ({
+  content,
+  label,
+  fallback,
+  class: cls,
+  size = 18,
+  menu,
+  track,
+}: {
+  content: SiteContent;
+  label: string;
+  fallback: string;
+  class: string;
+  size?: number;
+  menu?: boolean;
+  track?: string;
+}) => {
   const l = bookingLink(content);
   return (
-    <a class={cls} href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} data-menu-link={menu ? '' : undefined}>
-      <span>{label}</span>
+    <a
+      class={cls}
+      href={l.href}
+      target={l.external ? '_blank' : undefined}
+      rel={l.external ? 'noopener' : undefined}
+      data-booking={l.external ? '' : undefined}
+      data-menu-link={menu ? '' : undefined}
+      data-track={track}
+    >
+      <span>{l.external ? label : fallback}</span>
       {l.external ? <span class="sr-only"> (nouvel onglet)</span> : null}
       <ArrowUpRight size={size} />
     </a>
@@ -68,7 +94,7 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <BookingCta content={content} label={content.header.cta} class="btn btn--outline btn--sm site-header__cta" size={16} />
+        <BookingCta content={content} label={content.header.cta} fallback={content.header.ctaFallback} class="btn btn--outline btn--sm site-header__cta" size={16} track="cta_header" />
       </nav>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only" data-menu-label>
@@ -88,13 +114,14 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <BookingCta content={content} label={content.header.cta} class="btn btn--primary mobile-menu__cta" menu />
+        <BookingCta content={content} label={content.header.cta} fallback={content.header.ctaFallback} class="btn btn--primary mobile-menu__cta" menu track="cta_header" />
       </nav>
     </div>
   </header>
 );
 
-export const Footer = ({ content }: { content: SiteContent }) => (
+/** `consent` : un outil de mesure d'audience est configuré → lien pour revoir son choix. */
+export const Footer = ({ content, consent }: { content: SiteContent; consent?: boolean }) => (
   <footer class="site-footer">
     <div class="container site-footer__inner">
       <a class="site-footer__brand" href="/#accueil">
@@ -115,6 +142,13 @@ export const Footer = ({ content }: { content: SiteContent }) => (
           <li>
             <a href="/politique-de-confidentialite">Politique de confidentialité</a>
           </li>
+          {consent ? (
+            <li>
+              <button class="site-footer__consent" type="button" data-consent-open>
+                Mesure d’audience
+              </button>
+            </li>
+          ) : null}
           <li>
             <span>© {new Date().getFullYear()} Nexora</span>
           </li>

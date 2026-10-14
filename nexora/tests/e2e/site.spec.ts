@@ -107,7 +107,7 @@ test('menu mobile : ouverture, piège du focus, Échap, fermeture au clic', asyn
   await page.waitForFunction(() => Math.abs(document.getElementById('realisations')!.getBoundingClientRect().top - 68) < 4);
 });
 
-test('études de cas : contexte, solution, résultats, concepts signalés, images chargées à la demande', async ({ page }) => {
+test('concepts : contexte, solution, objectif de conversion, signalés comme tels, images chargées à la demande', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const media: string[] = [];
   page.on('request', (r) => r.url().includes('/media/') && media.push(r.url()));
@@ -118,8 +118,8 @@ test('études de cas : contexte, solution, résultats, concepts signalés, image
   for (let n = 0; n < 3; n++) {
     const c = caseAt(page, n);
     await expect(c.locator('.badge-demo')).toHaveText('Concept / Démonstration');
-    await expect(c.locator('dt')).toHaveText(['Contexte / défi', 'Solution apportée', 'Résultats mesurables']);
-    await expect(c.locator('.case__results dd')).toContainText('aucun résultat mesuré');
+    await expect(c.locator('dt')).toHaveText(['Contexte / défi', 'Solution apportée', 'Objectif de conversion']);
+    await expect(c).not.toContainText(/résultat/i);
     await expect(c.locator('.case__thumb')).toHaveCount(4);
   }
   await caseAt(page, 2).scrollIntoViewIfNeeded();
@@ -276,17 +276,32 @@ test('formulaire : visible d’emblée, appels à l’action, erreurs, échec se
   await page.locator('#contact').scrollIntoViewIfNeeded();
   await expect(page.locator('#cf-name')).toBeVisible();
   await expect(page.locator('.contact__promise')).toHaveText('Nous vous répondons sous 1 jour ouvré.');
-  // « Réserver un diagnostic » (sans lien de rendez-vous configuré) : mène au formulaire, titre sous l'en-tête.
+  // Événements de conversion (émis localement, sans outil tiers ni réseau).
+  await page.evaluate(() => {
+    (window as unknown as { __ev: string[] }).__ev = [];
+    addEventListener('nexora:track', (e) => {
+      const d = (e as CustomEvent<{ name: string; props: Record<string, string> }>).detail;
+      (window as unknown as { __ev: string[] }).__ev.push(d.props.service ? `${d.name}:${d.props.service}` : d.name);
+    });
+  });
+  // Sans lien de rendez-vous : « Demander un diagnostic » (jamais « Réserver »), mène au formulaire sous l'en-tête.
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(page.locator('.hero__cta-primary')).toHaveText('Demander un diagnostic');
+  await expect(page.locator('.hero__cta-secondary')).toHaveText('Découvrir nos concepts');
   await page.locator('.hero__cta-primary').click();
   await page.waitForFunction(() => {
     const t = document.getElementById('contact')!.getBoundingClientRect().top;
     return t >= 80 && t < 120;
   });
   await expect(page.locator('#cf-name')).toBeInViewport();
-  // « Parler de ce projet » (service E-commerce) : type de projet présélectionné.
-  await page.locator('#services .service__link').nth(2).click();
-  await expect(page.locator('#cf-type')).toHaveValue('Site e-commerce');
+  // « Parler de ce projet » : chaque service présélectionne son type, défile jusqu'au formulaire et met le champ en avant.
+  const services = ['Site vitrine', 'Refonte de site', 'Site e-commerce', 'Automatisation et outils digitaux'];
+  for (const [i, type] of services.entries()) {
+    await page.locator('#services .service__link').nth(i).click();
+    await expect(page.locator('#cf-type')).toHaveValue(type);
+    await expect(page.locator('#cf-type')).toBeFocused();
+    await expect(page.locator('#cf-type')).toBeInViewport();
+  }
 
   // Données invalides.
   await page.locator('#cf-email').fill('pas-un-email');
@@ -319,6 +334,12 @@ test('formulaire : visible d’emblée, appels à l’action, erreurs, échec se
   expect((await resp).status()).toBe(201);
   await expect(page.locator('[data-form-status]')).toContainText('bien été enregistrée');
   await expect(page.locator('#cf-name')).toHaveValue('');
+  expect(await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)).toEqual([
+    'cta_primary',
+    ...services.map((t) => `service_click:${t}`),
+    'form_start',
+    'form_submit_success',
+  ]);
   expect(problems.filter((p) => !p.includes('500'))).toEqual([]);
 });
 
@@ -351,6 +372,10 @@ test('administration : accès refusé sans connexion, connexion, projet complet 
   await page.locator('#f-name').fill('Cabinet Morel');
   await page.locator('#f-category').fill('Site vitrine · Avocats');
   await page.locator('#f-url').fill('https://cabinet-morel.example');
+  await page.locator('#f-challenge').fill('Peu de demandes de rendez-vous en ligne.');
+  await page.locator('#f-results').fill('+25 % de demandes de rendez-vous en 3 mois (mesuré).');
+  await page.locator('#f-testimonialQuote').fill('Les demandes arrivent enfin qualifiées.');
+  await page.locator('#f-testimonialAuthor').fill('Me Morel · Avocate');
   await page.locator('#f-featured').selectOption('2');
   await page.locator('input[name=published]').check();
   await page.locator('button', { hasText: 'Enregistrer' }).first().click();
@@ -375,10 +400,15 @@ test('administration : accès refusé sans connexion, connexion, projet complet 
   await page.locator('.image-row').nth(1).locator('button', { hasText: 'Définir comme couverture' }).click();
   await expect(page.locator('.image-row').nth(0).locator('input[type=text]')).toHaveValue('Page contact du cabinet Morel');
 
-  // Reflété sur le site, en position 2, sans toucher au code.
+  // Reflété sur le site, sans toucher au code : projet client → section « Résultats clients », avant les concepts.
   const site = await page.context().newPage();
   await site.goto(BASE);
-  const second = caseAt(site, 1);
+  await expect(site.locator('#results-title')).toHaveText('Résultats clients');
+  await expect(site.locator('.hero__cta-secondary')).toHaveText('Voir des résultats clients');
+  await expect(site.locator('#concepts .case')).toHaveCount(3);
+  const second = caseAt(site, 0);
+  await expect(second.locator('.case__results dd')).toHaveText('+25 % de demandes de rendez-vous en 3 mois (mesuré).');
+  await expect(second.locator('.case__quote')).toContainText('Les demandes arrivent enfin qualifiées.');
   await expect(second.locator('.case__title')).toHaveText('Cabinet Morel');
   await expect(second.locator('a', { hasText: 'Voir le projet' })).toHaveAttribute('href', 'https://cabinet-morel.example');
   await expect(second.locator('.case__thumb').first()).toHaveAttribute('aria-label', /Page contact du cabinet Morel/);
@@ -390,8 +420,8 @@ test('administration : accès refusé sans connexion, connexion, projet complet 
   await page.locator('.image-row').nth(1).locator('button', { hasText: 'Supprimer' }).click();
   await expect(page.locator('.image-row')).toHaveCount(1);
   await site.reload();
-  await expect(caseAt(site, 1).locator('.case__thumb')).toHaveCount(0);
-  await caseAt(site, 1).locator('.case__cover').click();
+  await expect(caseAt(site, 0).locator('.case__thumb')).toHaveCount(0);
+  await caseAt(site, 0).locator('.case__cover').click();
   await expect(site.locator('[data-lightbox-count]')).toHaveText('1 / 1');
   await site.keyboard.press('Escape');
 
@@ -403,10 +433,23 @@ test('administration : accès refusé sans connexion, connexion, projet complet 
   await expect(page.locator('.flash--ok')).toBeVisible();
   await site.reload();
   await expect(site.locator('.hero__lead')).toHaveText('Design sur mesure. Performance. Résultats.');
-  // Lien de rendez-vous : utilisé par les boutons « Réserver », en nouvel onglet.
+  // Lien de rendez-vous configuré : « Réserver… » ; Cal.com s'ouvre dans la fenêtre intégrée, et la confirmation
+  // envoyée par le service (depuis son origine) déclenche « booking_completed ».
+  await expect(site.locator('.hero__cta-primary > span').first()).toHaveText('Réserver un diagnostic de 20 min');
   await expect(site.locator('.hero__cta-primary')).toHaveAttribute('href', 'https://cal.com/nexora/diagnostic');
   await expect(site.locator('.hero__cta-primary')).toHaveAttribute('target', '_blank');
-  await expect(site.locator('.contact__alt a', { hasText: 'Réserver un créneau de 20 min' })).toBeVisible();
+  await expect(site.locator('.contact__booking a', { hasText: 'Réserver un créneau de 20 min' })).toBeVisible();
+  await site.route(/cal\.com/, (r) =>
+    r.fulfill({ contentType: 'text/html', body: '<p>Agenda</p><script>setTimeout(() => parent.postMessage({ originator: "CAL", type: "bookingSuccessfulV2" }, "*"), 200)</script>' }),
+  );
+  const booked = site.evaluate(() => new Promise<string>((ok) => addEventListener('nexora:track', (e) => (e as CustomEvent<{ name: string }>).detail.name === 'booking_completed' && ok('ok'))));
+  await site.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await site.locator('.hero__cta-primary').click();
+  await expect(site.locator('dialog.booking')).toBeVisible();
+  await expect(site.locator('dialog.booking iframe')).toHaveAttribute('src', /^https:\/\/cal\.com\/nexora\/diagnostic\?embed=/);
+  expect(await booked).toBe('ok');
+  await site.locator('[data-booking-close]').click();
+  await expect(site.locator('dialog.booking')).not.toBeVisible();
   await site.close();
 
   // Déconnexion.
@@ -420,9 +463,9 @@ test('persistance après redémarrage du serveur (base + fichiers)', async ({ pa
   await stop();
   await start();
   await page.goto(BASE);
-  await expect(caseAt(page, 1).locator('.case__title')).toHaveText('Cabinet Morel');
+  await expect(caseAt(page, 0).locator('.case__title')).toHaveText('Cabinet Morel');
   await expect(page.locator('.hero__lead')).toHaveText('Design sur mesure. Performance. Résultats.');
-  const src = await caseAt(page, 1).locator('.case__cover img').getAttribute('src');
+  const src = await caseAt(page, 0).locator('.case__cover img').getAttribute('src');
   const img = await page.request.get(`${BASE}${src}`);
   expect(img.status()).toBe(200);
   await page.goto(`${BASE}/admin/connexion`);

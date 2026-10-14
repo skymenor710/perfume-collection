@@ -6,16 +6,23 @@ import { hmac } from './crypto';
 /**
  * En-têtes de sécurité sur toutes les réponses.
  * CSP stricte : aucun script inline ; un seul bloc de style inline autorisé, par son empreinte SHA-256 (CSS du site,
- * intégré pour éviter une requête bloquante). Pas d'objet, pas d'iframe.
+ * intégré pour éviter une requête bloquante). Pas d'objet ; iframes limitées aux services de prise de rendez-vous.
  */
+/** Services de rendez-vous qui peuvent être intégrés dans la page (sinon le lien s'ouvre dans un nouvel onglet). */
+export const BOOKING_ORIGINS = ['https://cal.com', 'https://app.cal.com', 'https://calendly.com'];
+
 export function securityHeaders(deps: Deps): MiddlewareHandler<AppEnv> {
+  // Mesure d'audience : son origine n'est autorisée que si un outil est configuré (et il n'est chargé qu'après accord).
+  const a = deps.config.analytics?.origin ?? '';
   const csp = [
     "default-src 'self'",
-    "script-src 'self'",
+    `script-src 'self'${a ? ` ${a}` : ''}`,
     `style-src 'self'${deps.assets.siteInlineCssHash ? ` ${deps.assets.siteInlineCssHash}` : ''}`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${a ? ` ${a}` : ''}`,
+    // Prise de rendez-vous intégrée (fenêtre de réservation) : Cal.com et Calendly uniquement.
+    `frame-src ${BOOKING_ORIGINS.join(' ')}`,
     "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

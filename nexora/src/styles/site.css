@@ -626,6 +626,14 @@ section[id],
   max-width: 36em;
   text-wrap: pretty;
 }
+.hero__audience {
+  margin-top: 14px;
+  max-width: 40em;
+  font-size: 1rem;
+  color: var(--white);
+  font-weight: 500;
+  text-wrap: pretty;
+}
 .hero__reassurance {
   margin-top: 18px;
   font-size: 0.9375rem;
@@ -1493,8 +1501,11 @@ html.js-motion .services__grid > li:nth-child(4) {
 }
 .proof__list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
 }
+.proof__list--1 { --n: 1; }
+.proof__list--2 { --n: 2; }
+.proof__list--3 { --n: 3; }
 .proof__item {
   display: grid;
   gap: 6px;
@@ -1516,18 +1527,6 @@ html.js-motion .services__grid > li:nth-child(4) {
   color: var(--text-2);
   font-size: 0.9375rem;
 }
-/* Emplacements à compléter : visibles hors production seulement, et sans ambiguïté. */
-.placeholder {
-  outline: 1px dashed rgb(234 230 232 / 0.3);
-  outline-offset: -6px;
-  border-radius: 12px;
-  background: repeating-linear-gradient(135deg, rgb(234 230 232 / 0.025) 0 10px, transparent 10px 20px);
-}
-.placeholder .proof__value,
-.placeholder blockquote p {
-  color: var(--text-3);
-}
-
 /* ---------- Services ---------- */
 .services__grid {
   margin-top: clamp(36px, 4vw, 56px);
@@ -1848,34 +1847,237 @@ html.js-motion .services__grid > li:nth-child(4) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(14px, 1.4vw, 20px);
 }
+.testimonials__grid--1 {
+  grid-template-columns: minmax(0, 640px);
+}
+.testimonials__grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* Carte de témoignage : fond sombre, filet discret et cadre intérieur pointillé, citation en grand. */
 .quote {
+  position: relative;
   margin: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: clamp(24px, 2.4vw, 34px);
-  border-radius: 18px;
+  justify-content: center;
+  gap: clamp(22px, 2.2vw, 30px);
+  padding: clamp(30px, 3.2vw, 46px);
+  border-radius: 20px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.03), transparent);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.025), rgb(255 255 255 / 0.008));
+}
+.quote::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed rgb(234 230 232 / 0.18);
+  border-radius: 14px;
+  pointer-events: none;
 }
 .quote blockquote {
   margin: 0;
 }
 .quote blockquote p {
-  font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
+  font-size: clamp(1.125rem, 1.02rem + 0.42vw, 1.4rem);
   line-height: 1.55;
+  color: var(--white);
+  text-wrap: pretty;
 }
 .quote figcaption {
-  margin-top: auto;
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 .quote__author {
   font-weight: 600;
+  font-size: 1.0625rem;
 }
 .quote__role {
   color: var(--text-3);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Derrière Nexora ---------- */
+.team__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 88px);
+  align-items: center;
+}
+.team__inner--text {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 52rem;
+}
+.team__photo,
+.team__photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+}
+.team__photo img {
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(234 230 232 / 0.08), 0 40px 80px -40px rgb(0 0 0 / 0.9);
+}
+.team__text {
+  margin-top: clamp(18px, 2vw, 26px);
+  font-size: clamp(1.0625rem, 0.98rem + 0.45vw, 1.3rem);
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 38em;
+  white-space: pre-line;
+  text-wrap: pretty;
+}
+.team__person {
+  margin-top: 26px;
+  display: grid;
+  gap: 4px;
+}
+.team__name {
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+.team__role {
+  color: var(--text-3);
+}
+
+/* Témoignage dans une étude de cas client. */
+.case__quote {
+  margin: 24px 0 0;
+  padding-left: 18px;
+  border-left: 2px solid var(--wine-2);
+}
+.case__quote blockquote {
+  margin: 0;
+}
+.case__quote p {
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--white);
+}
+.case__quote figcaption {
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Réservation intégrée ---------- */
+.booking {
+  width: min(960px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  background: var(--black-2);
+  color: var(--white);
+  overflow: hidden;
+}
+.booking[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.booking::backdrop {
+  background: rgb(9 9 12 / 0.8);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.booking__bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 12px 12px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.booking__title {
+  flex: 1;
+  font-weight: 500;
+}
+.booking__external {
+  font-size: 0.875rem;
+  color: var(--text-2);
+}
+.booking__frame,
+.booking__frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* ---------- Consentement (mesure d'audience) ---------- */
+.consent {
+  position: fixed;
+  z-index: 60;
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  margin-inline: auto;
+  max-width: 720px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line-2);
+  background: rgb(18 16 20 / 0.92);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px);
+  backdrop-filter: saturate(1.6) blur(18px);
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.9);
+}
+.consent[hidden] {
+  display: none;
+}
+.consent__text {
+  flex: 1 1 320px;
+  font-size: 0.9375rem;
+  color: var(--text-2);
+}
+.consent__actions {
+  display: flex;
+  gap: 10px;
+}
+.site-footer__consent {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+.site-footer__consent:hover {
+  color: var(--white);
+}
+
+/* Type de projet présélectionné depuis un service : bref halo pour montrer la valeur choisie. */
+.field.is-preselected select {
+  animation: preselect 1.6s var(--ease-out);
+}
+@keyframes preselect {
+  0%,
+  35% {
+    border-color: var(--wine-glow);
+    box-shadow: 0 0 0 4px rgb(224 70 110 / 0.28);
+  }
+}
+
+/* Bloc de réservation près du formulaire. */
+.contact__booking {
+  margin-top: clamp(28px, 3vw, 40px);
+  padding: 22px;
+  border-radius: 16px;
+  border: 1px solid var(--line-2);
+  background: rgb(255 255 255 / 0.03);
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.contact__booking-text {
+  color: var(--text-2);
   font-size: 0.9375rem;
 }
 
@@ -2032,8 +2234,13 @@ html.js-motion .services__grid > li:nth-child(4) {
   .proof__item:nth-child(n + 3) {
     border-top: 1px solid var(--line);
   }
-  .testimonials__grid {
+  .testimonials__grid,
+  .testimonials__grid--2,
+  .team__inner {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .team__photo {
+    max-width: 420px;
   }
   .method__steps {
     grid-template-columns: minmax(0, 1fr);

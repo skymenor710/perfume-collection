@@ -93,7 +93,8 @@ export const LegalNotice = ({ content, publicUrl }: { content: SiteContent; publ
   );
 };
 
-export const PrivacyPolicy = ({ content }: { content: SiteContent }) => {
+/** `analytics` : nom de l'outil de mesure d'audience s'il est configuré (chargé seulement après consentement). */
+export const PrivacyPolicy = ({ content, analytics }: { content: SiteContent; analytics?: string | null }) => {
   const l = content.legal;
   return (
     <>
@@ -111,7 +112,16 @@ export const PrivacyPolicy = ({ content }: { content: SiteContent }) => {
           </p>
 
           <h2>Données collectées</h2>
-          <p>Via le formulaire de contact uniquement : nom, entreprise (facultatif), adresse e-mail, téléphone (facultatif), type de projet et message.</p>
+          <p>
+            Via le formulaire de contact : nom, entreprise (facultatif), adresse e-mail, téléphone (facultatif), type de projet, budget
+            estimatif et délai souhaité (facultatifs) et message.
+          </p>
+          {content.contact.bookingUrl ? (
+            <p>
+              La prise de rendez-vous en ligne est assurée par un service tiers (outil de réservation) : les informations que vous y
+              saisissez sont traitées selon sa propre politique de confidentialité.
+            </p>
+          ) : null}
 
           <h2>Finalité et base légale</h2>
           <p>
@@ -140,11 +150,21 @@ export const PrivacyPolicy = ({ content }: { content: SiteContent }) => {
             adresser une réclamation à la CNIL (<a href="https://www.cnil.fr" rel="noopener noreferrer">www.cnil.fr</a>).
           </p>
 
-          <h2>Cookies</h2>
-          <p>
-            Le site public ne dépose aucun cookie de mesure d’audience ou publicitaire. Seul l’espace d’administration utilise un cookie
-            de session strictement nécessaire à la connexion.
-          </p>
+          <h2>Cookies et mesure d’audience</h2>
+          {analytics ? (
+            <p>
+              Avec votre accord uniquement (bandeau affiché à votre première visite, choix modifiable à tout moment via le lien « Mesure
+              d’audience » en bas de page), nous utilisons {analytics} pour mesurer la fréquentation du site et l’usage de ses boutons,
+              de façon agrégée. Sans accord, aucun outil de mesure n’est chargé. Votre choix est mémorisé dans votre navigateur pendant
+              6 mois. Aucun cookie publicitaire n’est utilisé. Seul l’espace d’administration utilise un cookie de session strictement
+              nécessaire à la connexion.
+            </p>
+          ) : (
+            <p>
+              Le site public ne dépose aucun cookie de mesure d’audience ou publicitaire et ne charge aucun outil de mesure. Seul l’espace
+              d’administration utilise un cookie de session strictement nécessaire à la connexion.
+            </p>
+          )}
 
           <h2>Sécurité</h2>
           <p>

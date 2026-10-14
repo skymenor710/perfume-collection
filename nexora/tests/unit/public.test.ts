@@ -29,11 +29,15 @@ describe('site public', () => {
     expect(html).toContain('Des sites web pensés pour');
     expect(html).toContain('générer des demandes,');
     expect(html).toContain('pas seulement des compliments.');
-    expect(html).toContain('Réserver un diagnostic de 20 min');
-    expect(html).toContain('Voir des résultats clients');
+    // Sans agenda configuré : « Demander », jamais « Réserver » ; sans projet client : « concepts », jamais « résultats ».
+    expect(html).toContain('Demander un diagnostic');
+    expect(html).not.toMatch(/Réserver/);
+    expect(html).toContain('Découvrir nos concepts');
+    expect(html).not.toContain('Voir des résultats clients');
     expect(html).toContain('Sans engagement · Réponse sous 1 jour ouvré');
+    expect(html).toContain('class="hero__audience"');
     // Sections dans l'ordre demandé, et navigation correspondante.
-    const order = ['id="accueil"', 'class="proof"', 'id="services"', 'id="methode"', 'id="realisations"', 'id="temoignages"', 'id="faq"', 'id="contact"'].map((m) => html.indexOf(m));
+    const order = ['id="accueil"', 'id="services"', 'id="methode"', 'id="realisations"', 'id="faq"', 'id="contact"'].map((m) => html.indexOf(m));
     expect(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1]))).toBe(true);
     for (const href of ['/#services', '/#methode', '/#realisations', '/#faq', '/#contact']) expect(html).toContain(`href="${href}"`);
     // Une seule balise h1 ; les sections ont un titre h2.
@@ -41,12 +45,16 @@ describe('site public', () => {
     for (const t of ['Sites vitrines', 'Refonte de site', 'E-commerce', 'Automatisations et outils digitaux']) expect(html).toContain(t);
     for (const t of ['Diagnostic et stratégie', 'Design et développement', 'Lancement et optimisation']) expect(html).toContain(t);
     for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration']) expect(html.toLowerCase()).toContain(t.toLowerCase());
-    // Études de cas : contexte, solution, résultats ; concepts clairement identifiés, aucun résultat inventé.
+    // Concepts : contexte, solution, objectif de conversion ; clairement identifiés ; aucun « résultat ».
+    expect(html).toContain('Nos concepts de sites');
+    expect(html).toContain('à forte conversion.');
     expect(html.match(/class="case[ "]/g)?.length).toBe(3);
     expect(html.match(/Concept \/ Démonstration/g)?.length).toBe(3);
     expect(html.match(/<dt>Contexte \/ défi<\/dt>/g)?.length).toBe(3);
     expect(html.match(/<dt>Solution apportée<\/dt>/g)?.length).toBe(3);
-    expect(html.match(/aucun résultat mesuré à ce jour/g)?.length).toBe(3);
+    expect(html.match(/<dt>Objectif de conversion<\/dt>/g)?.length).toBe(3);
+    expect(html).not.toMatch(/R[ée]sultats? mesur/i);
+    expect(html).not.toContain('Résultats clients');
     expect(html).not.toContain('badge-client');
     // Captures : 4 vignettes par cas, chacune ouvre la visionneuse avec ses sources HD (jusqu'à 2400 px).
     expect(html.match(/class="case__thumb"/g)?.length).toBe(12);
@@ -69,9 +77,10 @@ describe('site public', () => {
     expect(html).toContain('Nous vous répondons sous 1 jour ouvré.');
     expect(html).toContain('href="/politique-de-confidentialite"');
     expect(html).toContain('href="/mentions-legales"');
-    // Hors production : emplacements « à compléter » visibles pour la preuve sociale et les témoignages, sans données inventées.
-    expect(html).toContain('data-placeholder="proof"');
-    expect(html).toContain('data-placeholder="testimonials"');
+    // Sections de preuve sans données réelles : absentes de la page, sans aucun texte d'administration.
+    for (const absent of ['class="proof"', 'id="temoignages"', 'id="equipe"', 'data-placeholder', 'à compléter', 'Admin ›', 'EXEMPLE', 'data-consent']) {
+      expect(html, absent).not.toContain(absent);
+    }
     // Symbole N 4K et logotype vectoriel.
     expect(html).toContain('/brand/symbol-1600.avif 1600w');
     expect(html).toContain('/brand/wordmark.svg');
@@ -80,34 +89,76 @@ describe('site public', () => {
     expect(html).not.toContain('__NX_FORM_TOKEN__');
   }, 180_000);
 
-  it('preuve sociale et témoignages : jamais de remplissage en production, affichés dès qu’ils sont renseignés', async () => {
-    await ctx.close();
-    ctx = await setup({ env: { SHOW_PLACEHOLDERS: 'false' } });
-    let html = await (await new Client(ctx).req('/')).text();
-    expect(html).not.toContain('class="proof"');
-    expect(html).not.toContain('id="temoignages"');
-    expect(html).not.toContain('data-placeholder');
+  it('données réelles : chiffres, témoignages, équipe, agenda, WhatsApp, résultats clients — affichés seulement une fois saisis', async () => {
+    await seedDemo(ctx.deps, SEED_DIR);
     const content = structuredClone(defaultContent);
     content.proof.item1Value = '4,9/5';
     content.proof.item1Label = 'note moyenne sur Google (12 avis)';
+    content.proof.item2Value = '12'; // valeur sans légende : ignorée
     content.testimonials.t1Quote = 'Citation réelle.';
     content.testimonials.t1Author = 'Prénom Nom';
+    content.testimonials.t2Quote = 'Citation sans auteur : ignorée.';
+    content.team.name = 'Prénom Nom';
+    content.team.text = 'Texte réel.';
     content.contact.bookingUrl = 'https://cal.com/nexora/diagnostic';
     content.contact.whatsappNumber = '+33 6 12 34 56 78';
     await saveContent(ctx.deps.db, content);
+    // Projet client publié avec résultats vérifiables et témoignage.
+    await ctx.deps.db.insert(projects).values({
+      name: 'Client réel',
+      published: true,
+      isDemo: false,
+      challenge: 'Défi.',
+      solution: 'Solution.',
+      results: '+20 % de demandes (mesuré).',
+      testimonialQuote: 'Très bon travail.',
+      testimonialAuthor: 'Prénom Nom · Gérant',
+      principles: 'Ne doit pas apparaître pour un projet client.',
+    });
     await bumpContentVersion(ctx.deps.db);
-    html = await (await new Client(ctx).req('/')).text();
+    const html = await (await new Client(ctx).req('/')).text();
     expect(html).toContain('4,9/5');
+    expect(html.match(/class="proof__item"/g)?.length).toBe(1);
     expect(html).toContain('Citation réelle.');
-    expect(html).not.toContain('data-placeholder');
-    // Lien de rendez-vous : utilisé par les boutons « Réserver » (nouvel onglet) ; WhatsApp : lien wa.me.
-    expect(html).toContain('href="https://cal.com/nexora/diagnostic" target="_blank" rel="noopener"');
+    expect(html).not.toContain('Citation sans auteur');
+    expect(html).toContain('id="equipe"');
+    // Agenda configuré : « Réserver… » ouvre la réservation ; WhatsApp : lien wa.me ; bloc de rendez-vous près du formulaire.
+    expect(html).toContain('Réserver un diagnostic de 20 min');
+    expect(html).not.toContain('Demander un diagnostic');
+    expect(html).toMatch(/href="https:\/\/cal\.com\/nexora\/diagnostic" target="_blank" rel="noopener" data-booking=""/);
+    expect(html).toContain('<dialog class="booking"');
+    expect(html).toContain('class="contact__booking"');
     expect(html).toContain('href="https://wa.me/33612345678?text=');
+    // Résultats clients : section séparée, avant les concepts ; le bouton secondaire peut alors parler de résultats.
+    expect(html).toContain('Voir des résultats clients');
+    expect(html.indexOf('Résultats clients')).toBeLessThan(html.indexOf('Nos concepts de sites'));
+    expect(html).toContain('id="concepts"');
+    expect(html).toContain('+20 % de demandes (mesuré).');
+    expect(html).toContain('Très bon travail.');
+    expect(html).toContain('Projet client');
+    expect(html).not.toContain('Ne doit pas apparaître pour un projet client.');
+    expect(html.match(/Concept \/ Démonstration/g)?.length).toBe(3);
+  }, 180_000);
+
+  it('mesure d’audience : bandeau de consentement et CSP seulement si un outil est configuré', async () => {
+    let res = await new Client(ctx).req('/');
+    expect(await res.text()).not.toContain('data-consent');
+    expect(res.headers.get('content-security-policy')).not.toContain('plausible');
+    await ctx.close();
+    ctx = await setup({ env: { ANALYTICS_PROVIDER: 'plausible', ANALYTICS_DOMAIN: 'nexora.example' } });
+    res = await new Client(ctx).req('/');
+    const html = await res.text();
+    // Bandeau masqué par défaut (affiché par le script s'il n'y a pas encore de choix) ; aucun script tiers dans la page.
+    expect(html).toContain('data-consent');
+    expect(html).toContain('data-consent-open');
+    expect(html).not.toMatch(/<script[^>]+plausible/);
+    expect(res.headers.get('content-security-policy')).toContain("script-src 'self' https://plausible.io");
+    expect(await (await new Client(ctx).req('/politique-de-confidentialite')).text()).toContain('Plausible Analytics');
   });
 
   it('gère 0 projet et les projets sans image', async () => {
     let html = await (await new Client(ctx).req('/')).text();
-    expect(html).toContain('Nos premières études de cas seront bientôt présentées ici.');
+    expect(html).toContain('Nos premiers concepts seront bientôt présentés ici.');
     await ctx.deps.db.insert(projects).values({ name: 'Projet vide', published: true, sortOrder: 1 });
     await bumpContentVersion(ctx.deps.db);
     html = await (await new Client(ctx).req('/')).text();

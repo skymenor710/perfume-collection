@@ -35,22 +35,25 @@ Facultatif : e-mail et téléphone à afficher publiquement dans la section cont
 
 ## Contenus de conversion — données RÉELLES uniquement
 
-Rien n’a été inventé : les sections ci-dessous restent **masquées pour les visiteurs** tant qu’elles sont vides. Hors
-production (`SHOW_PLACEHOLDERS=auto`), des emplacements hachurés « à compléter » montrent où elles s’afficheront. Le
-tableau de bord de l’admin rappelle ce qui manque (« Contenus de conversion à compléter »).
+Rien n’a été inventé. Règle appliquée dans le code : une section de preuve n’existe sur la page que lorsque des données
+réelles sont saisies ; sinon elle est **absente** (aucun texte d’exemple, d’instruction ou « à compléter » n’est jamais
+montré aux visiteurs). Le tableau de bord de l’admin liste ce qui manque (« Contenus de conversion à compléter »).
 
-| À fournir | Où le saisir | Remarque |
+| À fournir | Où le saisir | Effet sur le site |
 |---|---|---|
-| [ ] Lien de prise de rendez-vous (Cal.com, Calendly, Google Agenda…) | Admin › Contenus › Section Contact › *Lien de prise de rendez-vous* | `https://` obligatoire. Tant qu’il est vide, « Réserver un diagnostic » mène au formulaire. |
-| [ ] Numéro WhatsApp (facultatif) | Admin › Contenus › Section Contact › *Numéro WhatsApp* | Format international : `+33 6 12 34 56 78`. Ajoute un bouton « Écrire sur WhatsApp » (lien wa.me). |
-| [ ] 2 à 4 chiffres de preuve sociale | Admin › Contenus › Preuve sociale | Uniquement vérifiables : note et nombre d’avis Google, nombre de sites livrés, résultat mesuré… |
-| [ ] Témoignages clients (1 à 3) | Admin › Contenus › Témoignages | Citation exacte, nom et fonction réels, **accord écrit** du client. |
-| [ ] Études de cas réelles | Admin › Projets › (projet) › Étude de cas | Contexte / défi, solution, **résultats mesurés** (chiffres réels), lien vers l’étude complète. Décocher « Concept de démonstration ». |
-| [ ] Validation des réponses de la FAQ | Admin › Contenus › Questions fréquentes | Elles engagent l’entreprise (délais, budget, propriété du site, maintenance) : à relire et ajuster. |
-| [ ] Engagement « Réponse sous 1 jour ouvré » | Admin › Contenus › Bannière et Contact | À conserver seulement s’il est tenu en pratique. |
-| [ ] Tranches de budget du formulaire | `src/server/lib/content.ts` (`BUDGETS`, `TIMELINES`) | Valeurs indicatives proposées ; à adapter aux prix réels. |
+| [ ] Lien de prise de rendez-vous (Cal.com ou Calendly de préférence) | Admin › Contenus › Section Contact › *Lien de prise de rendez-vous* | Vide : boutons « Demander un diagnostic » → formulaire. Renseigné : « Réserver un diagnostic de 20 min », réservation dans une fenêtre intégrée (Cal.com / Calendly) ou un nouvel onglet (autre service), bloc de rendez-vous près du formulaire. |
+| [ ] Numéro WhatsApp (facultatif) | Admin › Contenus › Section Contact › *Numéro WhatsApp* (`+33 6 …`) | Bouton « Écrire sur WhatsApp » près du formulaire. |
+| [ ] Chiffres de preuve sociale (1 à 4) | Admin › Contenus › Preuve sociale (valeur + légende) | Bande « En quelques chiffres » sous le hero. Uniquement des chiffres vérifiables. |
+| [ ] Témoignages (1 à 3) | Admin › Contenus › Témoignages (citation, nom, fonction · entreprise) | Section « Ils nous ont confié leur site ». Citation exacte, **accord écrit** du client. |
+| [ ] Section « Derrière Nexora » | Admin › Contenus › Derrière Nexora (nom, fonction, texte) + photo (même page, en bas) | Section après la méthode. Personne et photo réelles. |
+| [ ] Public visé | Admin › Contenus › Bannière › *Public visé* | Texte neutre par défaut (« … pour PME, indépendants et entreprises de services ») : à préciser avec la cible réelle (secteurs, zone). |
+| [ ] Projets clients (« Résultats clients ») | Admin › Projets › (projet) › décocher *Concept de démonstration* ; remplir *Résultats vérifiables*, *Témoignage*, *Lien* | Section « Résultats clients » avant les concepts ; le bouton du hero devient « Voir des résultats clients » dès qu’un projet client avec résultats est publié. |
+| [ ] Validation des réponses de la FAQ | Admin › Contenus › Questions fréquentes | Elles engagent l’entreprise (délais, budget, propriété, maintenance). |
+| [ ] Engagement « Réponse sous 1 jour ouvré » | Admin › Contenus › Bannière et Contact | À conserver seulement s’il est tenu. |
+| [ ] Tranches de budget du formulaire | `src/server/lib/content.ts` (`BUDGETS`, `TIMELINES`) | Valeurs indicatives proposées. |
+| [ ] Mesure d’audience (facultatif) | Variables `ANALYTICS_PROVIDER=plausible`, `ANALYTICS_DOMAIN` | Bandeau de consentement ; rien n’est chargé avant « Accepter ». La politique de confidentialité s’adapte automatiquement. |
 
 ## Autres contenus
 
-- [ ] Vrais projets (nom, catégorie, lien, images 16:10 — idéalement 2880 × 1800 —, textes alternatifs) pour remplacer les 3 concepts affichés (maçonnerie, laboratoire, EARKO), signalés « Concept / Démonstration ».
+- [ ] Vrais projets clients (images 16:10 — idéalement 2880 × 1800 —, textes alternatifs) ; les 3 concepts (maçonnerie, laboratoire, EARKO) restent dans « Nos concepts » tant qu’ils sont publiés.
 - [ ] Validation des textes (promesse, services, méthode) — proposés et modifiables dans l’admin.

@@ -1,10 +1,12 @@
 // Aperçu autonome : enregistre la page d'accueil rendue par le serveur en UN fichier HTML (CSS, JS, polices et
 // images intégrés), pour la consulter sans serveur. Le formulaire de contact n'y fonctionne pas (pas de serveur).
-//   node scripts/snapshot.mjs [url] [sortie]
+//   node scripts/snapshot.mjs [url] [sortie] [--artifact]
+// --artifact : fragment pour une page claude.ai (sans <html>/<head>/<body>, titre court, liens hors page neutralisés).
 import { writeFileSync } from 'node:fs';
 
 const base = (process.argv[2] ?? 'http://localhost:3000').replace(/\/$/, '');
 const out = process.argv[3] ?? 'docs/nexora-apercu.html';
+const artifact = process.argv.includes('--artifact');
 const cache = new Map();
 
 async function dataUri(url) {
@@ -51,5 +53,17 @@ html = html.replace(
   '<p class="contact-form__hint"><b>Aperçu hors ligne :</b> l’envoi ne fonctionne que sur le site en ligne. ',
 );
 
+if (artifact) {
+  const head = /<head>([\s\S]*?)<\/head>/.exec(html)[1];
+  const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)[1];
+  const style = /<style>[\s\S]*?<\/style>/.exec(head)[0];
+  const script = /<script type="module">[\s\S]*?<\/script>/.exec(head)[0];
+  const fix = `<style>:root{color-scheme:dark}html,body{background:#09090c}.site-header{top:env(safe-area-inset-top,0px)}</style>`;
+  // Pages légales et envoi du formulaire : hors de cet aperçu.
+  const page = body
+    .replace(/<a href="\/(?:mentions-legales|politique-de-confidentialite)">([^<]*)<\/a>/g, '<span>$1</span>')
+    .replace(/href="\/(?:#[^"]*)?"/g, 'href="#accueil"');
+  html = `<title>Nexora</title>\n<meta name="description" content="Site de Nexora, création de sites web.">\n${style}\n${fix}\n<script>document.documentElement.lang='fr'</script>\n${page}\n${script}\n`;
+}
 writeFileSync(out, html);
 console.log(`${out} : ${(html.length / 1024 / 1024).toFixed(2)} Mo, ${cache.size} fichiers intégrés`);

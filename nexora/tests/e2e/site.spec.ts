@@ -121,13 +121,13 @@ test('carrousels indépendants : flèches, points, clavier, chargement paresseux
   expect(await scrollLeftOf(page, 3)).toBe(0);
   await expect(page.locator('#carousel-2 [data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
   await expect(page.locator('#carousel-1 [data-carousel-dot="0"]')).toHaveAttribute('aria-current', 'true');
-  await expect(page.locator('#carousel-2 [data-carousel-status]')).toHaveText('Image 2 sur 3');
+  await expect(page.locator('#carousel-2 [data-carousel-status]')).toHaveText('Image 2 sur 4');
   await expect
     .poll(() => page.locator('#carousel-2 .carousel__slide').nth(1).locator('img').evaluate((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0))
     .toBe(true);
   // Les autres carrousels n'ont rien chargé de plus.
-  expect(await page.locator('#carousel-1 picture[data-deferred]').count()).toBe(2);
-  expect(await page.locator('#carousel-3 picture[data-deferred]').count()).toBe(2);
+  expect(await page.locator('#carousel-1 picture[data-deferred]').count()).toBe(3);
+  expect(await page.locator('#carousel-3 picture[data-deferred]').count()).toBe(3);
 
   // Points du carrousel 3.
   await page.locator('#carousel-3 [data-carousel-dot="2"]').click();
@@ -136,7 +136,7 @@ test('carrousels indépendants : flèches, points, clavier, chargement paresseux
 
   // Précédent depuis la première image : boucle vers la dernière.
   await page.locator('#carousel-1 [data-carousel-prev]').click();
-  await expect.poll(() => scrollLeftOf(page, 1)).toBe(2);
+  await expect.poll(() => scrollLeftOf(page, 1)).toBe(3);
 
   // Clavier.
   await page.locator('#carousel-1 [data-carousel-viewport]').focus();

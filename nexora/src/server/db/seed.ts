@@ -7,39 +7,43 @@ import { processAndStoreImage } from '../lib/images';
 import { bumpContentVersion } from '../lib/repo';
 
 /**
- * Données de DÉMONSTRATION clairement identifiées (is_demo = true, mention « Démonstration » sur le site) :
- * trois sites fictifs (Altura, Maison Lenoir, Vélora) — ce ne sont pas des clients.
+ * Projets d'EXEMPLE affichés tant que Nexora n'a pas ajouté ses propres réalisations : trois sites publics de
+ * référence (Snøhetta, Opinel, Wavestone), capturés le 14/10/2026 par assets-src/real-sites/capture.mjs.
+ * Ils NE SONT PAS des réalisations de Nexora : is_demo = true → mention « Démonstration » sur le site.
  * N'agit que si la base ne contient encore aucun projet.
  */
 const DEMOS = [
   {
-    name: 'Architecture',
-    category: 'Site vitrine · Design sur mesure',
-    description: '',
+    name: 'Snøhetta',
+    category: 'Architecture · Site institutionnel',
+    url: 'https://www.snohetta.com',
     images: [
-      ['altura-1', 'Démonstration Altura : page d’accueil avec une maison contemporaine au crépuscule et le titre « Des espaces pour mieux vivre ».'],
-      ['altura-2', 'Démonstration Altura : page Projets présentant trois maisons contemporaines.'],
-      ['altura-3', 'Démonstration Altura : page Approche avec un intérieur lumineux et les étapes du projet.'],
+      ['snohetta-1', 'Site de Snøhetta, haut de page : présentation de l’agence et liste des disciplines (architecture, paysage, intérieur, design produit).'],
+      ['snohetta-2', 'Site de Snøhetta, milieu de page : actualités de projets et agenda des conférences.'],
+      ['snohetta-3', 'Site de Snøhetta, milieu de page : liste des projets phares, de la Bibliotheca Alexandrina à l’Opéra national de Norvège.'],
+      ['snohetta-4', 'Site de Snøhetta, bas de page : contact et pied de page.'],
     ],
   },
   {
-    name: 'Artisanat',
-    category: 'Site vitrine · Design sur mesure',
-    description: '',
+    name: 'Opinel',
+    category: 'Artisanat · E-commerce',
+    url: 'https://www.opinel.com/fr-fr/',
     images: [
-      ['lenoir-1', 'Démonstration Maison Lenoir : page d’accueil « Rénover avec sens » sur un salon chaleureux.'],
-      ['lenoir-2', 'Démonstration Maison Lenoir : page Savoir-faire avec menuiserie, rénovation et finitions.'],
-      ['lenoir-3', 'Démonstration Maison Lenoir : fiche réalisation d’un séjour rénové.'],
+      ['opinel-1', 'Site d’Opinel, haut de page : couteau de poche en édition limitée mis en avant.'],
+      ['opinel-2', 'Site d’Opinel, milieu de page : personnalisation par gravure et collections de couteaux.'],
+      ['opinel-3', 'Site d’Opinel, milieu de page : articles et conseils autour des couteaux.'],
+      ['opinel-4', 'Site d’Opinel, bas de page : histoire de la marque depuis 1890 et pied de page.'],
     ],
   },
   {
-    name: 'Services',
-    category: 'Site vitrine · Design sur mesure',
-    description: '',
+    name: 'Wavestone',
+    category: 'Services · Conseil',
+    url: 'https://www.wavestone.com/fr/',
     images: [
-      ['velora-1', 'Démonstration Vélora : page d’accueil « Des idées en résultats » avec une salle de réunion lumineuse.'],
-      ['velora-2', 'Démonstration Vélora : page Expertises avec trois offres de conseil.'],
-      ['velora-3', 'Démonstration Vélora : page Méthode en trois temps.'],
+      ['wavestone-1', 'Site de Wavestone, haut de page : actualité du cabinet et accroche sur les transformations par l’IA.'],
+      ['wavestone-2', 'Site de Wavestone, milieu de page : dernières publications et informations.'],
+      ['wavestone-3', 'Site de Wavestone, milieu de page : section Talents & Culture.'],
+      ['wavestone-4', 'Site de Wavestone, bas de page : prochains événements, contact et pied de page.'],
     ],
   },
 ] as const;
@@ -51,7 +55,7 @@ export async function seedDemo(deps: Deps, seedDir: string) {
   for (const [i, demo] of DEMOS.entries()) {
     const [p] = await deps.db
       .insert(projects)
-      .values({ name: demo.name, category: demo.category, description: demo.description, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
+      .values({ name: demo.name, category: demo.category, url: demo.url, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
       .returning({ id: projects.id });
     for (const [k, [file, alt]] of demo.images.entries()) {
       const buf = await readFile(path.join(seedDir, `${file}.webp`));

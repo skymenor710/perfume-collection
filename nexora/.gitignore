@@ -9,3 +9,4 @@ playwright-report/
 reports/lighthouse/*.json
 *.log
 .impeccable/hook.cache.json
+docs/*.png

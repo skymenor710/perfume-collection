@@ -14,7 +14,7 @@ développement (conteneur Linux, Node 22.22, Chromium 141, PostgreSQL 16.15 loca
 | Revue de sécurité du code (revue dédiée + sondages manuels) | ✅ aucune vulnérabilité exploitable identifiée ; 1 durcissement appliqué |
 | Lighthouse 12.8.2, mobile | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
 | Lighthouse 12.8.2, ordinateur | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
-| Sauvegarde → restauration (PGlite + disque → PostgreSQL + autre disque) | ✅ 3 projets, 9 images, 81 fichiers vérifiés (SHA-256), image servie après restauration |
+| Sauvegarde → restauration (PGlite + disque → PostgreSQL + autre disque) | ✅ 3 projets, 9 images, 81 fichiers vérifiés (SHA-256), image servie après restauration (mesuré avec les anciennes démonstrations) |
 
 ## 2. Performance (laboratoire)
 
@@ -49,7 +49,7 @@ Ce qui a été fait pour y arriver :
 2. Images surdimensionnées (symbole, logotype) → nouvelles tailles 320/640 px et `sizes` exacts.
 3. Cache de 30 jours sur la marque et les polices → 1 an.
 4. Feuille de style bloquante → intégrée (gain estimé 130 ms sur mobile).
-5. Le test E2E a révélé que Chrome préchargeait les 9 images des carrousels → chargement différé piloté par carrousel.
+5. Le test E2E a révélé que Chrome préchargeait toutes les images des carrousels → chargement différé piloté par carrousel.
 
 ## 3. Tests fonctionnels et visuels (Playwright, navigateur réel)
 

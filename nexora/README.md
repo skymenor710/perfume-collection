@@ -57,8 +57,10 @@ contenu » en base, et toutes les instances re-génèrent la page à la requête
 5. Ordre des images : flèches ↑ ↓ ; **Définir comme couverture** place l’image en premier.
 6. Cocher **Publié**, choisir la **position 1, 2 ou 3** sur la page d’accueil, enregistrer.
 
-**Remplacer les démonstrations** : les trois projets fournis (Altura, Maison Lenoir, Vélora) sont **fictifs** et
-affichés avec la mention « Démonstration ». Une fois vos projets publiés et placés en positions 1–3, dépubliez ou
+**Remplacer les démonstrations** : les trois projets fournis (Snøhetta, Opinel, Wavestone) sont des **sites publics de
+référence**, capturés pour l’exemple — ils n’ont **pas** été réalisés par Nexora et restent affichés avec la mention
+« Démonstration ». Ne pas décocher cette mention : les présenter comme vos réalisations serait trompeur (et leurs
+captures appartiennent à leurs propriétaires). Une fois vos projets publiés et placés en positions 1–3, dépubliez ou
 supprimez les démonstrations. Le sur-titre « Aperçus de démonstration » disparaît automatiquement dès qu’un vrai projet
 est affiché. Le tableau de bord rappelle tant qu’une démonstration est publiée.
 
@@ -156,7 +158,7 @@ src/styles/          CSS du site et de l’admin
 public/brand/        logo d’origine détouré, masques du néon, icônes ; public/fonts : Figtree (OFL)
 assets-src/          fichiers ORIGINAUX fournis + scripts d’extraction (logo, masques, illustrations, démos)
 drizzle/             migrations SQL versionnées
-seed/demo/           visuels des projets de démonstration
+seed/demo/           captures des 3 sites de référence (assets-src/real-sites/capture.mjs)
 tests/               unit/ (Vitest) et e2e/ (Playwright)
 docs/                rapport de tests, captures d’écran, informations manquantes
 ```

@@ -915,11 +915,16 @@ section[id],
   position: absolute;
   z-index: 2;
   left: 50%;
-  bottom: 6px;
+  bottom: 8px;
   translate: -50% 0;
   display: flex;
   gap: 0;
   padding: 0 4px;
+  /* Pastille sombre : les points restent lisibles sur des captures claires comme foncées. */
+  border-radius: 999px;
+  background: rgb(18 16 20 / 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 .carousel__dot {
   width: 24px;

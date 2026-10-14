@@ -29,16 +29,22 @@ describe('site public', () => {
     expect(html).toContain('Aperçus de démonstration');
     expect(html.match(/data-carousel=""/g)?.length).toBe(3);
     for (const n of [1, 2, 3]) expect(html).toContain(`id="carousel-${n}"`);
-    expect(html.match(/class="carousel__slide"/g)?.length).toBe(9);
+    expect(html.match(/class="carousel__slide"/g)?.length).toBe(12);
     expect(html.match(/class="badge-demo"/g)?.length).toBe(3);
-    // Aucune image de carrousel n'est chargée d'office (paresseux) et toutes ont des dimensions (pas de décalage).
-    const imgs = [...html.matchAll(/<img src="\/media\/[^>]+>/g)].map((m) => m[0]);
-    expect(imgs.length).toBe(9);
+    // 1re image de chaque carrousel : chargement paresseux ; les suivantes : différées (data-src, chargées à l'usage).
+    // Toutes ont des dimensions (pas de décalage) et un texte alternatif.
+    expect(html.match(/<picture>/g)?.length).toBe(3);
+    expect(html.match(/<picture data-deferred/g)?.length).toBe(9);
+    const deferred = [...html.matchAll(/<img data-src="\/media\/[^>]+>/g)].map((m) => m[0]);
+    expect(deferred.length).toBe(9);
+    const imgs = [...html.matchAll(/<img (?:data-)?src="\/media\/[^>]+>/g)].map((m) => m[0]);
     for (const img of imgs) {
-      expect(img).toContain('loading="lazy"');
       expect(img).toMatch(/width="\d+"/);
-      expect(img).toMatch(/alt="Démonstration/);
+      expect(img).toMatch(/alt="Site d/);
     }
+    expect(html).toContain('href="https://www.snohetta.com"');
+    expect(html).toContain('Opinel');
+    expect(html).toContain('Wavestone');
     // Jeton du formulaire remplacé à chaque requête.
     expect(html).not.toContain('__NX_FORM_TOKEN__');
   }, 180_000);

@@ -1,4 +1,4 @@
-// Ajoute les 3 projets de DÉMONSTRATION (sites fictifs) si la base n'a encore aucun projet.
+// Ajoute les 3 projets d'EXEMPLE (sites publics de référence, mention « Démonstration ») si la base n'a encore aucun projet.
 import path from 'node:path';
 import { bootstrap, PROJECT_ROOT } from '../src/server/bootstrap';
 import { seedDemo } from '../src/server/db/seed';

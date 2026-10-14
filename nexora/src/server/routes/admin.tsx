@@ -553,7 +553,8 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
     for (const [k, v] of Object.entries(body)) {
       if (typeof v !== 'string' || !k.includes('.')) continue;
       const [section, field] = k.split('.', 2);
-      if (section in next && field in next[section]) next[section][field] = v.replace(/\r\n/g, '\n');
+      // Object.hasOwn : jamais de clé héritée (__proto__, constructor…).
+      if (Object.hasOwn(next, section) && Object.hasOwn(next[section], field)) next[section][field] = v.replace(/\r\n/g, '\n');
     }
     const parsed = contentSchema.safeParse(next);
     if (!parsed.success) {

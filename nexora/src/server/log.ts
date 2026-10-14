@@ -5,8 +5,7 @@ import pino from 'pino';
  * les champs sensibles sont masqués même s'ils sont passés par erreur.
  */
 export function createLogger(level: string, destination?: pino.DestinationStream) {
-  return pino(
-    {
+  const options: pino.LoggerOptions = {
     level,
     base: undefined,
     redact: {
@@ -31,9 +30,8 @@ export function createLogger(level: string, destination?: pino.DestinationStream
       ],
       censor: '[masqué]',
     },
-  },
-    destination ?? pino.destination(1),
-  );
+  };
+  return pino(options, destination ?? pino.destination(1));
 }
 
 export type Logger = ReturnType<typeof createLogger>;

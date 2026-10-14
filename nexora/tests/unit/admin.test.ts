@@ -332,6 +332,9 @@ describe('contenus', () => {
     expect((await c.form('/admin/contenus', { _csrf: token, 'hero.primaryCta': '' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.publicEmail': 'pas-un-email' })).status).toBe(422);
     expect(await (await new Client(ctx).req('/')).text()).toContain('Design sur mesure. Performance. Expérience intuitive.');
+    // Clés héritées ignorées (pas de pollution de prototype).
+    expect((await c.form('/admin/contenus', { _csrf: token, '__proto__.toString': 'x', 'hero.constructor': 'x' })).status).toBe(303);
+    expect(typeof ({} as Record<string, unknown>).toString).toBe('function');
     await c.form('/admin/contenus', { _csrf: token, 'hero.subtitle': '<script>alert(1)</script>' });
     const home = await (await new Client(ctx).req('/')).text();
     expect(home).not.toContain('<script>alert(1)</script>');

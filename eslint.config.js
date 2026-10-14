@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/dist-artifact/**', '**/node_modules/**', 'data/**', 'assets/**', 'ad/**', 'scripts/.lab/**', 'scripts/.shots/**', '**/public/sw.js'],
+    ignores: ['**/dist/**', '**/dist-artifact/**', '**/node_modules/**', 'data/**', 'assets/**', 'ad/**', 'scripts/.lab/**', 'scripts/.shots/**', '**/public/sw.js', 'nexora/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

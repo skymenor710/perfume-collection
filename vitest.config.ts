@@ -4,5 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     env: { LOG_LEVEL: 'silent' },
+    // nexora/ é um projeto independente (site da Nexora) com testes próprios: `cd nexora && npm test`.
+    exclude: ['**/node_modules/**', '**/dist/**', 'nexora/**'],
   },
 });

@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "figtree",
+        "createdAt": "2026-10-14T10:29:31.376Z",
+        "reason": "Claude: nexora/ is a separate product (Nexora site); root DESIGN.md documents the perfume app. Figtree matches the lettering of the user's Nexora mockups."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "figtree fallback",
+        "createdAt": "2026-10-14T10:29:31.390Z",
+        "reason": "Claude: metric fallback face for Figtree (CLS), same rationale as Figtree."
+      }
+    ]
+  }
+}

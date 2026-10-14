@@ -1,0 +1,52 @@
+# Site Nexora (dossier nexora/) : vérifications automatiques sur chaque push / PR touchant ce dossier.
+# Aucun secret, aucun déploiement. Les tests E2E tournent sur un PostgreSQL éphémère fourni par GitHub Actions.
+name: Nexora
+
+on:
+  push:
+    branches: [main]
+    paths: ['nexora/**', '.github/workflows/nexora.yml']
+  pull_request:
+    paths: ['nexora/**', '.github/workflows/nexora.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexora-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: nexora
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nexora
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: nexora_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nexora" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: nexora/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_DATABASE_URL: postgres://nexora:ci-only-password@localhost:5432/nexora_e2e

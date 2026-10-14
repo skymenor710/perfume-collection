@@ -1,0 +1,83 @@
+import { asc, eq, inArray, sql } from 'drizzle-orm';
+import type { Db } from '../db/client';
+import { auditLog, contentVersion, projectImages, projects, siteSettings } from '../db/schema';
+import { mergeContent, type SiteContent } from './content';
+
+export type ProjectRow = typeof projects.$inferSelect;
+export type ImageRow = typeof projectImages.$inferSelect;
+export interface ProjectWithImages extends ProjectRow {
+  images: ImageRow[];
+}
+
+export async function getContent(db: Db): Promise<SiteContent> {
+  const rows = await db.select().from(siteSettings).where(eq(siteSettings.key, 'content')).limit(1);
+  return mergeContent(rows[0]?.value);
+}
+
+export async function saveContent(db: Db, content: SiteContent) {
+  await db
+    .insert(siteSettings)
+    .values({ key: 'content', value: content })
+    .onConflictDoUpdate({ target: siteSettings.key, set: { value: content, updatedAt: new Date() } });
+}
+
+/** Images triées : la couverture d'abord, puis l'ordre défini dans l'admin. */
+export function orderImages(p: ProjectRow, images: ImageRow[]) {
+  const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.getTime() - b.createdAt.getTime());
+  const coverIdx = p.coverImageId ? sorted.findIndex((i) => i.id === p.coverImageId) : -1;
+  if (coverIdx > 0) sorted.unshift(...sorted.splice(coverIdx, 1));
+  return sorted;
+}
+
+export async function attachImages(db: Db, list: ProjectRow[]): Promise<ProjectWithImages[]> {
+  if (!list.length) return [];
+  const imgs = await db
+    .select()
+    .from(projectImages)
+    .where(inArray(projectImages.projectId, list.map((p) => p.id)))
+    .orderBy(asc(projectImages.sortOrder), asc(projectImages.createdAt));
+  return list.map((p) => ({ ...p, images: orderImages(p, imgs.filter((i) => i.projectId === p.id)) }));
+}
+
+/**
+ * Projets de la page d'accueil : les projets publiés mis en avant (positions 1 à 3).
+ * Si aucun n'est mis en avant, les trois premiers projets publiés (ordre de l'admin).
+ */
+export async function getHomeProjects(db: Db): Promise<ProjectWithImages[]> {
+  const published = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.published, true))
+    .orderBy(asc(projects.sortOrder), asc(projects.createdAt));
+  const featured = published.filter((p) => p.featuredPosition != null).sort((a, b) => a.featuredPosition! - b.featuredPosition!);
+  const chosen = featured.length ? featured.slice(0, 3) : published.slice(0, 3);
+  return attachImages(db, chosen);
+}
+
+export async function listProjects(db: Db) {
+  const list = await db.select().from(projects).orderBy(asc(projects.sortOrder), asc(projects.createdAt));
+  return attachImages(db, list);
+}
+
+export async function getProject(db: Db, id: string) {
+  const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+  if (!rows[0]) return null;
+  return (await attachImages(db, rows))[0];
+}
+
+export async function getContentVersion(db: Db): Promise<number> {
+  const rows = await db.select({ v: contentVersion.version }).from(contentVersion).where(eq(contentVersion.id, 1)).limit(1);
+  return rows[0]?.v ?? 0;
+}
+
+/** À appeler après toute modification visible sur le site : invalide le cache de toutes les instances. */
+export async function bumpContentVersion(db: Db) {
+  await db
+    .insert(contentVersion)
+    .values({ id: 1, version: 2 })
+    .onConflictDoUpdate({ target: contentVersion.id, set: { version: sql`${contentVersion.version} + 1`, updatedAt: new Date() } });
+}
+
+export async function audit(db: Db, adminId: string | null, action: string, target?: string) {
+  await db.insert(auditLog).values({ adminId, action, target: target ?? null });
+}

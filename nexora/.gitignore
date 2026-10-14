@@ -10,3 +10,4 @@ reports/lighthouse/*.json
 *.log
 .impeccable/hook.cache.json
 docs/*.png
+docs/nexora-apercu.html

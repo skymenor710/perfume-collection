@@ -1,12 +1,9 @@
 import type { SiteContent } from '../../lib/content';
-import { PROJECT_TYPES, defaultContent } from '../../lib/content';
-
-// Le sur-titre par défaut annonce des démonstrations : il disparaît dès qu'un vrai projet est affiché.
-const DEMO_EYEBROW = defaultContent.projects.eyebrow;
+import { BUDGETS, PROJECT_TYPES, TIMELINES, rows, whatsappHref } from '../../lib/content';
 import type { ProjectWithImages } from '../../lib/repo';
 import { pickVariant } from '../../lib/images';
 import { ArrowUpRight, ChevronLeft, ChevronRight, CloseIcon, ExpandIcon, ExternalIcon, MouseIcon, CheckIcon, AlertIcon, ZoomIcon } from '../icons';
-import { Footer, Header } from '../layout';
+import { BookingCta, Footer, Header, bookingLink } from '../layout';
 import { DOOR, FAR, FRONT_L, FRONT_R, MID, RIDGE, TRAIL } from './landscape-paths';
 
 export const FORM_TOKEN_PLACEHOLDER = '__NX_FORM_TOKEN__';
@@ -14,19 +11,39 @@ export const FORM_TOKEN_PLACEHOLDER = '__NX_FORM_TOKEN__';
 export interface HomeProps {
   content: SiteContent;
   projects: ProjectWithImages[];
+  /** Emplacements « à compléter » visibles (hors production) pour la preuve sociale et les témoignages. */
+  showPlaceholders?: boolean;
 }
 
-export const HomePage = ({ content, projects }: HomeProps) => (
+/**
+ * Page d'accueil orientée acquisition : promesse → preuve → offre → méthode → études de cas → témoignages → FAQ →
+ * contact. Tous les textes viennent de Admin › Contenus ; la preuve sociale et les témoignages n'affichent que des
+ * données réelles (sections masquées tant qu'elles sont vides).
+ */
+export const HomePage = ({ content, projects, showPlaceholders = false }: HomeProps) => (
   <>
     <Header content={content} />
     <main id="contenu">
       <Hero content={content} />
+      <ProofBand content={content} showPlaceholders={showPlaceholders} />
+      <Services content={content} />
+      <Method content={content} />
       <Projects content={content} projects={projects} />
+      <Testimonials content={content} showPlaceholders={showPlaceholders} />
+      <Faq content={content} />
       <Contact content={content} />
     </main>
     <Footer content={content} />
     {projects.some((p) => p.images.length > 0) ? <Lightbox /> : null}
   </>
+);
+
+/** Titre de section en deux parties, la seconde en vin. */
+const SectionTitle = ({ id, before, highlight }: { id: string; before: string; highlight: string }) => (
+  <h2 class="section-title" id={id}>
+    {before ? <>{before} </> : null}
+    {highlight ? <em class="accent">{highlight}</em> : null}
+  </h2>
 );
 
 const Hero = ({ content }: { content: SiteContent }) => {
@@ -48,20 +65,18 @@ const Hero = ({ content }: { content: SiteContent }) => {
           </h1>
           {h.subtitle ? <p class="hero__lead">{h.subtitle}</p> : null}
           <div class="hero__actions">
-            <a class="btn btn--primary btn--lg hero__cta-primary" href="#realisations">
-              <span>{h.primaryCta}</span>
-              <ArrowUpRight />
-            </a>
-            <a class="btn btn--outline btn--lg hero__cta-secondary" href="#contact" data-open-contact>
+            <BookingCta content={content} label={h.primaryCta} class="btn btn--primary btn--lg hero__cta-primary" />
+            <a class="btn btn--outline btn--lg hero__cta-secondary" href="#realisations">
               <span>{h.secondaryCta}</span>
               <ArrowUpRight />
             </a>
           </div>
+          {h.reassurance ? <p class="hero__reassurance">{h.reassurance}</p> : null}
         </div>
         <SymbolVisual />
       </div>
-      <div class="container hero__foot" aria-hidden="false">
-        <a class="scroll-cue" href="#realisations" aria-label={h.primaryCta}>
+      <div class="container hero__foot">
+        <a class="scroll-cue" href="#services" aria-label="Découvrir nos services">
           <MouseIcon />
         </a>
         <div class="scroll-line" aria-hidden="true">
@@ -117,14 +132,117 @@ const SymbolVisual = () => (
   </div>
 );
 
-const Projects = ({ content, projects }: HomeProps) => {
-  const p = content.projects;
-  const allDemo = projects.length > 0 && projects.every((x) => x.isDemo);
+/**
+ * Preuve sociale : uniquement des chiffres RÉELS saisis dans l'admin. Vide → rien n'est affiché aux visiteurs ;
+ * hors production, des emplacements « à compléter » signalent où mettre les données.
+ */
+const ProofBand = ({ content, showPlaceholders }: { content: SiteContent; showPlaceholders: boolean }) => {
+  const items = rows(content.proof, 'item', 4, ['Value', 'Label'] as const).filter((r) => r.Value && r.Label);
+  if (!items.length && !showPlaceholders) return null;
   return (
-    <section class="projects" id="realisations" aria-labelledby="projects-title">
+    <section class="proof" aria-labelledby="proof-title">
+      <div class="container">
+        <h2 class="sr-only" id="proof-title">
+          {content.proof.title || 'En quelques chiffres'}
+        </h2>
+        {items.length ? (
+          <ul class="proof__list" role="list">
+            {items.map((r) => (
+              <li class="proof__item">
+                <span class="proof__value">{r.Value}</span>
+                <span class="proof__label">{r.Label}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          // EMPLACEMENT À COMPLÉTER (jamais affiché en production) : chiffres réels uniquement.
+          <ul class="proof__list proof__list--placeholder" role="list" data-placeholder="proof">
+            {[1, 2, 3, 4].map((n) => (
+              <li class="proof__item placeholder">
+                <span class="proof__value">—</span>
+                <span class="proof__label">Chiffre réel n° {n} à compléter (Admin › Contenus › Preuve sociale)</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const SERVICE_TYPES = ['Site vitrine', 'Refonte de site', 'Site e-commerce', 'Automatisation et outils digitaux'] as const;
+
+const Services = ({ content }: { content: SiteContent }) => {
+  const sv = content.services;
+  const items = rows(sv, 's', 4, ['Title', 'Text'] as const);
+  return (
+    <section class="services section" id="services" aria-labelledby="services-title">
       <div class="container">
         <header class="section-head" data-reveal>
-          {p.eyebrow && (allDemo || p.eyebrow !== DEMO_EYEBROW) ? <p class="eyebrow">{p.eyebrow}</p> : null}
+          <SectionTitle id="services-title" before={sv.title} highlight={sv.titleHighlight} />
+          {sv.subtitle ? <p class="section-lead">{sv.subtitle}</p> : null}
+        </header>
+        <ul class="services__grid" role="list">
+          {items.map((it, i) =>
+            it.Title ? (
+              <li class="service" data-reveal>
+                <span class="service__index" aria-hidden="true">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <h3 class="service__title">{it.Title}</h3>
+                {it.Text ? <p class="service__text">{it.Text}</p> : null}
+                {sv.cta ? (
+                  <a class="service__link" href="#contact" data-project-type={SERVICE_TYPES[i]}>
+                    {sv.cta}
+                    <span class="sr-only"> : {it.Title}</span>
+                    <ArrowUpRight size={16} />
+                  </a>
+                ) : null}
+              </li>
+            ) : null,
+          )}
+        </ul>
+      </div>
+    </section>
+  );
+};
+
+const Method = ({ content }: { content: SiteContent }) => {
+  const m = content.method;
+  const steps = rows(m, 'm', 3, ['Title', 'Text'] as const).filter((r) => r.Title);
+  return (
+    <section class="method section" id="methode" aria-labelledby="method-title">
+      <div class="container">
+        <header class="section-head" data-reveal>
+          <SectionTitle id="method-title" before={m.title} highlight={m.titleHighlight} />
+          {m.subtitle ? <p class="section-lead">{m.subtitle}</p> : null}
+        </header>
+        <ol class="method__steps">
+          {steps.map((st, i) => (
+            <li class="step" data-reveal>
+              <span class="step__num" aria-hidden="true">
+                {i + 1}
+              </span>
+              <h3 class="step__title">
+                <span class="sr-only">Étape {i + 1} : </span>
+                {st.Title}
+              </h3>
+              {st.Text ? <p class="step__text">{st.Text}</p> : null}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+};
+
+const Projects = ({ content, projects }: HomeProps) => {
+  const p = content.projects;
+  return (
+    <section class="projects section" id="realisations" aria-labelledby="projects-title">
+      <div class="container">
+        <header class="section-head" data-reveal>
+          {p.eyebrow ? <p class="eyebrow">{p.eyebrow}</p> : null}
           <h2 class="section-title" id="projects-title">
             {p.titleLine1 ? <span class="section-title__line">{p.titleLine1}</span> : null}
             <span class="section-title__line">
@@ -134,16 +252,14 @@ const Projects = ({ content, projects }: HomeProps) => {
           </h2>
           {p.subtitle ? <p class="section-lead">{p.subtitle}</p> : null}
         </header>
-      </div>
-      <div class="container container--wide">
         {projects.length ? (
-          <ul class={`project-grid project-grid--${projects.length}`} role="list">
+          <ol class="cases" role="list">
             {projects.map((project, i) => (
-              <li class="project-grid__item">
-                <ProjectCard project={project} index={i} visitLabel={p.visitLabel} />
+              <li>
+                <CaseStudy project={project} index={i} visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
               </li>
             ))}
-          </ul>
+          </ol>
         ) : (
           <p class="projects__empty">{p.emptyText}</p>
         )}
@@ -152,106 +268,216 @@ const Projects = ({ content, projects }: HomeProps) => {
   );
 };
 
-const ProjectCard = ({ project, index, visitLabel }: { project: ProjectWithImages; index: number; visitLabel: string }) => {
+type Img = ProjectWithImages['images'][number];
+const srcsets = (img: Img) => {
+  const set = (fmt: 'avif' | 'webp') =>
+    img.variants
+      .filter((v) => v.format === fmt)
+      .sort((a, b) => a.width - b.width)
+      .map((v) => `/media/${img.id}/${v.width}.${fmt} ${v.width}w`)
+      .join(', ');
+  return { avif: set('avif'), webp: set('webp'), src: `/media/${img.id}/${pickVariant(img.variants, 'webp', 1200).width}.webp` };
+};
+
+/**
+ * Étude de cas : visuel (clic = visionneuse plein écran) + contexte / solution / résultats. Les concepts portent la
+ * mention « Concept / Démonstration » et n'affichent jamais de résultat chiffré. Un vrai projet se remplit dans
+ * Admin › Projets, sans toucher au code.
+ */
+const CaseStudy = ({ project, index, visitLabel, caseLabel }: { project: ProjectWithImages; index: number; visitLabel: string; caseLabel: string }) => {
   const imgs = project.images;
-  const id = `carousel-${index + 1}`;
-  const multi = imgs.length > 1;
+  const id = `cas-${index + 1}`;
+  const cover = imgs[0];
+  const coverSet = cover ? srcsets(cover) : null;
+  const coverSizes = '(max-width: 960px) calc(100vw - 40px), 56vw';
+  const results = project.results.trim();
   return (
-    <article class="project-card" data-reveal aria-labelledby={`${id}-title`}>
-      <div
-        class={`carousel${multi ? ' carousel--multi' : ''}`}
-        id={id}
-        role="region"
-        aria-roledescription="carrousel"
-        aria-label={`Images du projet ${project.name}`}
-        data-carousel={multi ? '' : undefined}
-        data-gallery={imgs.length > 0 ? project.name : undefined}
-      >
-        {imgs.length === 0 ? (
-          <div class="carousel__empty">
+    <article class={`case${index % 2 ? ' case--flip' : ''}`} aria-labelledby={`${id}-title`} data-reveal>
+      <div class="case__media" data-gallery={imgs.length ? project.name : undefined}>
+        {cover && coverSet ? (
+          <button
+            class="case__cover"
+            type="button"
+            data-shot-open="0"
+            aria-label={`Agrandir l’image 1 sur ${imgs.length} : ${cover.alt}`}
+            {...(imgs.length === 1 ? { 'data-shot': '', 'data-avif': coverSet.avif, 'data-webp': coverSet.webp, 'data-src': coverSet.src, 'data-alt': cover.alt } : {})}
+          >
+            <picture>
+              <source type="image/avif" srcset={coverSet.avif} sizes={coverSizes} />
+              <img src={coverSet.src} srcset={coverSet.webp} sizes={coverSizes} width={cover.width} height={cover.height} alt="" loading="lazy" decoding="async" />
+            </picture>
+            <span class="case__zoom" aria-hidden="true">
+              <ExpandIcon />
+            </span>
+          </button>
+        ) : (
+          <div class="case__empty">
             <img src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" />
             <span>Visuel à venir</span>
           </div>
-        ) : (
-          <div class="carousel__viewport" tabindex={multi ? 0 : undefined} aria-label={multi ? 'Utilisez les flèches du clavier pour changer d’image' : undefined} data-carousel-viewport>
-            <div class="carousel__track">
-              {imgs.map((img, i) => {
-                const avif = img.variants.filter((v) => v.format === 'avif').sort((a, b) => a.width - b.width);
-                const webp = img.variants.filter((v) => v.format === 'webp').sort((a, b) => a.width - b.width);
-                const fallback = pickVariant(img.variants, 'webp', 800);
-                const sizes = '(max-width: 640px) calc(100vw - 40px), (max-width: 1024px) 46vw, 430px';
-                const src = `/media/${img.id}/${fallback.width}.webp`;
-                const avifSet = avif.map((v) => `/media/${img.id}/${v.width}.avif ${v.width}w`).join(', ');
-                const webpSet = webp.map((v) => `/media/${img.id}/${v.width}.webp ${v.width}w`).join(', ');
-                return (
-                  <div
-                    class="carousel__slide"
-                    role="group"
-                    aria-roledescription="diapositive"
-                    aria-label={`${i + 1} sur ${imgs.length}`}
-                    data-slide={i}
-                  >
-                    {i === 0 ? (
-                      <picture>
-                        <source type="image/avif" srcset={avifSet} sizes={sizes} />
-                        <img src={src} srcset={webpSet} sizes={sizes} width={img.width} height={img.height} alt={img.alt} loading="lazy" decoding="async" />
-                      </picture>
-                    ) : (
-                      // Images suivantes : chargées seulement quand le visiteur utilise CE carrousel (voir carousel.ts).
-                      <picture data-deferred>
-                        <source type="image/avif" data-srcset={avifSet} sizes={sizes} />
-                        <img data-src={src} data-srcset={webpSet} sizes={sizes} width={img.width} height={img.height} alt={img.alt} decoding="async" />
-                        <noscript>
-                          <img src={src} width={img.width} height={img.height} alt={img.alt} loading="lazy" />
-                        </noscript>
-                      </picture>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         )}
-        {project.isDemo ? <span class="badge-demo">Démonstration</span> : null}
-        {imgs.length > 0 ? (
-          <button class="carousel__expand" type="button" data-lightbox-open aria-label={`Agrandir les images du projet ${project.name}`}>
-            <ExpandIcon />
-          </button>
-        ) : null}
-        {multi ? (
-          <>
-            <button class="carousel__btn carousel__btn--prev" type="button" aria-controls={id} aria-label="Image précédente" data-carousel-prev>
-              <ChevronLeft />
-            </button>
-            <button class="carousel__btn carousel__btn--next" type="button" aria-controls={id} aria-label="Image suivante" data-carousel-next>
-              <ChevronRight />
-            </button>
-            <div class="carousel__dots" role="group" aria-label="Choisir une image">
-              {imgs.map((_, i) => (
-                <button class="carousel__dot" type="button" aria-label={`Image ${i + 1} sur ${imgs.length}`} aria-current={i === 0 ? 'true' : undefined} data-carousel-dot={i}>
-                  <span></span>
-                </button>
-              ))}
-            </div>
-            <p class="sr-only" aria-live="polite" aria-atomic="true" data-carousel-status></p>
-          </>
+        {imgs.length > 1 ? (
+          <ul class="case__thumbs" role="list" aria-label={`Captures du projet ${project.name}`}>
+            {imgs.map((img, k) => {
+              const set = srcsets(img);
+              const thumb = pickVariant(img.variants, 'webp', 480);
+              return (
+                <li>
+                  <button
+                    class="case__thumb"
+                    type="button"
+                    data-shot
+                    data-shot-open={String(k)}
+                    data-avif={set.avif}
+                    data-webp={set.webp}
+                    data-src={set.src}
+                    data-alt={img.alt}
+                    aria-label={`Agrandir l’image ${k + 1} sur ${imgs.length} : ${img.alt}`}
+                  >
+                    <img src={`/media/${img.id}/${thumb.width}.webp`} width={thumb.width} height={thumb.height} alt="" loading="lazy" decoding="async" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         ) : null}
       </div>
-      <div class="project-card__body">
-        <h3 class="project-card__title" id={`${id}-title`}>
+      <div class="case__body">
+        <p class="case__meta">
+          {project.isDemo ? <span class="badge-demo">Concept / Démonstration</span> : <span class="badge-client">Projet client</span>}
+          {project.category ? <span class="case__category">{project.category}</span> : null}
+        </p>
+        <h3 class="case__title" id={`${id}-title`}>
           {project.name}
         </h3>
-        {project.category ? <p class="project-card__meta">{project.category}</p> : null}
-        {project.description ? <p class="project-card__desc">{project.description}</p> : null}
-        {project.url ? (
-          <a class="project-card__link" href={project.url} target="_blank" rel="noopener noreferrer nofollow">
-            {visitLabel}
-            <span class="sr-only"> : {project.name} (nouvel onglet)</span>
-            <ExternalIcon />
-          </a>
-        ) : null}
+        {project.description ? <p class="case__desc">{project.description}</p> : null}
+        <dl class="case__facts">
+          {project.challenge ? (
+            <div>
+              <dt>Contexte / défi</dt>
+              <dd>{project.challenge}</dd>
+            </div>
+          ) : null}
+          {project.solution ? (
+            <div>
+              <dt>Solution apportée</dt>
+              <dd>{project.solution}</dd>
+            </div>
+          ) : null}
+          {results ? (
+            <div class="case__results">
+              <dt>Résultats mesurables</dt>
+              <dd>{results}</dd>
+            </div>
+          ) : project.isDemo ? (
+            <div class="case__results case__results--none">
+              <dt>Résultats mesurables</dt>
+              <dd>Concept non mis en ligne : aucun résultat mesuré à ce jour.</dd>
+            </div>
+          ) : null}
+        </dl>
+        <div class="case__actions">
+          {project.caseUrl ? (
+            <a class="btn btn--primary btn--sm" href={project.caseUrl} target="_blank" rel="noopener noreferrer">
+              <span>{caseLabel}</span>
+              <span class="sr-only"> : {project.name} (nouvel onglet)</span>
+              <ArrowUpRight size={16} />
+            </a>
+          ) : null}
+          {project.url ? (
+            <a class="btn btn--outline btn--sm" href={project.url} target="_blank" rel="noopener noreferrer nofollow">
+              <span>{visitLabel}</span>
+              <span class="sr-only"> : {project.name} (nouvel onglet)</span>
+              <ExternalIcon />
+            </a>
+          ) : null}
+          {imgs.length ? (
+            <button class="btn btn--ghost btn--sm" type="button" data-lightbox-open aria-label={`Voir les ${imgs.length} captures du projet ${project.name} en plein écran`}>
+              <span>{imgs.length > 1 ? `Voir les ${imgs.length} captures` : 'Voir la capture'}</span>
+              <ExpandIcon />
+            </button>
+          ) : null}
+        </div>
       </div>
     </article>
+  );
+};
+
+/** Témoignages : uniquement des citations RÉELLES saisies dans l'admin (accord écrit). Vide → masqué en production. */
+const Testimonials = ({ content, showPlaceholders }: { content: SiteContent; showPlaceholders: boolean }) => {
+  const t = content.testimonials;
+  const items = rows(t, 't', 3, ['Quote', 'Author', 'Role'] as const).filter((r) => r.Quote && r.Author);
+  if (!items.length && !showPlaceholders) return null;
+  return (
+    <section class="testimonials section" id="temoignages" aria-labelledby="testimonials-title">
+      <div class="container">
+        <header class="section-head" data-reveal>
+          <h2 class="section-title" id="testimonials-title">
+            {t.title}
+          </h2>
+        </header>
+        {items.length ? (
+          <ul class="testimonials__grid" role="list">
+            {items.map((r) => (
+              <li data-reveal>
+                <figure class="quote">
+                  <blockquote>
+                    <p>{r.Quote}</p>
+                  </blockquote>
+                  <figcaption>
+                    <span class="quote__author">{r.Author}</span>
+                    {r.Role ? <span class="quote__role">{r.Role}</span> : null}
+                  </figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          // EMPLACEMENT À COMPLÉTER (jamais affiché en production) : aucun nom, entreprise ni citation inventés.
+          <ul class="testimonials__grid" role="list" data-placeholder="testimonials">
+            {[1, 2, 3].map((n) => (
+              <li>
+                <figure class="quote placeholder">
+                  <blockquote>
+                    <p>Témoignage client réel n° {n} à compléter (citation exacte, avec l’accord écrit du client).</p>
+                  </blockquote>
+                  <figcaption>
+                    <span class="quote__author">Nom du client</span>
+                    <span class="quote__role">Fonction · Entreprise — Admin › Contenus › Témoignages</span>
+                  </figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const Faq = ({ content }: { content: SiteContent }) => {
+  const f = content.faq;
+  const items = rows(f, 'q', 6, ['Question', 'Answer'] as const).filter((r) => r.Question && r.Answer);
+  if (!items.length) return null;
+  return (
+    <section class="faq section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq__inner">
+        <header class="section-head" data-reveal>
+          <SectionTitle id="faq-title" before={f.title} highlight={f.titleHighlight} />
+        </header>
+        <div class="faq__list">
+          {items.map((r) => (
+            <details class="faq__item">
+              <summary>
+                <h3 class="faq__q">{r.Question}</h3>
+                <span class="faq__icon" aria-hidden="true"></span>
+              </summary>
+              <p class="faq__a">{r.Answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -289,6 +515,8 @@ const Lightbox = () => (
 
 const Contact = ({ content }: { content: SiteContent }) => {
   const c = content.contact;
+  const wa = whatsappHref(c);
+  const booking = bookingLink(content);
   return (
     <section class="contact" id="contact" aria-labelledby="contact-title">
       <Landscape />
@@ -299,35 +527,63 @@ const Contact = ({ content }: { content: SiteContent }) => {
             {c.titleHighlight ? <em class="accent section-title__line">{c.titleHighlight}</em> : null}
           </h2>
           {c.text ? <p class="contact__lead">{c.text}</p> : null}
-          <button class="btn btn--light btn--xl contact__toggle" type="button" aria-controls="formulaire-contact" aria-expanded="false" data-contact-toggle>
-            <span>{c.cta}</span>
-            <ArrowUpRight size={20} />
-          </button>
-          {c.publicEmail || c.publicPhone ? (
-            <ul class="contact__direct">
-              {c.publicEmail ? (
-                <li>
-                  <a href={`mailto:${c.publicEmail}`}>{c.publicEmail}</a>
-                </li>
+          {c.responsePromise ? (
+            <p class="contact__promise">
+              <CheckIcon />
+              <span>{c.responsePromise}</span>
+            </p>
+          ) : null}
+          {booking.external || wa || c.publicEmail || c.publicPhone ? (
+            <div class="contact__alt">
+              <p class="contact__alt-title">Vous préférez échanger directement ?</p>
+              <div class="contact__alt-actions">
+                {booking.external ? (
+                  <a class="btn btn--light btn--sm" href={booking.href} target="_blank" rel="noopener">
+                    <span>{c.bookingLabel}</span>
+                    <span class="sr-only"> (nouvel onglet)</span>
+                    <ArrowUpRight size={16} />
+                  </a>
+                ) : null}
+                {wa ? (
+                  <a class="btn btn--outline btn--sm" href={wa} target="_blank" rel="noopener">
+                    <span>Écrire sur WhatsApp</span>
+                    <span class="sr-only"> (nouvel onglet)</span>
+                    <ArrowUpRight size={16} />
+                  </a>
+                ) : null}
+              </div>
+              {c.publicEmail || c.publicPhone ? (
+                <ul class="contact__direct">
+                  {c.publicEmail ? (
+                    <li>
+                      <a href={`mailto:${c.publicEmail}`}>{c.publicEmail}</a>
+                    </li>
+                  ) : null}
+                  {c.publicPhone ? (
+                    <li>
+                      <a href={`tel:${c.publicPhone.replace(/[^+0-9]/g, '')}`}>{c.publicPhone}</a>
+                    </li>
+                  ) : null}
+                </ul>
               ) : null}
-              {c.publicPhone ? (
-                <li>
-                  <a href={`tel:${c.publicPhone.replace(/[^+0-9]/g, '')}`}>{c.publicPhone}</a>
-                </li>
-              ) : null}
-            </ul>
+            </div>
           ) : null}
         </div>
-        <ContactForm successMessage={c.successMessage} />
+        <ContactForm title={c.formTitle} successMessage={c.successMessage} />
       </div>
     </section>
   );
 };
 
-const ContactForm = ({ successMessage }: { successMessage: string }) => (
-  <div class="contact-panel" id="formulaire-contact" data-contact-panel>
-    <form class="contact-form" method="post" action="/contact" novalidate data-contact-form data-success={successMessage}>
-      <h3 class="contact-form__title">Votre projet</h3>
+const Opt = () => <span class="field__opt">(facultatif)</span>;
+
+/** Formulaire affiché directement (aucun clic pour le révéler). Champs facultatifs de qualification : budget, délai. */
+const ContactForm = ({ title, successMessage }: { title: string; successMessage: string }) => (
+  <div class="contact-panel" id="formulaire-contact">
+    <form class="contact-form" method="post" action="/contact" novalidate data-contact-form data-success={successMessage} aria-labelledby="cf-title">
+      <h3 class="contact-form__title" id="cf-title">
+        {title}
+      </h3>
       <p class="contact-form__hint">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
       <input type="hidden" name="token" value={FORM_TOKEN_PLACEHOLDER} />
       <div class="field field--hp" aria-hidden="true">
@@ -341,7 +597,9 @@ const ContactForm = ({ successMessage }: { successMessage: string }) => (
           <p class="field__error" id="cf-name-err" data-error-for="name"></p>
         </div>
         <div class="field">
-          <label for="cf-company">Entreprise <span class="field__opt">(facultatif)</span></label>
+          <label for="cf-company">
+            Entreprise <Opt />
+          </label>
           <input id="cf-company" name="company" type="text" maxlength={160} autocomplete="organization" />
         </div>
         <div class="field">
@@ -350,7 +608,9 @@ const ContactForm = ({ successMessage }: { successMessage: string }) => (
           <p class="field__error" id="cf-email-err" data-error-for="email"></p>
         </div>
         <div class="field">
-          <label for="cf-phone">Téléphone <span class="field__opt">(facultatif)</span></label>
+          <label for="cf-phone">
+            Téléphone <Opt />
+          </label>
           <input id="cf-phone" name="phone" type="tel" maxlength={30} autocomplete="tel" inputmode="tel" aria-describedby="cf-phone-err" />
           <p class="field__error" id="cf-phone-err" data-error-for="phone"></p>
         </div>
@@ -366,6 +626,34 @@ const ContactForm = ({ successMessage }: { successMessage: string }) => (
           </div>
           <p class="field__error" id="cf-type-err" data-error-for="projectType"></p>
         </div>
+        <div class="field">
+          <label for="cf-budget">
+            Budget estimatif <Opt />
+          </label>
+          <div class="select">
+            <select id="cf-budget" name="budget" aria-describedby="cf-budget-err">
+              <option value="">Non précisé</option>
+              {BUDGETS.map((t) => (
+                <option value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <p class="field__error" id="cf-budget-err" data-error-for="budget"></p>
+        </div>
+        <div class="field">
+          <label for="cf-timeline">
+            Délai souhaité <Opt />
+          </label>
+          <div class="select">
+            <select id="cf-timeline" name="timeline" aria-describedby="cf-timeline-err">
+              <option value="">Non précisé</option>
+              {TIMELINES.map((t) => (
+                <option value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <p class="field__error" id="cf-timeline-err" data-error-for="timeline"></p>
+        </div>
         <div class="field field--full">
           <label for="cf-message">Message *</label>
           <textarea id="cf-message" name="message" required minlength={10} maxlength={4000} rows={5} aria-describedby="cf-message-err"></textarea>
@@ -373,8 +661,8 @@ const ContactForm = ({ successMessage }: { successMessage: string }) => (
         </div>
       </div>
       <p class="contact-form__privacy">
-        Vos informations sont utilisées uniquement pour répondre à votre demande et ne sont jamais cédées à des tiers. Aucune
-        inscription à une liste de diffusion. Pour en savoir plus et exercer vos droits, consultez notre{' '}
+        Vos informations servent uniquement à répondre à votre demande ; elles ne sont jamais cédées à des tiers ni utilisées
+        pour de la prospection. Pour en savoir plus et exercer vos droits, consultez notre{' '}
         <a href="/politique-de-confidentialite">politique de confidentialité</a>.
       </p>
       <div class="contact-form__actions">

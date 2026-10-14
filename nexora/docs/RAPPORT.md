@@ -8,8 +8,8 @@ développement (conteneur Linux, Node 22.22, Chromium 141, PostgreSQL 16.15 loca
 | Contrôle | Résultat |
 |---|---|
 | TypeScript strict (`npm run typecheck`) | ✅ 0 erreur |
-| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 51 / 51 |
-| Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 13 / 13 sur **PostgreSQL 16.15** |
+| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 53 / 53 |
+| Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 12 / 12 sur **PostgreSQL 16.15** |
 | Audit des dépendances (`npm audit`) | ✅ 0 vulnérabilité (après passage de sharp 0.35.4 → 0.35.5, CVE librsvg) |
 | Revue de sécurité du code (revue dédiée + sondages manuels) | ✅ aucune vulnérabilité exploitable identifiée ; 1 durcissement appliqué |
 | Lighthouse 12.8.2, mobile | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
@@ -26,10 +26,10 @@ Conditions : build de production, `NODE_ENV=production`, serveur local, 3 projet
 
 | Profil | LCP | CLS | TBT | FCP | Speed Index |
 |---|---|---|---|---|---|
-| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4–1,5 s | 0 | 20 ms | — | — |
+| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4 s | 0 | 30 ms | — | — |
 | Ordinateur (RTT 40 ms, 10 Mb/s) | 0,4 s | 0 | 0 ms | — | — |
 
-(Mesures refaites après la version « premium » : logo 4K, visionneuse, finitions. Les mesures précédentes étaient
+(Mesures refaites après la refonte « acquisition » : services, méthode, études de cas, FAQ, formulaire visible. Les mesures précédentes étaient
 LCP 1,8–1,9 s mobile et 0,5 s ordinateur.)
 
 Objectifs demandés : Performance ≥ 90, Accessibilité ≥ 95, Bonnes pratiques ≥ 95, SEO ≥ 95, LCP ≤ 2,5 s, CLS ≤ 0,1 —
@@ -59,21 +59,21 @@ Ce qui a été fait pour y arriver :
 | Scénario | Vérifié |
 |---|---|
 | Largeurs 375, 390, 768, 1440, 1920 px | aucun débordement horizontal, aucune erreur console ni requête en échec, cartes strictement carrées, pas de chevauchement texte / bouton / symbole sur mobile |
-| Navigation | liens internes : la section s’arrête sous l’en-tête fixe (84 px / 68 px) ; en-tête flouté au défilement |
+| Navigation | Accueil, Services, Méthode, Réalisations, FAQ, Contact : chaque section s’arrête sous l’en-tête fixe (84 px / 68 px) ; en-tête flouté au défilement ; menu compact sous 1100 px |
 | Menu mobile | ouverture, focus piégé, Échap, retour du focus, fermeture au clic + navigation |
-| Carrousels | flèches, points, boucle, clavier (←, →, Début, Fin), **glissement tactile réel** (événements touch) ; les deux autres carrousels ne bougent jamais |
+| Études de cas | 3 cas avec contexte / défi, solution, résultats ; concepts signalés « Concept / Démonstration » sans résultat chiffré ; visuels 16:10, images chargées seulement à l’approche |
 | Néon | animation `neon-sweep` 8,5 s (passage + pause), découpée par le tracé vectoriel de la bande vin, en pause hors écran |
-| Visionneuse | clic sur une capture → plein écran, titre, compteur, légende = texte alternatif, variante ≥ 1200 px ; ←/→ et boutons en boucle ; zoom au clic et dézoom ; Échap ; focus rendu au carrousel, qui affiche l’image vue en dernier ; bouton « Agrandir » au clavier ; **glisser au doigt** sur mobile |
+| Visionneuse | couverture ou vignette → plein écran ; fenêtre basse et large (1920 × 871) : **image entière, jamais recadrée**, ≥ 1100 px de large, variante ≥ 1600 px ; ←/→ et boutons en boucle ; zoom au clic ; Échap ; focus rendu au bouton d’origine ; vignette au clavier ; **glisser au doigt** sur mobile |
 | Texte non éditable | clic dans un titre : aucun point d’insertion (`caret-color` transparent), curseur flèche, aucun focus ; les champs du formulaire gardent curseur et point d’insertion ; liens = main |
 | Parallaxe | transformation appliquée au défilement, défilement natif intact |
 | Mouvement réduit | néon figé, aucune parallaxe, tout le contenu visible |
-| Formulaire | ouverture accessible, erreurs par champ, **échec serveur simulé : données conservées**, succès affiché seulement après HTTP 201 |
+| Formulaire | visible d’emblée (aucun bouton à cliquer pour l’afficher) ; « Réserver un diagnostic » y mène sous l’en-tête ; « Parler de ce projet » présélectionne le type ; budget et délai facultatifs ; erreurs par champ ; **échec serveur simulé : données conservées** ; succès affiché seulement après HTTP 201 |
 | Persistance | demande visible dans l’admin |
 | Administration | redirection sans connexion, mauvais mot de passe, connexion, changement de statut, création de projet, envoi de 2 images, textes alternatifs, couverture, reflet immédiat sur le site (position 2, lien, alt, sans mention démo), suppression d’image (contrôles du carrousel masqués avec une seule image), modification des textes, déconnexion |
 | Redémarrage | serveur arrêté puis relancé : projets, images, textes et demandes toujours présents |
 
 Captures (build de production) : `docs/screenshots/` — `home-{1920,1440,768,390,375}-{viewport,full}.webp`,
-visionneuse `lightbox-{1440,390}.webp` et
+visionneuse `lightbox-1920x871.webp`, `lightbox-390.webp` et
 administration `a-*.webp`. Comparaison visuelle avec les maquettes faite côte à côte (proportions du hero, taille des
 titres, cartes, section contact) et corrigée en deux passes (tailles de titres et de boutons, découpe du titre, espacements).
 

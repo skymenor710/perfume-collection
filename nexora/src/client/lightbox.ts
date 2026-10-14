@@ -1,7 +1,7 @@
 /**
  * Visionneuse plein écran des captures de projets.
- *  - Ouverture : clic / toucher sur une image du carrousel, bouton « Agrandir », ou Entrée sur le carrousel.
- *  - <dialog> natif (showModal) : fond inerte, focus piégé, Échap pour fermer ; le focus revient au carrousel.
+ *  - Ouverture : clic / toucher sur la capture principale ou une vignette d'une étude de cas, ou « Voir les captures ».
+ *  - <dialog> natif (showModal) : fond inerte, focus piégé, Échap pour fermer ; le focus revient au bouton d'origine.
  *  - Navigation : flèches à l'écran, ← → au clavier, glisser horizontal au doigt ; compteur « 2 / 4 ».
  *  - Zoom ×2 : clic sur l'image (au point cliqué) ou bouton loupe ; image agrandie déplaçable à la souris / au doigt.
  *  - Images haute définition (jusqu'à 1600 px) chargées à la demande, voisines préchargées.
@@ -15,30 +15,26 @@ interface Shot {
   height: number;
 }
 
+// Largeur affichée ≈ 160 % de la hauteur de fenêtre (captures 16:10) sur écran large, toute la largeur sinon.
+const SIZES = '(min-aspect-ratio: 16/10) 150vh, 96vw';
 const ZOOM = 2;
 // En dessous de ce gain réel (pixels de l'image ÷ pixels affichés), zoomer ne montrerait rien de plus net.
 const MIN_ZOOM_GAIN = 1.2;
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** Captures d'une étude de cas : chaque élément [data-shot] porte les jeux de sources de son image. */
 function readShots(gallery: HTMLElement): Shot[] {
-  return Array.from(gallery.querySelectorAll<HTMLElement>('[data-slide]')).map((slide) => {
-    const source = slide.querySelector<HTMLSourceElement>('source[type="image/avif"]');
-    const img = slide.querySelector<HTMLImageElement>('img[src], img[data-src]')!;
+  return Array.from(gallery.querySelectorAll<HTMLElement>('[data-shot]')).map((el) => {
+    const img = el.querySelector('img');
     return {
-      avif: source?.getAttribute('srcset') || source?.dataset.srcset || '',
-      webp: img.getAttribute('srcset') || img.dataset.srcset || '',
-      src: img.getAttribute('src') || img.dataset.src || '',
-      alt: img.alt,
-      width: Number(img.getAttribute('width')) || 1,
-      height: Number(img.getAttribute('height')) || 1,
+      avif: el.dataset.avif ?? '',
+      webp: el.dataset.webp ?? '',
+      src: el.dataset.src ?? '',
+      alt: el.dataset.alt ?? '',
+      width: Number(img?.getAttribute('width')) || 16,
+      height: Number(img?.getAttribute('height')) || 10,
     };
   });
-}
-
-function currentIndex(gallery: HTMLElement) {
-  const viewport = gallery.querySelector<HTMLElement>('[data-carousel-viewport]');
-  if (!viewport) return 0;
-  return Math.round(viewport.scrollLeft / Math.max(1, viewport.clientWidth));
 }
 
 export function initLightbox() {
@@ -57,7 +53,7 @@ export function initLightbox() {
 
   let shots: Shot[] = [];
   let index = 0;
-  let gallery: HTMLElement | null = null;
+  let opener: HTMLElement | null = null;
   let img: HTMLImageElement | null = null;
   let zoomed = false;
   let pan = { x: 0, y: 0 };
@@ -68,17 +64,18 @@ export function initLightbox() {
       const s = document.createElement('source');
       s.type = 'image/avif';
       s.srcset = shot.avif;
-      s.sizes = '(min-aspect-ratio: 1/1) 92vh, 96vw';
+      s.sizes = SIZES;
       pic.append(s);
     }
     const i = document.createElement('img');
     i.className = 'lightbox__img';
+    i.style.setProperty('--ar', String(shot.width / shot.height));
     i.alt = shot.alt;
     i.width = shot.width;
     i.height = shot.height;
     i.decoding = 'async';
     if (!eager) i.loading = 'lazy';
-    i.sizes = '(min-aspect-ratio: 1/1) 92vh, 96vw';
+    i.sizes = SIZES;
     if (shot.webp) i.srcset = shot.webp;
     i.src = shot.src;
     pic.append(i);
@@ -177,8 +174,8 @@ export function initLightbox() {
     }
   }
 
-  function open(g: HTMLElement, i: number) {
-    gallery = g;
+  function open(g: HTMLElement, i: number, from: HTMLElement) {
+    opener = from;
     shots = readShots(g);
     if (!shots.length) return;
     title.textContent = g.dataset.gallery || '';
@@ -206,36 +203,18 @@ export function initLightbox() {
     document.documentElement.classList.remove('lightbox-open');
     frame.replaceChildren();
     img = null;
-    // Le carrousel reprend l'image regardée en dernier, et le focus y revient.
-    if (gallery) {
-      gallery.dispatchEvent(new CustomEvent('nx:goto', { detail: index }));
-      const back = gallery.querySelector<HTMLElement>('[data-carousel-viewport][tabindex]') ?? gallery.querySelector<HTMLElement>('[data-lightbox-open]');
-      back?.focus({ preventScroll: true, focusVisible: closedByKeyboard } as FocusOptions);
-    }
+    // Le focus revient au bouton qui a ouvert la visionneuse (sans anneau après un clic souris).
+    opener?.focus({ preventScroll: true, focusVisible: closedByKeyboard } as FocusOptions);
   });
 
-  // ---------------------------------------------------------------- ouverture depuis les carrousels
+  // ---------------------------------------------------------------- ouverture depuis les études de cas
   document.querySelectorAll<HTMLElement>('[data-gallery]').forEach((g) => {
-    const viewport = g.querySelector<HTMLElement>('[data-carousel-viewport]');
-    g.querySelector('[data-lightbox-open]')?.addEventListener('click', () => open(g, currentIndex(g)));
-    if (!viewport) return;
-    // Un glissement (changement d'image au doigt) ne doit pas ouvrir la visionneuse : seulement un vrai clic.
-    let down: { x: number; y: number; left: number } | null = null;
-    viewport.addEventListener('pointerdown', (e) => {
-      down = { x: e.clientX, y: e.clientY, left: viewport.scrollLeft };
-    });
-    viewport.addEventListener('click', (e) => {
-      const slide = (e.target as HTMLElement).closest<HTMLElement>('[data-slide]');
-      if (!slide) return;
-      if (down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8 || Math.abs(viewport.scrollLeft - down.left) > 4)) return;
-      open(g, Number(slide.dataset.slide) || 0);
-    });
-    viewport.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        open(g, currentIndex(g));
-      }
-    });
+    g.querySelectorAll<HTMLElement>('[data-shot-open]').forEach((btn) =>
+      btn.addEventListener('click', () => open(g, Number(btn.dataset.shotOpen) || 0, btn)),
+    );
+    g.closest('.case')
+      ?.querySelector<HTMLElement>('[data-lightbox-open]')
+      ?.addEventListener('click', (e) => open(g, 0, e.currentTarget as HTMLElement));
   });
 
   // ---------------------------------------------------------------- commandes de la visionneuse

@@ -1,7 +1,7 @@
 /**
- * Formulaire de contact : révélé par le bouton « Discutons de votre projet », envoyé en arrière-plan.
+ * Formulaire de contact : affiché directement dans la page, envoyé en arrière-plan.
  * Le succès n'est affiché QUE si le serveur confirme l'enregistrement (HTTP 201). En cas d'erreur, les champs
- * restent remplis. Sans JavaScript, le formulaire est visible et s'envoie normalement (POST /contact).
+ * restent remplis. Sans JavaScript, le formulaire s'envoie normalement (POST /contact).
  */
 type Errors = Record<string, string>;
 
@@ -14,10 +14,8 @@ const MESSAGES: Record<string, string> = {
 };
 
 export function initContactForm() {
-  const panel = document.querySelector<HTMLElement>('[data-contact-panel]');
-  const toggle = document.querySelector<HTMLButtonElement>('[data-contact-toggle]');
   const form = document.querySelector<HTMLFormElement>('[data-contact-form]');
-  if (!panel || !form) return;
+  if (!form) return;
 
   const status = form.querySelector<HTMLElement>('[data-form-status]')!;
   const statusText = form.querySelector<HTMLElement>('[data-status-text]')!;
@@ -25,37 +23,19 @@ export function initContactForm() {
   const errIcon = form.querySelector<HTMLElement>('[data-status-err]')!;
   const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
   const submitLabel = form.querySelector<HTMLElement>('[data-submit-label]')!;
+  const typeSelect = form.querySelector<HTMLSelectElement>('#cf-type');
 
-  function openPanel(focus = true) {
-    if (!panel!.classList.contains('is-open')) {
-      panel!.classList.add('is-open');
-      toggle?.setAttribute('aria-expanded', 'true');
-    }
-    if (focus) {
-      panel!.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-      setTimeout(() => form!.querySelector<HTMLInputElement>('#cf-name')?.focus({ preventScroll: true }), 350);
-    }
-  }
-  function closePanel() {
-    panel!.classList.remove('is-open');
-    toggle?.setAttribute('aria-expanded', 'false');
-  }
-  toggle?.addEventListener('click', () => (panel.classList.contains('is-open') ? closePanel() : openPanel()));
-
-  // Les boutons « Parlons de votre projet » (en-tête, hero) ouvrent directement le formulaire.
-  document.querySelectorAll<HTMLAnchorElement>('[data-open-contact]').forEach((a) =>
-    a.addEventListener('click', (e) => {
-      if (location.pathname !== '/') return;
-      e.preventDefault();
-      history.replaceState(null, '', '#contact');
-      openPanel();
+  // « Parler de ce projet » (services) : le type de projet est présélectionné, le défilement reste natif (ancre).
+  document.querySelectorAll<HTMLAnchorElement>('[data-project-type]').forEach((a) =>
+    a.addEventListener('click', () => {
+      const t = a.dataset.projectType;
+      if (typeSelect && t && [...typeSelect.options].some((o) => o.value === t)) typeSelect.value = t;
     }),
   );
-  if (location.hash === '#contact' || location.hash === '#formulaire-contact') openPanel(false);
-  // Retour du formulaire sans JavaScript (?envoi=ok|erreur) : on affiche le panneau.
+
+  // Retour du formulaire sans JavaScript (?envoi=ok) : confirmation affichée.
   const params = new URLSearchParams(location.search);
   if (params.get('envoi') === 'ok') {
-    openPanel(false);
     setStatus('ok', form.dataset.success ?? 'Merci, votre demande a bien été enregistrée.');
   }
 
@@ -113,6 +93,11 @@ export function initContactForm() {
     showErrors(errors);
     if (Object.keys(errors).length) {
       setStatus('error', 'Certains champs sont à corriger.');
+      return;
+    }
+    // Aperçu hors ligne (scripts/snapshot.mjs) : aucun serveur pour enregistrer la demande.
+    if (form.dataset.apercu) {
+      setStatus('error', 'Aperçu hors ligne : l’envoi fonctionne uniquement sur le site en ligne. Rien n’a été envoyé.');
       return;
     }
     sending = true;

@@ -1,4 +1,5 @@
-// Captures des sites réalisés (portfolio) : 4 vues carrées par site — début, 1/3, 2/3, fin.
+// Captures des sites réalisés (portfolio) : 4 vues 16:10 par site — début, 1/3, 2/3, fin — en 1440 × 900 à
+// densité 2 (fichiers 2880 × 1800) : texte net jusque dans la visionneuse plein écran.
 // Les noms et adresses des entreprises prospectées peuvent être floutés (comme dans le dossier de présentation).
 // Usage : node assets-src/portfolio/capture.mjs <dossier-sortie> <config.json>
 //   config : [{ "name": "awm", "url": "file:///…/awm.html", "blurText": ["AWM BIOTECH"], "blurSelectors": ["address"] }]
@@ -10,7 +11,9 @@ const [outArg, configArg] = process.argv.slice(2);
 const out = path.resolve(outArg);
 const sites = JSON.parse(readFileSync(configArg, 'utf8'));
 mkdirSync(out, { recursive: true });
-const SIZE = 1280;
+const W = 1440;
+const H = 900;
+const SCALE = 2;
 
 /** Floute les textes et blocs indiqués (identité d'un prospect), sans modifier le contenu. */
 async function mask(page, site) {
@@ -44,7 +47,7 @@ async function mask(page, site) {
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium' });
 for (const site of sites) {
-  const context = await browser.newContext({ viewport: { width: SIZE, height: SIZE }, deviceScaleFactor: 1, locale: 'fr-FR' });
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE, locale: 'fr-FR' });
   const page = await context.newPage();
   await page.goto(site.url, { waitUntil: 'load', timeout: 60_000 });
   await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
@@ -60,7 +63,7 @@ for (const site of sites) {
     }
     return document.documentElement.scrollHeight;
   });
-  const max = Math.max(0, total - SIZE);
+  const max = Math.max(0, total - H);
   const stops = site.stops ?? [0, 1 / 3, 2 / 3, 1];
   for (const [i, f] of stops.entries()) {
     const y = Math.round(max * f);

@@ -10,7 +10,7 @@ import { PASSWORD_MAX, PASSWORD_MIN, dummyHash, hashPassword, randomToken, safeE
 import { hit, peek, reset } from '../lib/rate-limit';
 import { fingerprint } from '../lib/security';
 import { audit, bumpContentVersion, getContent, getProject, listProjects, saveContent } from '../lib/repo';
-import { contentSchema, missingLegal, type SiteContent } from '../lib/content';
+import { contentSchema, missingLegal, type SiteContent, rows } from '../lib/content';
 import { ImageRejected, processAndStoreImage } from '../lib/images';
 import { renderHtml } from '../views/render';
 import type { Flash } from '../views/admin/layout';
@@ -58,11 +58,9 @@ function takeFlash(c: Context): Flash | null {
   }
 }
 
-const projectFormSchema = z.object({
-  name: z.string().trim().min(1, 'Indiquez un nom.').max(120, '120 caractères maximum.'),
-  category: z.string().trim().max(120, '120 caractères maximum.'),
-  description: z.string().trim().max(400, '400 caractères maximum.'),
-  url: z
+
+const httpUrl = (label: string) =>
+  z
     .string()
     .trim()
     .max(300, '300 caractères maximum.')
@@ -74,7 +72,17 @@ const projectFormSchema = z.object({
       } catch {
         return false;
       }
-    }, 'Adresse invalide : elle doit commencer par https:// (ou http://).'),
+    }, `${label} invalide : elle doit commencer par https:// (ou http://).`);
+
+const projectFormSchema = z.object({
+  name: z.string().trim().min(1, 'Indiquez un nom.').max(120, '120 caractères maximum.'),
+  category: z.string().trim().max(120, '120 caractères maximum.'),
+  description: z.string().trim().max(400, '400 caractères maximum.'),
+  url: httpUrl('Adresse'),
+  challenge: z.string().trim().max(500, '500 caractères maximum.'),
+  solution: z.string().trim().max(500, '500 caractères maximum.'),
+  results: z.string().trim().max(500, '500 caractères maximum.'),
+  caseUrl: httpUrl('Adresse de l’étude de cas'),
   featuredPosition: z.enum(['', '1', '2', '3']),
   published: z.boolean(),
   isDemo: z.boolean(),
@@ -226,6 +234,15 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
         linkLabel: 'Gérer les projets',
       });
     }
+    // Conversion : contenus à remplir avec des données RÉELLES (sections masquées sur le site tant qu'elles sont vides).
+    const todo: string[] = [];
+    if (!content.contact.bookingUrl) todo.push('lien de prise de rendez-vous (les boutons « Réserver » mènent au formulaire)');
+    if (!rows(content.proof, 'item', 4, ['Value', 'Label'] as const).some((r) => r.Value && r.Label)) todo.push('chiffres de preuve sociale (bande masquée)');
+    if (!rows(content.testimonials, 't', 3, ['Quote', 'Author'] as const).some((r) => r.Quote && r.Author)) todo.push('témoignages clients (section masquée)');
+    if (all.some((p) => p.published && !p.isDemo && !p.results.trim())) todo.push('résultats mesurables des projets réels');
+    if (todo.length) {
+      warnings.push({ title: 'Contenus de conversion à compléter', detail: `${todo.join(' ; ')}.`, href: '/admin/contenus', linkLabel: 'Compléter' });
+    }
     const missingAlt = all.filter((p) => p.published && p.images.some((i) => !i.alt.trim()));
     if (missingAlt.length) {
       warnings.push({ title: 'Textes alternatifs manquants', detail: missingAlt.map((p) => p.name).join(', '), href: `/admin/projets/${missingAlt[0].id}`, linkLabel: 'Compléter' });
@@ -280,6 +297,10 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
       category: p.category,
       description: p.description,
       url: p.url ?? '',
+      challenge: p.challenge,
+      solution: p.solution,
+      results: p.results,
+      caseUrl: p.caseUrl ?? '',
       published: p.published,
       isDemo: p.isDemo,
       featuredPosition: p.featuredPosition ? String(p.featuredPosition) : '',
@@ -309,6 +330,10 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
       category: String(body.category ?? ''),
       description: String(body.description ?? ''),
       url: String(body.url ?? ''),
+      challenge: String(body.challenge ?? '').replace(/\r\n/g, '\n'),
+      solution: String(body.solution ?? '').replace(/\r\n/g, '\n'),
+      results: String(body.results ?? '').replace(/\r\n/g, '\n'),
+      caseUrl: String(body.caseUrl ?? ''),
       featuredPosition: String(body.featuredPosition ?? ''),
       published: body.published === '1',
       isDemo: body.isDemo === '1',
@@ -335,7 +360,19 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
     const v = parsed.data;
     await db
       .update(projects)
-      .set({ name: v.name, category: v.category, description: v.description, url: v.url || null, published: v.published, isDemo: v.isDemo, updatedAt: new Date() })
+      .set({
+        name: v.name,
+        category: v.category,
+        description: v.description,
+        url: v.url || null,
+        challenge: v.challenge,
+        solution: v.solution,
+        results: v.results,
+        caseUrl: v.caseUrl || null,
+        published: v.published,
+        isDemo: v.isDemo,
+        updatedAt: new Date(),
+      })
       .where(eq(projects.id, p.id));
     await setFeatured(p.id, v.featuredPosition ? Number(v.featuredPosition) : null);
     await audit(db, s.adminId, 'project.update', p.id);

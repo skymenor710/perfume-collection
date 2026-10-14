@@ -263,6 +263,10 @@ export interface ProjectFormValues {
   category: string;
   description: string;
   url: string;
+  challenge: string;
+  solution: string;
+  results: string;
+  caseUrl: string;
   published: boolean;
   isDemo: boolean;
   featuredPosition: string;
@@ -305,7 +309,38 @@ export const ProjectEditPage = ({
             </textarea>
             {errors?.description ? <p class="field__error">{errors.description}</p> : null}
           </div>
-          <Field label="Adresse du site (facultatif)" name="url" type="url" value={values.url} max={300} error={errors?.url} hint="https://… — un lien « Voir le site » est ajouté." />
+          <Field label="Adresse du site (facultatif)" name="url" type="url" value={values.url} max={300} error={errors?.url} hint="https://… — un bouton « Voir le projet » est ajouté." />
+          <fieldset class="subgroup">
+            <legend>Étude de cas</legend>
+          <div class="field">
+            <label for="f-challenge">Contexte / défi</label>
+            <textarea id="f-challenge" name="challenge" rows={3} maxlength={500} aria-describedby="f-challenge-hint">
+              {values.challenge}
+            </textarea>
+            <p class={errors?.challenge ? 'field__error' : 'field__hint'} id="f-challenge-hint">
+              {errors?.challenge ?? 'La situation du client et ce qui devait changer.'}
+            </p>
+          </div>
+          <div class="field">
+            <label for="f-solution">Solution apportée</label>
+            <textarea id="f-solution" name="solution" rows={3} maxlength={500} aria-describedby="f-solution-hint">
+              {values.solution}
+            </textarea>
+            <p class={errors?.solution ? 'field__error' : 'field__hint'} id="f-solution-hint">
+              {errors?.solution ?? 'Ce qui a été conçu et pourquoi.'}
+            </p>
+          </div>
+          <div class="field">
+            <label for="f-results">Résultats mesurables</label>
+            <textarea id="f-results" name="results" rows={3} maxlength={500} aria-describedby="f-results-hint">
+              {values.results}
+            </textarea>
+            <p class={errors?.results ? 'field__error' : 'field__hint'} id="f-results-hint">
+              {errors?.results ?? 'Uniquement des chiffres réels et vérifiables (ex. : « +38 % de demandes de devis en 3 mois »). Vide pour un projet de démonstration.'}
+            </p>
+          </div>
+            <Field label="Lien vers l’étude de cas complète (facultatif)" name="caseUrl" type="url" value={values.caseUrl} max={300} error={errors?.caseUrl} hint="https://… — un bouton « Lire l’étude de cas » est ajouté." />
+          </fieldset>
           <div class="field">
             <label for="f-featured">Position sur la page d’accueil</label>
             <select id="f-featured" name="featuredPosition">
@@ -326,7 +361,7 @@ export const ProjectEditPage = ({
           </label>
           <label class="check">
             <input type="checkbox" name="isDemo" value="1" checked={values.isDemo} />
-            <span>Projet de démonstration (affiche la mention « Démonstration »)</span>
+            <span>Concept de démonstration (affiche la mention « Concept / Démonstration »)</span>
           </label>
           <div class="form__actions">
             <button class="btn btn--primary" type="submit">
@@ -501,32 +536,89 @@ const Field = ({
 
 /* ---------------------------------------------------------------- Contenus */
 type FieldDef = { key: string; label: string; max: number; multiline?: boolean; hint?: string; type?: string };
+const repeat = (prefix: string, count: number, label: string, parts: { key: string; label: string; max: number; multiline?: boolean; type?: string }[]): FieldDef[] =>
+  Array.from({ length: count }, (_, i) => parts.map((f) => ({ ...f, key: `${prefix}${i + 1}${f.key}`, label: `${label} ${i + 1} — ${f.label}` }))).flat();
+
 const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string; fields: FieldDef[] }[] = [
   {
     section: 'hero',
     title: 'Bannière d’accueil',
-    intro: 'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin.',
+    intro: 'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin. Le bouton principal ouvre le lien de rendez-vous s’il est renseigné (section Contact), sinon le formulaire.',
     fields: [
       { key: 'titleBefore', label: 'Titre — début', max: 80 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
       { key: 'titleAfter', label: 'Titre — fin', max: 80 },
-      { key: 'subtitle', label: 'Sous-titre', max: 140 },
+      { key: 'subtitle', label: 'Sous-titre', max: 240, multiline: true },
       { key: 'primaryCta', label: 'Bouton principal', max: 40 },
-      { key: 'secondaryCta', label: 'Bouton secondaire', max: 40 },
+      { key: 'secondaryCta', label: 'Bouton secondaire (vers les réalisations)', max: 40 },
+      { key: 'reassurance', label: 'Mention sous les boutons', max: 80 },
     ],
   },
-  { section: 'header', title: 'En-tête', fields: [{ key: 'cta', label: 'Bouton de l’en-tête', max: 40 }] },
+  { section: 'header', title: 'En-tête', fields: [{ key: 'cta', label: 'Bouton de l’en-tête', max: 32 }] },
+  {
+    section: 'proof',
+    title: 'Preuve sociale (chiffres)',
+    intro:
+      'UNIQUEMENT des données réelles et vérifiables (note Google et nombre d’avis, nombre de sites livrés, résultats mesurés…). Tant que tout est vide, la bande n’apparaît pas sur le site.',
+    fields: [{ key: 'title', label: 'Titre (lu par les lecteurs d’écran)', max: 80 }, ...repeat('item', 4, 'Chiffre', [{ key: 'Value', label: 'valeur (ex. : 4,9/5)', max: 16 }, { key: 'Label', label: 'légende', max: 80 }])],
+  },
+  {
+    section: 'services',
+    title: 'Services',
+    fields: [
+      { key: 'title', label: 'Titre — début', max: 60 },
+      { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
+      { key: 'subtitle', label: 'Sous-titre', max: 200 },
+      { key: 'cta', label: 'Lien sous chaque service', max: 40 },
+      ...repeat('s', 4, 'Service', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'bénéfice (une phrase)', max: 200, multiline: true }]),
+    ],
+  },
+  {
+    section: 'method',
+    title: 'Méthode',
+    fields: [
+      { key: 'title', label: 'Titre — début', max: 60 },
+      { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
+      { key: 'subtitle', label: 'Sous-titre', max: 200 },
+      ...repeat('m', 3, 'Étape', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'texte', max: 300, multiline: true }]),
+    ],
+  },
   {
     section: 'projects',
-    title: 'Section Réalisations',
+    title: 'Réalisations (études de cas)',
+    intro: 'Le contexte, la solution et les résultats de chaque projet se remplissent dans Projets.',
     fields: [
-      { key: 'eyebrow', label: 'Sur-titre', max: 60, hint: 'Le texte par défaut « Aperçus de démonstration » disparaît dès qu’un vrai projet est affiché.' },
+      { key: 'eyebrow', label: 'Sur-titre (facultatif)', max: 60 },
       { key: 'titleLine1', label: 'Titre — ligne 1', max: 60 },
       { key: 'titleLine2Before', label: 'Titre — ligne 2, début', max: 30 },
       { key: 'titleLine2Highlight', label: 'Titre — ligne 2, partie en vin', max: 60 },
-      { key: 'subtitle', label: 'Sous-titre', max: 140 },
-      { key: 'visitLabel', label: 'Libellé du lien vers un site', max: 30 },
+      { key: 'subtitle', label: 'Sous-titre', max: 200, multiline: true },
+      { key: 'visitLabel', label: 'Bouton vers le site', max: 30 },
+      { key: 'caseLabel', label: 'Bouton vers l’étude de cas', max: 30 },
       { key: 'emptyText', label: 'Texte si aucun projet', max: 160 },
+    ],
+  },
+  {
+    section: 'testimonials',
+    title: 'Témoignages',
+    intro: 'UNIQUEMENT des citations réelles, avec l’accord écrit de la personne (nom et fonction exacts). Tant que tout est vide, la section n’apparaît pas sur le site.',
+    fields: [
+      { key: 'title', label: 'Titre', max: 60 },
+      ...repeat('t', 3, 'Témoignage', [
+        { key: 'Quote', label: 'citation', max: 400, multiline: true },
+        { key: 'Author', label: 'nom', max: 80 },
+        { key: 'Role', label: 'fonction et entreprise', max: 120 },
+      ]),
+    ],
+  },
+  {
+    section: 'faq',
+    title: 'Questions fréquentes',
+    intro: 'Relisez chaque réponse : elle engage l’entreprise (délais, budget, propriété du site…).',
+    fields: [
+      { key: 'title', label: 'Titre — début', max: 60 },
+      { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
+      ...repeat('q', 6, 'Question', [{ key: 'Question', label: 'question', max: 140 }, { key: 'Answer', label: 'réponse', max: 700, multiline: true }]),
     ],
   },
   {
@@ -535,9 +627,14 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
     fields: [
       { key: 'titleLine1', label: 'Titre — ligne 1', max: 60 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
-      { key: 'text', label: 'Texte', max: 160 },
-      { key: 'cta', label: 'Bouton', max: 40 },
+      { key: 'text', label: 'Texte', max: 240, multiline: true },
+      { key: 'responsePromise', label: 'Engagement de réponse', max: 80 },
+      { key: 'formTitle', label: 'Titre du formulaire', max: 60 },
       { key: 'successMessage', label: 'Message après envoi', max: 240, multiline: true },
+      { key: 'bookingUrl', label: 'Lien de prise de rendez-vous (Cal.com, Calendly…)', max: 300, type: 'url', hint: 'https://… — vide : les boutons « Réserver » mènent au formulaire.' },
+      { key: 'bookingLabel', label: 'Bouton de prise de rendez-vous', max: 40 },
+      { key: 'whatsappNumber', label: 'Numéro WhatsApp (facultatif)', max: 24, type: 'tel', hint: 'Format international : +33 6 12 34 56 78. Vide : pas de bouton WhatsApp.' },
+      { key: 'whatsappMessage', label: 'Message WhatsApp prérempli', max: 160 },
       { key: 'publicEmail', label: 'E-mail affiché (facultatif)', max: 160, type: 'email' },
       { key: 'publicPhone', label: 'Téléphone affiché (facultatif)', max: 30, type: 'tel' },
     ],
@@ -727,6 +824,10 @@ export const RequestDetailPage = ({ session, assets, flash, newRequests, row, ma
           <dd>{row.phone ? <a href={`tel:${row.phone.replace(/[^+0-9]/g, '')}`}>{row.phone}</a> : '—'}</dd>
           <dt>Type de projet</dt>
           <dd>{row.projectType}</dd>
+          <dt>Budget estimatif</dt>
+          <dd>{row.budget || '—'}</dd>
+          <dt>Délai souhaité</dt>
+          <dd>{row.timeline || '—'}</dd>
         </dl>
         <div class="message">{row.message}</div>
       </section>

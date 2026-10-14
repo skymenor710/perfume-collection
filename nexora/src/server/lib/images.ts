@@ -11,7 +11,7 @@ import type { ImageVariant } from '../db/schema';
  *  3. l'image est ré-encodée : métadonnées (EXIF, GPS) supprimées, orientation appliquée ;
  *  4. variantes AVIF + WebP en plusieurs largeurs, jamais agrandies.
  */
-export const VARIANT_WIDTHS = [480, 640, 800, 1200, 1600] as const;
+export const VARIANT_WIDTHS = [480, 640, 800, 1200, 1600, 2400] as const;
 export const MAX_INPUT_PIXELS = 50_000_000;
 const ALLOWED = new Set(['jpeg', 'png', 'webp', 'avif', 'heif']);
 
@@ -74,8 +74,9 @@ export async function processAndStoreImage(storage: Storage, projectId: string, 
     for (const w of widths) {
       const resized = sharp(oriented.data, { limitInputPixels: MAX_INPUT_PIXELS }).resize({ width: w, withoutEnlargement: true });
       const h = Math.round((height * w) / width);
-      const avif = await resized.clone().avif({ quality: 52, effort: 2 }).toBuffer();
-      const webp = await resized.clone().webp({ quality: 78, effort: 5 }).toBuffer();
+      // Réglages adaptés aux captures d'écran (texte fin, aplats) : chrominance complète, qualité élevée.
+      const avif = await resized.clone().avif({ quality: 66, effort: 2, chromaSubsampling: '4:4:4' }).toBuffer();
+      const webp = await resized.clone().webp({ quality: 88, effort: 5, smartSubsample: true }).toBuffer();
       for (const [format, buf] of [['avif', avif], ['webp', webp]] as const) {
         const key = `${storagePrefix}/${w}.${format}`;
         await storage.put(key, buf, `image/${format}`);

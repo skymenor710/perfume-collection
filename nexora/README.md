@@ -48,27 +48,40 @@ Sans terminal interactif (conteneur, CI) : `printf '%s\n' "$MOT_DE_PASSE" | npm 
 Tout se fait dans `/admin`. Chaque modification est publiée immédiatement : le serveur incrémente une « version de
 contenu » en base, et toutes les instances re-génèrent la page à la requête suivante.
 
-**Ajouter un vrai projet**
+**Ajouter une vraie étude de cas** (sans toucher au code)
 1. *Projets* → **Nouveau projet** (créé en brouillon, invisible).
-2. Nom, catégorie (ex. « Site vitrine · Design sur mesure »), description facultative, adresse du site (https://…).
-3. **Images** : choisir ou déposer jusqu’à 10 images (JPEG, PNG, WebP, AVIF ; 12 Mo max). Format carré conseillé
-   (1600 × 1600). Elles sont vérifiées, nettoyées (GPS/EXIF supprimés) et converties en AVIF + WebP.
-4. Renseigner le **texte alternatif** de chaque image (description pour les personnes malvoyantes et Google).
-5. Ordre des images : flèches ↑ ↓ ; **Définir comme couverture** place l’image en premier.
-6. Cocher **Publié**, choisir la **position 1, 2 ou 3** sur la page d’accueil, enregistrer.
+2. Nom, catégorie (ex. « Artisan · Site vitrine »), description facultative, adresse du site (https://… → bouton
+   « Voir le projet »).
+3. **Étude de cas** : *Contexte / défi*, *Solution apportée*, *Résultats mesurables* (uniquement des chiffres réels et
+   vérifiables) et, si elle existe, l’adresse de l’étude complète (→ bouton « Lire l’étude de cas »).
+4. **Images** : jusqu’à 10 captures (JPEG, PNG, WebP, AVIF ; 12 Mo max), format **16:10**, idéalement **2880 × 1800**
+   (capture 1440 × 900 en densité 2) pour un texte net dans la visionneuse plein écran. Elles sont vérifiées, nettoyées
+   (GPS/EXIF supprimés) et converties en AVIF + WebP de 480 à 2400 px. La première est la couverture.
+5. Renseigner le **texte alternatif** de chaque image (lu par les lecteurs d’écran, repris en légende plein écran).
+6. Décocher **Concept de démonstration**, cocher **Publié**, choisir la **position 1, 2 ou 3**, enregistrer.
 
-**Projets fournis** : trois sites conçus par Nexora avec Claude Code — une entreprise de maçonnerie et un laboratoire in
-vitro (maquettes de prospection, noms et coordonnées floutés) et la page produit EARKO. Ils sont affichés avec la
-mention « Démonstration » car ce ne sont pas des clients livrés ; dès qu’un site est livré à un client, ajoutez-le comme
-projet normal (sans la mention). Une fois vos projets publiés et placés en positions 1–3, dépubliez ou
-supprimez les démonstrations. Le sur-titre « Aperçus de démonstration » disparaît automatiquement dès qu’un vrai projet
-est affiché. Le tableau de bord rappelle tant qu’une démonstration est publiée.
+**Projets fournis** : trois **concepts** conçus par Nexora avec Claude Code — une entreprise de maçonnerie et un
+laboratoire in vitro (maquettes de prospection, noms et coordonnées floutés) et la page produit EARKO. Ils portent la
+mention « Concept / Démonstration » et n’affichent aucun résultat chiffré (« aucun résultat mesuré à ce jour »). Dès
+qu’un site est livré, ajoutez-le comme projet client (mention « Projet client ») et dépubliez les concepts. Le
+tableau de bord rappelle tant qu’un concept est publié.
+
+**Rendez-vous, WhatsApp, preuve sociale, témoignages** : *Contenus du site* → sections *Contact*, *Preuve sociale*,
+*Témoignages*. La bande de chiffres et la section témoignages **n’apparaissent pas** pour les visiteurs tant qu’elles
+sont vides (aucun contenu inventé) ; hors production, des emplacements « à compléter » montrent leur place
+(`SHOW_PLACEHOLDERS`, voir `.env.example`). Le lien de rendez-vous (Cal.com, Calendly…, en `https://`) est utilisé par
+tous les boutons « Réserver un diagnostic » ; vide, ils mènent au formulaire. Le numéro WhatsApp (format `+33 6 …`)
+ajoute un bouton « Écrire sur WhatsApp ».
+
+**Pages légales** : `/mentions-legales` et `/politique-de-confidentialite` existent et sont liées depuis le pied de page
+et le formulaire ; leurs informations (raison sociale, SIRET, hébergeur…) se remplissent dans *Contenus du site →
+Informations légales* (affichées « À compléter » tant qu’elles sont vides).
 
 **Textes du site** : *Contenus du site* (bannière, boutons, réalisations, contact, pied de page, référencement,
 informations légales). Seuls les textes sont modifiables : la mise en page ne peut pas être cassée (longueurs maximales,
 pas de HTML).
 
-**Demandes de contact** : *Demandes* — filtrer par statut (Nouvelle / En cours / Terminée), consulter, changer le
+**Demandes de contact** : *Demandes* (avec budget estimatif et délai souhaité s’ils sont indiqués) — filtrer par statut (Nouvelle / En cours / Terminée), consulter, changer le
 statut, supprimer (ex. demande d’effacement RGPD).
 
 ---

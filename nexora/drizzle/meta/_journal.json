@@ -8,6 +8,13 @@
       "when": 1791973229414,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792004778035,
+      "tag": "0001_case_study_and_contact_qualification",
+      "breakpoints": true
     }
   ]
 }

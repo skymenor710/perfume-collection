@@ -65,7 +65,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
             description: content.seo.description,
           }}
         >
-          <HomePage content={content} projects={list} />
+          <HomePage content={content} projects={list} showPlaceholders={config.showPlaceholders} />
         </Document>,
       );
     });
@@ -165,6 +165,8 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
           email: input.email,
           phone: input.phone || null,
           projectType: input.projectType,
+          budget: input.budget || null,
+          timeline: input.timeline || null,
           message: input.message,
           privacyAckAt: new Date(),
         })
@@ -190,6 +192,8 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
             `E-mail : ${input.email}`,
             `Téléphone : ${input.phone || '—'}`,
             `Type de projet : ${input.projectType}`,
+            `Budget estimatif : ${input.budget || '—'}`,
+            `Délai souhaité : ${input.timeline || '—'}`,
             '',
             input.message,
             '',

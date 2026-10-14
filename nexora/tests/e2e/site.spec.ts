@@ -20,9 +20,7 @@ function watch(page: Page) {
   return problems;
 }
 
-async function scrollLeftOf(page: Page, n: number) {
-  return page.locator(`#carousel-${n} [data-carousel-viewport]`).evaluate((el) => Math.round(el.scrollLeft / el.clientWidth));
-}
+const caseAt = (page: Page, n: number) => page.locator('#realisations .case').nth(n);
 
 test('largeurs 375 → 1920 : aucun débordement horizontal ni erreur console', async ({ browser }) => {
   for (const [width, height] of [
@@ -43,10 +41,11 @@ test('largeurs 375 → 1920 : aucun débordement horizontal ni erreur console', 
     });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `largeur ${width}`).toBe(0);
-    // Cartes de projets carrées.
-    const ratios = await page.locator('.carousel').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width / e.getBoundingClientRect().height));
-    for (const r of ratios) expect(Math.abs(r - 1)).toBeLessThan(0.01);
-    // Le hero ne se chevauche pas : titre au-dessus du bouton, bouton au-dessus du symbole sur mobile.
+    // Visuels des études de cas au format 16:10 (captures entières, sans recadrage).
+    const ratios = await page.locator('.case__cover').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width / e.getBoundingClientRect().height));
+    expect(ratios).toHaveLength(3);
+    for (const r of ratios) expect(Math.abs(r - 1.6)).toBeLessThan(0.01);
+    // Le hero ne se chevauche pas : titre au-dessus des boutons, boutons au-dessus du symbole sur mobile.
     if (width < 800) {
       const title = await page.locator('.hero__title').boundingBox();
       const cta = await page.locator('.hero__actions').boundingBox();
@@ -70,11 +69,17 @@ test('navigation : liens internes sous l’en-tête fixe, en-tête flouté au d�
   const backdrop = await page.locator('[data-header]').evaluate((el) => getComputedStyle(el).backdropFilter);
   expect(backdrop).toContain('blur');
   await page.locator('.site-nav__link', { hasText: 'Contact' }).click();
-  // Dernière section : la page s'arrête avant que son haut n'atteigne l'en-tête ; elle ne doit jamais passer DESSOUS.
-  await page.waitForFunction(() => {
-    const top = document.getElementById('contact')!.getBoundingClientRect().top;
-    return top >= 82 && top < window.innerHeight / 2 && Math.abs(window.scrollY + window.innerHeight - document.documentElement.scrollHeight) < 4;
-  });
+  // Contact : le haut de la section s'arrête juste sous l'en-tête (jamais dessous), formulaire visible.
+  await page.waitForFunction(() => Math.abs(document.getElementById('contact')!.getBoundingClientRect().top - 84) < 4);
+  await expect(page.locator('#cf-name')).toBeInViewport();
+  for (const [label, id] of [
+    ['Services', 'services'],
+    ['Méthode', 'methode'],
+    ['FAQ', 'faq'],
+  ]) {
+    await page.locator('.site-nav__link', { hasText: label }).click();
+    await page.waitForFunction((sid) => Math.abs(document.getElementById(sid)!.getBoundingClientRect().top - 84) < 4, id);
+  }
   await page.locator('.site-nav__link', { hasText: 'Accueil' }).click();
   await page.waitForFunction(() => window.scrollY < 4);
   expect(problems).toEqual([]);
@@ -102,92 +107,56 @@ test('menu mobile : ouverture, piège du focus, Échap, fermeture au clic', asyn
   await page.waitForFunction(() => Math.abs(document.getElementById('realisations')!.getBoundingClientRect().top - 68) < 4);
 });
 
-test('carrousels indépendants : flèches, points, clavier, chargement paresseux', async ({ page }) => {
+test('études de cas : contexte, solution, résultats, concepts signalés, images chargées à la demande', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const media: string[] = [];
   page.on('request', (r) => r.url().includes('/media/') && media.push(r.url()));
   await page.goto(BASE);
+  // Rien n'est chargé tant que les études de cas sont hors écran (chargement paresseux).
+  expect(media).toEqual([]);
   await page.locator('#realisations').scrollIntoViewIfNeeded();
-  await page.waitForTimeout(600);
-  const firstIds = await page.locator('.carousel__slide:first-child img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).currentSrc.split('/')[4]));
-  const loaded = new Set(media.map((u) => u.split('/')[4]));
-  expect([...loaded].sort(), 'seulement la première image de chaque carrousel').toEqual([...firstIds].sort());
-  expect(loaded.size).toBe(3);
-
-  // Flèche suivante sur le carrousel 2 : seuls ses propres éléments bougent.
-  await page.locator('#carousel-2 [data-carousel-next]').click();
-  await expect.poll(() => scrollLeftOf(page, 2)).toBe(1);
-  expect(await scrollLeftOf(page, 1)).toBe(0);
-  expect(await scrollLeftOf(page, 3)).toBe(0);
-  await expect(page.locator('#carousel-2 [data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
-  await expect(page.locator('#carousel-1 [data-carousel-dot="0"]')).toHaveAttribute('aria-current', 'true');
-  await expect(page.locator('#carousel-2 [data-carousel-status]')).toHaveText('Image 2 sur 4');
-  await expect
-    .poll(() => page.locator('#carousel-2 .carousel__slide').nth(1).locator('img').evaluate((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0))
-    .toBe(true);
-  // Les autres carrousels n'ont rien chargé de plus.
-  expect(await page.locator('#carousel-1 picture[data-deferred]').count()).toBe(3);
-  expect(await page.locator('#carousel-3 picture[data-deferred]').count()).toBe(3);
-
-  // Points du carrousel 3.
-  await page.locator('#carousel-3 [data-carousel-dot="2"]').click();
-  await expect.poll(() => scrollLeftOf(page, 3)).toBe(2);
-  expect(await scrollLeftOf(page, 2)).toBe(1);
-
-  // Précédent depuis la première image : boucle vers la dernière.
-  await page.locator('#carousel-1 [data-carousel-prev]').click();
-  await expect.poll(() => scrollLeftOf(page, 1)).toBe(3);
-
-  // Clavier.
-  await page.locator('#carousel-1 [data-carousel-viewport]').focus();
-  await page.keyboard.press('Home');
-  await expect.poll(() => scrollLeftOf(page, 1)).toBe(0);
-  await page.keyboard.press('ArrowRight');
-  await expect.poll(() => scrollLeftOf(page, 1)).toBe(1);
-  expect(await scrollLeftOf(page, 3)).toBe(2);
-  expect(await scrollLeftOf(page, 2)).toBe(1);
+  for (let n = 0; n < 3; n++) {
+    const c = caseAt(page, n);
+    await expect(c.locator('.badge-demo')).toHaveText('Concept / Démonstration');
+    await expect(c.locator('dt')).toHaveText(['Contexte / défi', 'Solution apportée', 'Résultats mesurables']);
+    await expect(c.locator('.case__results dd')).toContainText('aucun résultat mesuré');
+    await expect(c.locator('.case__thumb')).toHaveCount(4);
+  }
+  await caseAt(page, 2).scrollIntoViewIfNeeded();
+  // Couverture : variante adaptée à l'écran (pas la 2400 px), nette.
+  await expect.poll(() => caseAt(page, 0).locator('.case__cover img').evaluate((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  expect(media.some((u) => u.includes('/2400.'))).toBe(false);
 });
 
-test('carrousels : glissement tactile réel sur mobile, sans entraîner les autres', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
-  const page = await context.newPage();
-  await page.goto(BASE);
-  await page.locator('#carousel-2').scrollIntoViewIfNeeded();
-  await page.waitForTimeout(300);
-  const box = (await page.locator('#carousel-2').boundingBox())!;
-  const cdp = await context.newCDPSession(page);
-  // Vrais événements tactiles (touchstart → touchmove → touchend) : glissement du doigt vers la gauche.
-  const y = Math.round(box.y + box.height * 0.3);
-  const x0 = Math.round(box.x + box.width * 0.85);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
-  for (let i = 1; i <= 10; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - i * Math.round(box.width * 0.07), y }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await expect.poll(() => scrollLeftOf(page, 2)).toBe(1);
-  await expect(page.locator('#carousel-2 [data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
-  expect(await scrollLeftOf(page, 1)).toBe(0);
-  expect(await scrollLeftOf(page, 3)).toBe(0);
-  await expect.poll(() => page.locator('#carousel-2 .carousel__slide').nth(1).locator('img').evaluate((e) => (e as HTMLImageElement).naturalWidth > 0)).toBe(true);
-  await context.close();
-});
-
-test('visionneuse : clic sur une capture, navigation, zoom, Échap, retour au carrousel', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test('visionneuse : capture entière (jamais recadrée), navigation, zoom, Échap, focus rendu', async ({ page }) => {
+  // Fenêtre basse et large (cas signalé) : l'image doit tenir entière entre la barre et la légende.
+  await page.setViewportSize({ width: 1920, height: 871 });
   const problems = watch(page);
   await page.goto(BASE);
-  await page.locator('#carousel-1').scrollIntoViewIfNeeded();
+  await caseAt(page, 1).scrollIntoViewIfNeeded();
   const dialog = page.locator('dialog.lightbox');
   await expect(dialog).not.toBeVisible();
 
-  // Clic direct sur l'image.
-  await page.locator('#carousel-1 .carousel__slide').first().locator('img').click();
+  const cover = caseAt(page, 1).locator('.case__cover');
+  await cover.click();
   await expect(dialog).toBeVisible();
-  await expect(page.locator('[data-lightbox-title]')).toHaveText('Entreprise de maçonnerie');
+  await expect(page.locator('[data-lightbox-title]')).toHaveText('Laboratoire in vitro');
   await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
-  const alt = await page.locator('#carousel-1 .carousel__slide').first().locator('img').getAttribute('alt');
-  await expect(page.locator('[data-lightbox-caption]')).toHaveText(alt!);
-  // Image plus grande que dans la carte (variante haute définition).
-  await expect.poll(() => page.locator('.lightbox__img').last().evaluate((e) => Number(/\/(\d+)\.(?:avif|webp)$/.exec((e as HTMLImageElement).currentSrc)?.[1] ?? 0))).toBeGreaterThanOrEqual(1200);
-  // Fond inerte : le focus est dans la visionneuse.
+  await expect(page.locator('[data-lightbox-caption]')).toContainText('in vitro');
+  const fit = await page.evaluate(() => {
+    const img = [...document.querySelectorAll<HTMLImageElement>('.lightbox__img')].pop()!.getBoundingClientRect();
+    const bar = document.querySelector('.lightbox__bar')!.getBoundingClientRect();
+    const cap = document.querySelector('.lightbox__caption')!.getBoundingClientRect();
+    return { top: img.top, bottom: img.bottom, left: img.left, right: img.right, ratio: img.width / img.height, barBottom: bar.bottom, capTop: cap.top, w: innerWidth };
+  });
+  expect(fit.top).toBeGreaterThanOrEqual(fit.barBottom);
+  expect(fit.bottom).toBeLessThanOrEqual(fit.capTop);
+  expect(fit.left).toBeGreaterThanOrEqual(0);
+  expect(fit.right).toBeLessThanOrEqual(fit.w);
+  expect(Math.abs(fit.ratio - 1.6)).toBeLessThan(0.01);
+  // Grande image : au moins 1100 px de large sur cet écran, variante haute définition.
+  expect(fit.right - fit.left).toBeGreaterThan(1100);
+  await expect.poll(() => page.locator('.lightbox__img').last().evaluate((e) => Number(/\/(\d+)\.(?:avif|webp)$/.exec((e as HTMLImageElement).currentSrc)?.[1] ?? 0))).toBeGreaterThanOrEqual(1600);
   expect(await page.evaluate(() => !!document.activeElement?.closest('dialog'))).toBe(true);
 
   // Navigation clavier et boutons, en boucle.
@@ -198,32 +167,33 @@ test('visionneuse : clic sur une capture, navigation, zoom, Échap, retour au ca
   await expect(page.locator('[data-lightbox-count]')).toHaveText('4 / 4');
   await page.locator('[data-lightbox-next]').click();
   await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
-  await page.keyboard.press('ArrowRight');
-  await expect(page.locator('[data-lightbox-count]')).toHaveText('2 / 4');
 
-  // Zoom au clic sur l'image, puis dézoom.
+  // Zoom au clic (les captures 2880 px apportent du détail), puis dézoom.
   const img = page.locator('.lightbox__img').last();
+  await expect(page.locator('[data-lightbox-zoom]')).toBeVisible();
   await img.click();
   await expect(page.locator('[data-lightbox-zoom]')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => img.evaluate((e) => getComputedStyle(e).transform)).toContain('matrix(2');
   await page.locator('[data-lightbox-zoom]').click();
   await expect(page.locator('[data-lightbox-zoom]')).toHaveAttribute('aria-pressed', 'false');
 
-  // Échap : fermeture, focus rendu au carrousel, qui affiche l'image vue en dernier.
+  // Échap : fermeture, focus rendu au visuel qui l'a ouverte.
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
-  expect(await page.evaluate(() => document.activeElement?.closest('#carousel-1') !== null)).toBe(true);
-  await expect.poll(() => scrollLeftOf(page, 1)).toBe(1);
-  await expect(page.locator('#carousel-1 [data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
-  expect(await scrollLeftOf(page, 2)).toBe(0);
+  await expect(cover).toBeFocused();
 
-  // Bouton « Agrandir » (clavier) et projet suivant.
-  await page.locator('#carousel-3 [data-lightbox-open]').focus();
+  // Vignette 3 d'un autre projet (clavier) : ouvre directement la bonne image.
+  await caseAt(page, 2).locator('.case__thumb').nth(2).focus();
   await page.keyboard.press('Enter');
   await expect(dialog).toBeVisible();
   await expect(page.locator('[data-lightbox-title]')).toHaveText('EARKO');
+  await expect(page.locator('[data-lightbox-count]')).toHaveText('3 / 4');
   await page.locator('[data-lightbox-close]').click();
   await expect(dialog).not.toBeVisible();
+  // Bouton « Voir les 4 captures ».
+  await caseAt(page, 0).locator('[data-lightbox-open]').click();
+  await expect(page.locator('[data-lightbox-title]')).toHaveText('Entreprise de maçonnerie');
+  await page.keyboard.press('Escape');
   expect(problems).toEqual([]);
 });
 
@@ -231,8 +201,8 @@ test('visionneuse mobile : toucher pour ouvrir, glisser pour changer d’image',
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
   const page = await context.newPage();
   await page.goto(BASE);
-  await page.locator('#carousel-2').scrollIntoViewIfNeeded();
-  await page.locator('#carousel-2 .carousel__slide').first().locator('img').tap();
+  await caseAt(page, 1).scrollIntoViewIfNeeded();
+  await caseAt(page, 1).locator('.case__cover').tap();
   await expect(page.locator('dialog.lightbox')).toBeVisible();
   await expect(page.locator('[data-lightbox-count]')).toHaveText('1 / 4');
   const box = (await page.locator('[data-lightbox-stage]').boundingBox())!;
@@ -257,7 +227,6 @@ test('texte non éditable : pas de curseur de saisie hors des champs du formulai
   // Aucun élément de saisie n'a pris le focus en cliquant dans le texte.
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
   // Les champs, eux, gardent le curseur et le point d'insertion.
-  await page.locator('[data-contact-toggle]').click();
   const field = page.locator('#cf-name');
   await expect(field).toBeVisible();
   expect(await field.evaluate((el) => ({ caret: getComputedStyle(el).caretColor, cursor: getComputedStyle(el).cursor }))).toEqual({ caret: 'rgb(224, 70, 110)', cursor: 'text' });
@@ -298,15 +267,26 @@ test('mouvement réduit : néon figé, aucune parallaxe, contenu visible', async
   await page.close();
 });
 
-test('formulaire : ouverture, erreurs, échec serveur (données conservées), succès confirmé par le serveur', async ({ page }) => {
+test('formulaire : visible d’emblée, appels à l’action, erreurs, échec serveur (données conservées), succès confirmé', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const problems = watch(page);
   await page.goto(BASE);
-  await expect(page.locator('#formulaire-contact')).toBeHidden();
-  await page.locator('[data-contact-toggle]').click();
-  await expect(page.locator('#formulaire-contact')).toBeVisible();
-  await expect(page.locator('[data-contact-toggle]')).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('#cf-name')).toBeFocused();
+  // Aucun bouton à cliquer pour révéler le formulaire.
+  await expect(page.locator('[data-contact-toggle]')).toHaveCount(0);
+  await page.locator('#contact').scrollIntoViewIfNeeded();
+  await expect(page.locator('#cf-name')).toBeVisible();
+  await expect(page.locator('.contact__promise')).toHaveText('Nous vous répondons sous 1 jour ouvré.');
+  // « Réserver un diagnostic » (sans lien de rendez-vous configuré) : mène au formulaire, titre sous l'en-tête.
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.locator('.hero__cta-primary').click();
+  await page.waitForFunction(() => {
+    const t = document.getElementById('contact')!.getBoundingClientRect().top;
+    return t >= 80 && t < 120;
+  });
+  await expect(page.locator('#cf-name')).toBeInViewport();
+  // « Parler de ce projet » (service E-commerce) : type de projet présélectionné.
+  await page.locator('#services .service__link').nth(2).click();
+  await expect(page.locator('#cf-type')).toHaveValue('Site e-commerce');
 
   // Données invalides.
   await page.locator('#cf-email').fill('pas-un-email');
@@ -320,6 +300,8 @@ test('formulaire : ouverture, erreurs, échec serveur (données conservées), su
   await page.locator('#cf-email').fill('lea@dubois-conseil.fr');
   await page.locator('#cf-phone').fill('06 12 34 56 78');
   await page.locator('#cf-type').selectOption('Refonte de site');
+  await page.locator('#cf-budget').selectOption('6 000 à 12 000 €');
+  await page.locator('#cf-timeline').selectOption('Dans 1 à 3 mois');
   await page.locator('#cf-message').fill('Nous voulons moderniser notre site et le rendre plus rapide.');
   await page.waitForTimeout(2600); // délai anti-robot
 
@@ -396,27 +378,35 @@ test('administration : accès refusé sans connexion, connexion, projet complet 
   // Reflété sur le site, en position 2, sans toucher au code.
   const site = await page.context().newPage();
   await site.goto(BASE);
-  const second = site.locator('.project-grid__item').nth(1);
-  await expect(second.locator('.project-card__title')).toHaveText('Cabinet Morel');
-  await expect(second.locator('.project-card__link')).toHaveAttribute('href', 'https://cabinet-morel.example');
-  await expect(second.locator('img').first()).toHaveAttribute('alt', 'Page contact du cabinet Morel');
+  const second = caseAt(site, 1);
+  await expect(second.locator('.case__title')).toHaveText('Cabinet Morel');
+  await expect(second.locator('a', { hasText: 'Voir le projet' })).toHaveAttribute('href', 'https://cabinet-morel.example');
+  await expect(second.locator('.case__thumb').first()).toHaveAttribute('aria-label', /Page contact du cabinet Morel/);
   await expect(second.locator('.badge-demo')).toHaveCount(0);
-  await expect(second.locator('.carousel__slide')).toHaveCount(2);
+  await expect(second.locator('.badge-client')).toHaveText('Projet client');
+  await expect(second.locator('.case__thumb')).toHaveCount(2);
 
-  // Suppression d'une image → une seule image : contrôles du carrousel masqués.
+  // Suppression d'une image → une seule image : plus de vignettes, la couverture ouvre toujours la visionneuse.
   await page.locator('.image-row').nth(1).locator('button', { hasText: 'Supprimer' }).click();
   await expect(page.locator('.image-row')).toHaveCount(1);
   await site.reload();
-  await expect(site.locator('.project-grid__item').nth(1).locator('[data-carousel-next]')).toHaveCount(0);
-  await expect(site.locator('.project-grid__item').nth(1).locator('.carousel__slide')).toHaveCount(1);
+  await expect(caseAt(site, 1).locator('.case__thumb')).toHaveCount(0);
+  await caseAt(site, 1).locator('.case__cover').click();
+  await expect(site.locator('[data-lightbox-count]')).toHaveText('1 / 1');
+  await site.keyboard.press('Escape');
 
   // Contenus.
   await page.goto(`${BASE}/admin/contenus`);
   await page.locator('#c-hero-subtitle').fill('Design sur mesure. Performance. Résultats.');
+  await page.locator('#c-contact-bookingUrl').fill('https://cal.com/nexora/diagnostic');
   await page.locator('button', { hasText: 'Enregistrer et publier' }).click();
   await expect(page.locator('.flash--ok')).toBeVisible();
   await site.reload();
   await expect(site.locator('.hero__lead')).toHaveText('Design sur mesure. Performance. Résultats.');
+  // Lien de rendez-vous : utilisé par les boutons « Réserver », en nouvel onglet.
+  await expect(site.locator('.hero__cta-primary')).toHaveAttribute('href', 'https://cal.com/nexora/diagnostic');
+  await expect(site.locator('.hero__cta-primary')).toHaveAttribute('target', '_blank');
+  await expect(site.locator('.contact__alt a', { hasText: 'Réserver un créneau de 20 min' })).toBeVisible();
   await site.close();
 
   // Déconnexion.
@@ -430,9 +420,9 @@ test('persistance après redémarrage du serveur (base + fichiers)', async ({ pa
   await stop();
   await start();
   await page.goto(BASE);
-  await expect(page.locator('.project-grid__item').nth(1).locator('.project-card__title')).toHaveText('Cabinet Morel');
+  await expect(caseAt(page, 1).locator('.case__title')).toHaveText('Cabinet Morel');
   await expect(page.locator('.hero__lead')).toHaveText('Design sur mesure. Performance. Résultats.');
-  const src = await page.locator('.project-grid__item').nth(1).locator('img').first().getAttribute('src');
+  const src = await caseAt(page, 1).locator('.case__cover img').getAttribute('src');
   const img = await page.request.get(`${BASE}${src}`);
   expect(img.status()).toBe(200);
   await page.goto(`${BASE}/admin/connexion`);

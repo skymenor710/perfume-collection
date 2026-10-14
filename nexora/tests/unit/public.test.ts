@@ -8,7 +8,8 @@ import { contactRequests, projects } from '../../src/server/db/schema';
 import { seedDemo } from '../../src/server/db/seed';
 import { issueFormToken } from '../../src/server/lib/contact';
 import { loadConfig } from '../../src/server/config';
-import { bumpContentVersion } from '../../src/server/lib/repo';
+import { bumpContentVersion, saveContent } from '../../src/server/lib/repo';
+import { defaultContent } from '../../src/server/lib/content';
 
 const SEED_DIR = path.resolve('seed/demo');
 let ctx: TestCtx;
@@ -19,57 +20,99 @@ describe('site public', () => {
   });
   afterEach(async () => ctx.close());
 
-  it('affiche les 3 projets de démonstration, chacun avec son propre carrousel', async () => {
+  it('page d’acquisition : promesse, services, méthode, 3 études de cas (concepts signalés), FAQ, formulaire visible', async () => {
     await seedDemo(ctx.deps, SEED_DIR);
     const res = await new Client(ctx).req('/');
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain('Des sites qui donnent une');
-    expect(html).toContain('nouvelle dimension');
-    expect(html).toContain('Des projets concrets.');
-    expect(html).toContain('Votre prochain site');
-    expect(html).toContain('Aperçus de démonstration');
-    expect(html.match(/data-carousel=""/g)?.length).toBe(3);
-    for (const n of [1, 2, 3]) expect(html).toContain(`id="carousel-${n}"`);
-    expect(html.match(/class="carousel__slide"/g)?.length).toBe(12);
-    expect(html.match(/class="badge-demo"/g)?.length).toBe(3);
-    // 1re image de chaque carrousel : chargement paresseux ; les suivantes : différées (data-src, chargées à l'usage).
-    // Toutes ont des dimensions (pas de décalage) et un texte alternatif.
-    // (+ 2 <picture> du symbole N du hero : image et reflet.)
-    expect(html.match(/<picture>\s*<source type="image\/avif" srcset="\/media\//g)?.length).toBe(3);
-    expect(html.match(/<picture data-deferred/g)?.length).toBe(9);
-    const deferred = [...html.matchAll(/<img data-src="\/media\/[^>]+>/g)].map((m) => m[0]);
-    expect(deferred.length).toBe(9);
-    const imgs = [...html.matchAll(/<img (?:data-)?src="\/media\/[^>]+>/g)].map((m) => m[0]);
+    // Hero orienté résultat, deux appels à l'action et réassurance.
+    expect(html).toContain('Des sites web pensés pour');
+    expect(html).toContain('générer des demandes,');
+    expect(html).toContain('pas seulement des compliments.');
+    expect(html).toContain('Réserver un diagnostic de 20 min');
+    expect(html).toContain('Voir des résultats clients');
+    expect(html).toContain('Sans engagement · Réponse sous 1 jour ouvré');
+    // Sections dans l'ordre demandé, et navigation correspondante.
+    const order = ['id="accueil"', 'class="proof"', 'id="services"', 'id="methode"', 'id="realisations"', 'id="temoignages"', 'id="faq"', 'id="contact"'].map((m) => html.indexOf(m));
+    expect(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1]))).toBe(true);
+    for (const href of ['/#services', '/#methode', '/#realisations', '/#faq', '/#contact']) expect(html).toContain(`href="${href}"`);
+    // Une seule balise h1 ; les sections ont un titre h2.
+    expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
+    for (const t of ['Sites vitrines', 'Refonte de site', 'E-commerce', 'Automatisations et outils digitaux']) expect(html).toContain(t);
+    for (const t of ['Diagnostic et stratégie', 'Design et développement', 'Lancement et optimisation']) expect(html).toContain(t);
+    for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration']) expect(html.toLowerCase()).toContain(t.toLowerCase());
+    // Études de cas : contexte, solution, résultats ; concepts clairement identifiés, aucun résultat inventé.
+    expect(html.match(/class="case[ "]/g)?.length).toBe(3);
+    expect(html.match(/Concept \/ Démonstration/g)?.length).toBe(3);
+    expect(html.match(/<dt>Contexte \/ défi<\/dt>/g)?.length).toBe(3);
+    expect(html.match(/<dt>Solution apportée<\/dt>/g)?.length).toBe(3);
+    expect(html.match(/aucun résultat mesuré à ce jour/g)?.length).toBe(3);
+    expect(html).not.toContain('badge-client');
+    // Captures : 4 vignettes par cas, chacune ouvre la visionneuse avec ses sources HD (jusqu'à 2400 px).
+    expect(html.match(/class="case__thumb"/g)?.length).toBe(12);
+    expect(html.match(/data-shot="true"/g)?.length).toBe(12);
+    expect(html).toMatch(/data-webp="[^"]*\/2400\.webp 2400w"/);
+    expect(html.match(/<dialog class="lightbox"/g)?.length).toBe(1);
+    expect(html.match(/data-gallery="/g)?.length).toBe(3);
+    const imgs = [...html.matchAll(/<img src="\/media\/[^>]+>/g)].map((m) => m[0]);
+    expect(imgs.length).toBe(15);
     for (const img of imgs) {
       expect(img).toMatch(/width="\d+"/);
-      expect(img).toMatch(/alt="Site /);
+      expect(img).toContain('loading="lazy"');
     }
-    expect(html).toContain('Entreprise de maçonnerie');
-    expect(html).toContain('Laboratoire in vitro');
-    expect(html).toContain('EARKO');
-    // Visionneuse plein écran : une seule, avec un bouton « Agrandir » par projet.
-    expect(html.match(/<dialog class="lightbox"/g)?.length).toBe(1);
-    expect(html.match(/data-lightbox-open/g)?.length).toBe(3);
-    expect(html.match(/data-gallery="/g)?.length).toBe(3);
-    // Symbole N 4K : variantes AVIF + WebP jusqu'à 1600 px.
+    // Textes alternatifs : portés par les boutons (nom accessible) et repris en légende dans la visionneuse.
+    expect(html.match(/aria-label="Agrandir l’image \d sur 4 : Site /g)?.length).toBe(15);
+    // Formulaire visible d'emblée (pas de bouton pour le révéler), champs de qualification facultatifs.
+    expect(html).not.toContain('data-contact-toggle');
+    expect(html).toContain('id="cf-budget"');
+    expect(html).toContain('id="cf-timeline"');
+    expect(html).toContain('Nous vous répondons sous 1 jour ouvré.');
+    expect(html).toContain('href="/politique-de-confidentialite"');
+    expect(html).toContain('href="/mentions-legales"');
+    // Hors production : emplacements « à compléter » visibles pour la preuve sociale et les témoignages, sans données inventées.
+    expect(html).toContain('data-placeholder="proof"');
+    expect(html).toContain('data-placeholder="testimonials"');
+    // Symbole N 4K et logotype vectoriel.
     expect(html).toContain('/brand/symbol-1600.avif 1600w');
     expect(html).toContain('/brand/wordmark.svg');
-    // Identité des prospects jamais affichée.
+    // Identité des prospects jamais affichée ; jeton du formulaire remplacé à chaque requête.
     expect(html).not.toMatch(/AWM/i);
-    // Jeton du formulaire remplacé à chaque requête.
     expect(html).not.toContain('__NX_FORM_TOKEN__');
   }, 180_000);
 
+  it('preuve sociale et témoignages : jamais de remplissage en production, affichés dès qu’ils sont renseignés', async () => {
+    await ctx.close();
+    ctx = await setup({ env: { SHOW_PLACEHOLDERS: 'false' } });
+    let html = await (await new Client(ctx).req('/')).text();
+    expect(html).not.toContain('class="proof"');
+    expect(html).not.toContain('id="temoignages"');
+    expect(html).not.toContain('data-placeholder');
+    const content = structuredClone(defaultContent);
+    content.proof.item1Value = '4,9/5';
+    content.proof.item1Label = 'note moyenne sur Google (12 avis)';
+    content.testimonials.t1Quote = 'Citation réelle.';
+    content.testimonials.t1Author = 'Prénom Nom';
+    content.contact.bookingUrl = 'https://cal.com/nexora/diagnostic';
+    content.contact.whatsappNumber = '+33 6 12 34 56 78';
+    await saveContent(ctx.deps.db, content);
+    await bumpContentVersion(ctx.deps.db);
+    html = await (await new Client(ctx).req('/')).text();
+    expect(html).toContain('4,9/5');
+    expect(html).toContain('Citation réelle.');
+    expect(html).not.toContain('data-placeholder');
+    // Lien de rendez-vous : utilisé par les boutons « Réserver » (nouvel onglet) ; WhatsApp : lien wa.me.
+    expect(html).toContain('href="https://cal.com/nexora/diagnostic" target="_blank" rel="noopener"');
+    expect(html).toContain('href="https://wa.me/33612345678?text=');
+  });
+
   it('gère 0 projet et les projets sans image', async () => {
     let html = await (await new Client(ctx).req('/')).text();
-    expect(html).toContain('Nos premières réalisations seront bientôt présentées ici.');
+    expect(html).toContain('Nos premières études de cas seront bientôt présentées ici.');
     await ctx.deps.db.insert(projects).values({ name: 'Projet vide', published: true, sortOrder: 1 });
     await bumpContentVersion(ctx.deps.db);
     html = await (await new Client(ctx).req('/')).text();
     expect(html).toContain('Projet vide');
     expect(html).toContain('Visuel à venir');
-    expect(html).not.toContain('data-carousel-prev');
     expect(html).not.toContain('<dialog class="lightbox"');
   });
 
@@ -140,10 +183,21 @@ describe('formulaire de contact', () => {
     expect((await res.json()).message).toContain('bien été enregistrée');
     const rows = await ctx.deps.db.select().from(contactRequests);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ name: 'Camille Martin', email: 'camille@example.fr', status: 'new', projectType: 'Site vitrine' });
+    expect(rows[0]).toMatchObject({ name: 'Camille Martin', email: 'camille@example.fr', status: 'new', projectType: 'Site vitrine', budget: null, timeline: null });
     // E-mail non configuré : pas d'envoi simulé, l'absence est consignée.
     expect(rows[0].notifiedAt).toBeNull();
     expect(rows[0].notifyError).toBe('Notification e-mail non configurée');
+  });
+
+  it('enregistre le budget estimatif et le délai souhaité (facultatifs, listes fermées)', async () => {
+    ctx = await setup();
+    const ok = await postJson(new Client(ctx), contactPayload({ budget: '3 000 à 6 000 €', timeline: 'Dans 1 à 3 mois' }));
+    expect(ok.status).toBe(201);
+    const [row] = await ctx.deps.db.select().from(contactRequests);
+    expect(row).toMatchObject({ budget: '3 000 à 6 000 €', timeline: 'Dans 1 à 3 mois' });
+    const bad = await postJson(new Client(ctx, '203.0.113.50'), contactPayload({ budget: '1 million', timeline: 'hier' }));
+    expect(bad.status).toBe(422);
+    expect(Object.keys((await bad.json()).errors).sort()).toEqual(['budget', 'timeline']);
   });
 
   it('formulaire classique (sans JavaScript) : redirection 303 vers la confirmation', async () => {

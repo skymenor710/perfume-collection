@@ -25,7 +25,7 @@ export interface TestCtx {
   close(): Promise<void>;
 }
 
-export async function setup(opts: { mail?: 'none' | 'ok' | 'fail' } = {}): Promise<TestCtx> {
+export async function setup(opts: { mail?: 'none' | 'ok' | 'fail'; env?: Record<string, string> } = {}): Promise<TestCtx> {
   const dir = mkdtempSync(path.join(tmpdir(), 'nexora-test-'));
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -37,6 +37,7 @@ export async function setup(opts: { mail?: 'none' | 'ok' | 'fail' } = {}): Promi
     STORAGE_LOCAL_DIR: path.join(dir, 'uploads'),
     LOG_LEVEL: 'silent',
     UPLOAD_MAX_MB: '2',
+    ...opts.env,
   });
   const handle = await openDb(config.databaseUrl);
   await applyMigrations(handle);

@@ -25,9 +25,32 @@ export const Logo = ({ tagline, size = 'md' }: { tagline?: string; size?: 'md' |
 
 export const NAV = [
   { href: '/#accueil', label: 'Accueil' },
+  { href: '/#services', label: 'Services' },
+  { href: '/#methode', label: 'Méthode' },
   { href: '/#realisations', label: 'Réalisations' },
+  { href: '/#faq', label: 'FAQ' },
   { href: '/#contact', label: 'Contact' },
 ];
+
+/**
+ * Lien « Réserver un diagnostic » : la page de prise de rendez-vous (Cal.com, Calendly…) si elle est configurée dans
+ * Admin › Contenus › Contact, sinon le formulaire de contact.
+ */
+export function bookingLink(content: SiteContent) {
+  const url = content.contact.bookingUrl;
+  return url ? { href: url, target: '_blank', rel: 'noopener', external: true } : { href: '/#contact', external: false };
+}
+
+export const BookingCta = ({ content, label, class: cls, size = 18, menu }: { content: SiteContent; label: string; class: string; size?: number; menu?: boolean }) => {
+  const l = bookingLink(content);
+  return (
+    <a class={cls} href={l.href} target={l.external ? '_blank' : undefined} rel={l.external ? 'noopener' : undefined} data-menu-link={menu ? '' : undefined}>
+      <span>{label}</span>
+      {l.external ? <span class="sr-only"> (nouvel onglet)</span> : null}
+      <ArrowUpRight size={size} />
+    </a>
+  );
+};
 
 export const Header = ({ content }: { content: SiteContent }) => (
   <header class="site-header" data-header>
@@ -45,10 +68,7 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <a class="btn btn--outline btn--sm site-header__cta" href="/#contact" data-open-contact>
-          <span>{content.header.cta}</span>
-          <ArrowUpRight size={16} />
-        </a>
+        <BookingCta content={content} label={content.header.cta} class="btn btn--outline btn--sm site-header__cta" size={16} />
       </nav>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only" data-menu-label>
@@ -68,10 +88,7 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <a class="btn btn--primary mobile-menu__cta" href="/#contact" data-menu-link data-open-contact>
-          <span>{content.header.cta}</span>
-          <ArrowUpRight />
-        </a>
+        <BookingCta content={content} label={content.header.cta} class="btn btn--primary mobile-menu__cta" menu />
       </nav>
     </div>
   </header>

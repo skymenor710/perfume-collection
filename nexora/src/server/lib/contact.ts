@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PROJECT_TYPES } from './content';
+import { BUDGETS, PROJECT_TYPES, TIMELINES } from './content';
 import { hmac, safeEqual } from './crypto';
 
 /** Validation serveur du formulaire (la validation du navigateur n'est qu'un confort). */
@@ -11,6 +11,8 @@ export const contactSchema = z.object({
   email: z.string().trim().toLowerCase().max(160).email('Indiquez une adresse e-mail valide (ex. : nom@entreprise.fr).'),
   phone: z.union([z.literal(''), z.string().trim().regex(/^[+0-9 ().-]{6,30}$/, 'Numéro de téléphone invalide.')]).optional().default(''),
   projectType: z.enum(PROJECT_TYPES, { message: 'Choisissez un type de projet.' }),
+  budget: z.union([z.literal(''), z.enum(BUDGETS)], { message: 'Choisissez une valeur de la liste.' }).optional().default(''),
+  timeline: z.union([z.literal(''), z.enum(TIMELINES)], { message: 'Choisissez une valeur de la liste.' }).optional().default(''),
   message: text(4000).min(10, 'Décrivez votre projet en quelques mots (10 caractères minimum).'),
 });
 

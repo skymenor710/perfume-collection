@@ -33,8 +33,24 @@ Facultatif : e-mail et téléphone à afficher publiquement dans la section cont
 | Premier administrateur | `npm run admin:create -- --email …` | à créer sur le serveur |
 | Sauvegardes planifiées | tâche cron de l’hébergeur + stockage chiffré | à mettre en place |
 
-## Contenus
+## Contenus de conversion — données RÉELLES uniquement
 
-- [ ] Vrais projets (nom, catégorie, lien, 1 à 10 images carrées, textes alternatifs) pour compléter ou remplacer les 3 maquettes affichées (maçonnerie, laboratoire, EARKO), signalées « Démonstration ».
-- [ ] Validation des textes (titre, accroche, messages) — ceux des maquettes sont en place et modifiables.
-- [ ] Logo vectoriel (SVG/AI) si disponible : le site utilise le PNG original détouré (net jusqu’à 960 px).
+Rien n’a été inventé : les sections ci-dessous restent **masquées pour les visiteurs** tant qu’elles sont vides. Hors
+production (`SHOW_PLACEHOLDERS=auto`), des emplacements hachurés « à compléter » montrent où elles s’afficheront. Le
+tableau de bord de l’admin rappelle ce qui manque (« Contenus de conversion à compléter »).
+
+| À fournir | Où le saisir | Remarque |
+|---|---|---|
+| [ ] Lien de prise de rendez-vous (Cal.com, Calendly, Google Agenda…) | Admin › Contenus › Section Contact › *Lien de prise de rendez-vous* | `https://` obligatoire. Tant qu’il est vide, « Réserver un diagnostic » mène au formulaire. |
+| [ ] Numéro WhatsApp (facultatif) | Admin › Contenus › Section Contact › *Numéro WhatsApp* | Format international : `+33 6 12 34 56 78`. Ajoute un bouton « Écrire sur WhatsApp » (lien wa.me). |
+| [ ] 2 à 4 chiffres de preuve sociale | Admin › Contenus › Preuve sociale | Uniquement vérifiables : note et nombre d’avis Google, nombre de sites livrés, résultat mesuré… |
+| [ ] Témoignages clients (1 à 3) | Admin › Contenus › Témoignages | Citation exacte, nom et fonction réels, **accord écrit** du client. |
+| [ ] Études de cas réelles | Admin › Projets › (projet) › Étude de cas | Contexte / défi, solution, **résultats mesurés** (chiffres réels), lien vers l’étude complète. Décocher « Concept de démonstration ». |
+| [ ] Validation des réponses de la FAQ | Admin › Contenus › Questions fréquentes | Elles engagent l’entreprise (délais, budget, propriété du site, maintenance) : à relire et ajuster. |
+| [ ] Engagement « Réponse sous 1 jour ouvré » | Admin › Contenus › Bannière et Contact | À conserver seulement s’il est tenu en pratique. |
+| [ ] Tranches de budget du formulaire | `src/server/lib/content.ts` (`BUDGETS`, `TIMELINES`) | Valeurs indicatives proposées ; à adapter aux prix réels. |
+
+## Autres contenus
+
+- [ ] Vrais projets (nom, catégorie, lien, images 16:10 — idéalement 2880 × 1800 —, textes alternatifs) pour remplacer les 3 concepts affichés (maçonnerie, laboratoire, EARKO), signalés « Concept / Démonstration ».
+- [ ] Validation des textes (promesse, services, méthode) — proposés et modifiables dans l’admin.

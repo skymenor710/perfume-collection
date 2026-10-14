@@ -9,32 +9,58 @@ import { z } from 'zod';
 const line = (max: number) => z.string().trim().max(max);
 const optionalEmail = z.union([z.literal(''), z.string().trim().max(160).email()]);
 const optionalPhone = z.union([z.literal(''), z.string().trim().max(30).regex(/^[+0-9 ().-]{6,30}$/)]);
+/** Lien de prise de rendez-vous (Cal.com, Calendly…) : https uniquement. */
+const optionalHttpsUrl = z.union([z.literal(''), z.string().trim().max(300).url().startsWith('https://')]);
+/** Numéro WhatsApp au format international (ex. : +33 6 12 34 56 78). */
+const optionalWhatsapp = z.union([z.literal(''), z.string().trim().max(24).regex(/^\+[0-9 ]{8,22}$/)]);
+
+/** Champs numérotés (services 1–4, étapes 1–3…) : la mise en page reste fixe, seuls les textes changent. */
+type Upto<N extends number> = N extends 3 ? 1 | 2 | 3 : N extends 4 ? 1 | 2 | 3 | 4 : 1 | 2 | 3 | 4 | 5 | 6;
+function numbered<P extends string, N extends 3 | 4 | 6, K extends string>(prefix: P, count: N, fields: Record<K, number>) {
+  const shape: Record<string, z.ZodString> = {};
+  for (let i = 1; i <= count; i++) for (const [k, max] of Object.entries(fields) as [K, number][]) shape[`${prefix}${i}${k}`] = line(max);
+  return shape as Record<`${P}${Upto<N>}${K}`, z.ZodString>;
+}
 
 export const contentSchema = z.object({
   hero: z.object({
     titleBefore: line(80),
     titleHighlight: line(60),
     titleAfter: line(80),
-    subtitle: line(140),
+    subtitle: line(240),
     primaryCta: line(40).min(1),
     secondaryCta: line(40).min(1),
+    reassurance: line(80),
   }),
-  header: z.object({ cta: line(40).min(1) }),
+  header: z.object({ cta: line(32).min(1) }),
+  /** Preuve sociale : uniquement des données RÉELLES (chiffres vérifiables, avis publics…). Vide = section masquée. */
+  proof: z.object({ title: line(80), ...numbered('item', 4, { Value: 16, Label: 80 }) }),
+  services: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), cta: line(40), ...numbered('s', 4, { Title: 50, Text: 200 }) }),
+  method: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), ...numbered('m', 3, { Title: 50, Text: 300 }) }),
   projects: z.object({
     eyebrow: line(60),
     titleLine1: line(60),
     titleLine2Before: line(30),
     titleLine2Highlight: line(60),
-    subtitle: line(140),
+    subtitle: line(200),
     visitLabel: line(30).min(1),
+    caseLabel: line(30).min(1),
     emptyText: line(160),
   }),
+  /** Témoignages : uniquement des citations RÉELLES, avec l'accord écrit de la personne. Vide = section masquée. */
+  testimonials: z.object({ title: line(60), ...numbered('t', 3, { Quote: 400, Author: 80, Role: 120 }) }),
+  faq: z.object({ title: line(60), titleHighlight: line(60), ...numbered('q', 6, { Question: 140, Answer: 700 }) }),
   contact: z.object({
     titleLine1: line(60),
     titleHighlight: line(60),
-    text: line(160),
-    cta: line(40).min(1),
+    text: line(240),
+    responsePromise: line(80),
+    formTitle: line(60).min(1),
     successMessage: line(240).min(1),
+    bookingUrl: optionalHttpsUrl,
+    bookingLabel: line(40).min(1),
+    whatsappNumber: optionalWhatsapp,
+    whatsappMessage: line(160),
     publicEmail: optionalEmail,
     publicPhone: optionalPhone,
   }),
@@ -59,38 +85,104 @@ export const contentSchema = z.object({
 
 export type SiteContent = z.infer<typeof contentSchema>;
 
+const empty = (prefix: string, count: number, keys: string[]) =>
+  Object.fromEntries(Array.from({ length: count }, (_, i) => keys.map((k) => [`${prefix}${i + 1}${k}`, ''])).flat()) as Record<string, string>;
+
 export const defaultContent: SiteContent = {
   hero: {
-    titleBefore: 'Des sites qui donnent une',
-    titleHighlight: 'nouvelle dimension',
-    titleAfter: 'à votre entreprise.',
-    subtitle: 'Design sur mesure. Performance. Expérience intuitive.',
-    primaryCta: 'Découvrir nos réalisations',
-    secondaryCta: 'Parlons de votre projet',
+    titleBefore: 'Des sites web pensés pour',
+    titleHighlight: 'générer des demandes,',
+    titleAfter: 'pas seulement des compliments.',
+    subtitle:
+      'Nous concevons des sites rapides et sur mesure pour les entreprises qui veulent transformer leur présence en ligne en opportunités commerciales.',
+    primaryCta: 'Réserver un diagnostic de 20 min',
+    secondaryCta: 'Voir des résultats clients',
+    reassurance: 'Sans engagement · Réponse sous 1 jour ouvré',
   },
-  header: { cta: 'Parlons de votre projet' },
+  header: { cta: 'Réserver un diagnostic' },
+  // À REMPLIR uniquement avec des données réelles (ex. : « 4,9/5 » + « note moyenne sur Google, 32 avis »).
+  proof: { title: 'En quelques chiffres', ...empty('item', 4, ['Value', 'Label']) } as SiteContent['proof'],
+  services: {
+    title: 'Ce que nous construisons',
+    titleHighlight: 'pour votre croissance.',
+    subtitle: 'Quatre façons de transformer votre présence en ligne en opportunités commerciales.',
+    cta: 'Parler de ce projet',
+    s1Title: 'Sites vitrines',
+    s1Text: 'Un site qui présente clairement votre offre et transforme les visites en demandes de devis ou de rendez-vous.',
+    s2Title: 'Refonte de site',
+    s2Text: 'Votre site actuel repensé, plus rapide et mieux structuré, pour que vos visiteurs trouvent l’essentiel et vous contactent.',
+    s3Title: 'E-commerce',
+    s3Text: 'Une boutique pensée pour vendre : parcours d’achat simple, fiches produits claires, paiement sans friction.',
+    s4Title: 'Automatisations et outils digitaux',
+    s4Text: 'Prises de rendez-vous, devis, relances et formulaires automatisés : moins de tâches manuelles, aucune demande oubliée.',
+  },
+  method: {
+    title: 'Comment',
+    titleHighlight: 'nous travaillons.',
+    subtitle: 'Un cadre clair, du premier échange à la mise en ligne : vous savez à chaque étape ce qui est fait, quand et pourquoi.',
+    m1Title: 'Diagnostic et stratégie',
+    m1Text:
+      'Un échange de 20 minutes pour comprendre votre activité, vos clients et vos objectifs. Vous recevez ensuite une proposition écrite : périmètre, planning et budget.',
+    m2Title: 'Design et développement',
+    m2Text:
+      'Les maquettes sont validées avec vous avant toute ligne de code, puis le site est développé sur mesure. Vous suivez l’avancement et donnez votre avis au bon moment.',
+    m3Title: 'Lancement et optimisation',
+    m3Text:
+      'Mise en ligne, contrôle de la vitesse et du référencement, suivi des demandes reçues. Les ajustements s’appuient ensuite sur des données réelles.',
+  },
   projects: {
-    eyebrow: 'Aperçus de démonstration',
-    titleLine1: 'Des projets concrets.',
-    titleLine2Before: 'Des',
-    titleLine2Highlight: 'résultats visibles.',
-    subtitle: 'Une sélection de nos créations.',
-    visitLabel: 'Voir le site',
-    emptyText: 'Nos premières réalisations seront bientôt présentées ici.',
+    eyebrow: '',
+    titleLine1: 'Nos réalisations,',
+    titleLine2Before: 'du défi',
+    titleLine2Highlight: 'au résultat.',
+    subtitle: 'Pour chaque projet : le contexte, la solution apportée et les résultats mesurés. Les concepts sont signalés comme tels.',
+    visitLabel: 'Voir le projet',
+    caseLabel: 'Lire l’étude de cas',
+    emptyText: 'Nos premières études de cas seront bientôt présentées ici.',
+  },
+  // À REMPLIR uniquement avec des témoignages réels (citation exacte, nom et fonction, accord écrit).
+  testimonials: { title: 'Ils nous ont confié leur site', ...empty('t', 3, ['Quote', 'Author', 'Role']) } as SiteContent['testimonials'],
+  faq: {
+    title: 'Questions',
+    titleHighlight: 'fréquentes.',
+    q1Question: 'Combien de temps faut-il pour réaliser un site ?',
+    q1Answer:
+      'Cela dépend du périmètre : un site vitrine demande moins de temps qu’une boutique en ligne ou qu’une refonte avec reprise de contenus. Le calendrier est fixé par écrit dans la proposition, après le diagnostic, avec des étapes de validation datées.',
+    q2Question: 'Quel budget faut-il prévoir ?',
+    q2Answer:
+      'Chaque projet fait l’objet d’un devis détaillé après le diagnostic, selon le nombre de pages, les fonctionnalités et les contenus à produire. Le prix est fixé avant le démarrage ; toute évolution est chiffrée et validée avec vous avant d’être réalisée.',
+    q3Question: 'Qui s’occupe de la maintenance après la mise en ligne ?',
+    q3Answer:
+      'Les modalités de maintenance — mises à jour, sauvegardes, surveillance, petites évolutions — sont précisées dans la proposition. Vous choisissez le niveau d’accompagnement adapté à votre activité.',
+    q4Question: 'Le site sera-t-il bien référencé sur Google ?',
+    q4Answer:
+      'Le site est construit pour le référencement naturel : pages rapides, structure claire, contenus et balises optimisés, affichage parfait sur mobile. Personne ne peut garantir honnêtement une position précise sur Google ; nous vous montrons ce qui est fait et comment suivre les résultats.',
+    q5Question: 'À qui appartient le site ?',
+    q5Answer:
+      'Le nom de domaine est enregistré à votre nom et vos contenus vous appartiennent. Les conditions de cession du site et de son code sont précisées par écrit dans la proposition, avant le démarrage.',
+    q6Question: 'Comment se déroule la collaboration ?',
+    q6Answer:
+      'Après le diagnostic, vous avez un interlocuteur dédié du début à la fin. Chaque étape — maquettes, développement, mise en ligne — se termine par votre validation. Les échanges se font en visioconférence, par téléphone ou par e-mail, selon ce qui vous convient.',
   },
   contact: {
     titleLine1: 'Votre prochain site',
     titleHighlight: 'commence ici.',
-    text: 'Parlons de votre activité et de vos ambitions.',
-    cta: 'Discutons de votre projet',
-    successMessage: 'Merci, votre demande a bien été enregistrée. Nous revenons vers vous rapidement.',
+    text: 'Décrivez votre projet en quelques lignes : nous revenons vers vous avec un premier avis et les prochaines étapes.',
+    responsePromise: 'Nous vous répondons sous 1 jour ouvré.',
+    formTitle: 'Votre projet',
+    successMessage: 'Merci, votre demande a bien été enregistrée. Nous vous répondons sous 1 jour ouvré.',
+    bookingUrl: '',
+    bookingLabel: 'Réserver un créneau de 20 min',
+    whatsappNumber: '',
+    whatsappMessage: 'Bonjour, je souhaite parler d’un projet de site web.',
     publicEmail: '',
     publicPhone: '',
   },
   footer: { tagline: 'Création de sites web' },
   seo: {
-    title: 'Nexora — Création de sites web sur mesure',
-    description: 'Nexora conçoit des sites web sur mesure pour les entreprises : design soigné, performance et expérience intuitive.',
+    title: 'Nexora — Sites web sur mesure qui génèrent des demandes',
+    description:
+      'Nexora conçoit des sites rapides et sur mesure — vitrines, refontes, e-commerce, automatisations — pour transformer votre présence en ligne en clients.',
   },
   // Informations légales : À COMPLÉTER avant publication (aucune donnée inventée).
   legal: {
@@ -109,6 +201,18 @@ export const defaultContent: SiteContent = {
     retentionPeriod: '',
   },
 };
+
+/** Lignes numérotées d'une section (ex. : services s1…s4) sous forme de liste. */
+export function rows<T extends string>(section: Record<string, string>, prefix: string, count: number, keys: readonly T[]) {
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k) => [k, section[`${prefix}${i + 1}${k}`] ?? ''])) as Record<T, string>);
+}
+
+/** Lien WhatsApp (wa.me) à partir du numéro international et du message par défaut. */
+export function whatsappHref(c: SiteContent['contact']) {
+  if (!c.whatsappNumber) return null;
+  const digits = c.whatsappNumber.replace(/\D/g, '');
+  return `https://wa.me/${digits}${c.whatsappMessage ? `?text=${encodeURIComponent(c.whatsappMessage)}` : ''}`;
+}
 
 export const LEGAL_REQUIRED: { key: keyof SiteContent['legal']; label: string }[] = [
   { key: 'companyName', label: 'Raison sociale' },
@@ -148,3 +252,7 @@ export const PROJECT_TYPES = [
   'Automatisation et outils digitaux',
   'Autre',
 ] as const;
+
+/** Champs facultatifs de qualification du formulaire de contact (listes fermées : modifiables ici). */
+export const BUDGETS = ['Moins de 3 000 €', '3 000 à 6 000 €', '6 000 à 12 000 €', 'Plus de 12 000 €', 'Je ne sais pas encore'] as const;
+export const TIMELINES = ['Dès que possible', 'Dans 1 à 3 mois', 'Dans 3 à 6 mois', 'Pas de date précise'] as const;

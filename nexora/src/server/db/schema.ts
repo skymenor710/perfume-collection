@@ -58,6 +58,12 @@ export const projects = pgTable(
     category: text('category').notNull().default(''),
     description: text('description').notNull().default(''),
     url: text('url'),
+    /** Étude de cas : contexte / défi, solution apportée, résultats mesurables (texte simple). */
+    challenge: text('challenge').notNull().default(''),
+    solution: text('solution').notNull().default(''),
+    results: text('results').notNull().default(''),
+    /** Lien vers l'étude de cas complète (page, article, PDF) — facultatif. */
+    caseUrl: text('case_url'),
     isDemo: boolean('is_demo').notNull().default(false),
     published: boolean('published').notNull().default(false),
     /** 1, 2 ou 3 : position sur la page d'accueil. NULL = pas mis en avant. */
@@ -112,6 +118,9 @@ export const contactRequests = pgTable(
     email: text('email').notNull(),
     phone: text('phone'),
     projectType: text('project_type').notNull(),
+    /** Facultatifs : budget estimatif et délai souhaité (listes fermées, voir lib/content.ts). */
+    budget: text('budget'),
+    timeline: text('timeline'),
     message: text('message').notNull(),
     status: text('status', { enum: ['new', 'in_progress', 'done'] }).notNull().default('new'),
     /** Horodatage de l'acceptation de la notice d'information (pas un consentement marketing). */

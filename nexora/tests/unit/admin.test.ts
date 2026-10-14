@@ -165,6 +165,10 @@ describe('projets', () => {
       category: 'Site vitrine · Design sur mesure',
       description: '',
       url: 'https://boulangerie-dupont.fr',
+      challenge: 'Peu de commandes en ligne.',
+      solution: 'Site vitrine avec commande de gâteaux.',
+      results: '+38 % de commandes en 3 mois (mesuré).',
+      caseUrl: 'https://nexora.example/etudes/dupont',
       featuredPosition: '1',
       published: '1',
     });
@@ -173,8 +177,14 @@ describe('projets', () => {
     expect(home).toContain('Boulangerie Dupont');
     expect(home).toContain('href="https://boulangerie-dupont.fr"');
     expect(home).toContain('rel="noopener noreferrer nofollow"');
-    // Plus aucune démonstration : le sur-titre « Aperçus de démonstration » disparaît.
-    expect(home).not.toContain('Aperçus de démonstration');
+    // Étude de cas : contexte, solution, résultats et lien vers l'étude complète.
+    expect(home).toContain('Peu de commandes en ligne.');
+    expect(home).toContain('+38 % de commandes en 3 mois (mesuré).');
+    expect(home).toContain('href="https://nexora.example/etudes/dupont"');
+    expect(home).toContain('Lire l’étude de cas');
+    // Projet réel : mention « Projet client », jamais « Concept / Démonstration ».
+    expect(home).toContain('Projet client');
+    expect(home).not.toContain('Concept / Démonstration');
     expect(await ctx.deps.db.select().from(auditLog)).not.toHaveLength(0);
   });
 
@@ -316,12 +326,20 @@ describe('contenus', () => {
   it('modifie les textes du site, publiés immédiatement (cache invalidé)', async () => {
     const c = await loggedIn();
     const before = await (await new Client(ctx).req('/')).text();
-    expect(before).toContain('nouvelle dimension');
+    expect(before).toContain('générer des demandes,');
     const token = await c.csrf('/admin/contenus');
-    const res = await c.form('/admin/contenus', { _csrf: token, 'hero.titleHighlight': 'toute autre dimension', 'legal.companyName': 'Nexora SAS' });
+    const res = await c.form('/admin/contenus', {
+      _csrf: token,
+      'hero.titleHighlight': 'attirer des clients,',
+      'services.s2Title': 'Refonte complète',
+      'faq.q1Question': 'Combien de temps pour un site vitrine ?',
+      'legal.companyName': 'Nexora SAS',
+    });
     expect(res.status).toBe(303);
     const after = await (await new Client(ctx).req('/')).text();
-    expect(after).toContain('toute autre dimension');
+    expect(after).toContain('attirer des clients,');
+    expect(after).toContain('Refonte complète');
+    expect(after).toContain('Combien de temps pour un site vitrine ?');
     expect(await (await new Client(ctx).req('/mentions-legales')).text()).toContain('Nexora SAS');
   });
 
@@ -329,9 +347,13 @@ describe('contenus', () => {
     const c = await loggedIn();
     const token = await c.csrf('/admin/contenus');
     expect((await c.form('/admin/contenus', { _csrf: token, 'hero.subtitle': 'x'.repeat(400) })).status).toBe(422);
+    // Lien de rendez-vous : https uniquement ; WhatsApp : format international.
+    expect((await c.form('/admin/contenus', { _csrf: token, 'contact.bookingUrl': 'javascript:alert(1)' })).status).toBe(422);
+    expect((await c.form('/admin/contenus', { _csrf: token, 'contact.bookingUrl': 'http://cal.com/x' })).status).toBe(422);
+    expect((await c.form('/admin/contenus', { _csrf: token, 'contact.whatsappNumber': '0612345678' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'hero.primaryCta': '' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.publicEmail': 'pas-un-email' })).status).toBe(422);
-    expect(await (await new Client(ctx).req('/')).text()).toContain('Design sur mesure. Performance. Expérience intuitive.');
+    expect(await (await new Client(ctx).req('/')).text()).toContain('générer des demandes,');
     // Clés héritées ignorées (pas de pollution de prototype).
     expect((await c.form('/admin/contenus', { _csrf: token, '__proto__.toString': 'x', 'hero.constructor': 'x' })).status).toBe(303);
     expect(typeof ({} as Record<string, unknown>).toString).toBe('function');

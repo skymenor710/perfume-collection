@@ -39,6 +39,8 @@ const schema = z.object({
   MAIL_TO: z.string().optional(),
 
   UPLOAD_MAX_MB: z.coerce.number().positive().max(50).default(12),
+  /** Emplacements à compléter (preuve sociale, témoignages) visibles sur le site : auto = hors production seulement. */
+  SHOW_PLACEHOLDERS: z.enum(['auto', 'true', 'false']).default('auto'),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -46,6 +48,7 @@ export type Env = z.infer<typeof schema>;
 export interface Config {
   env: Env['NODE_ENV'];
   isProd: boolean;
+  showPlaceholders: boolean;
   host: string;
   port: number;
   publicUrl: string;
@@ -119,6 +122,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
   return {
     env: e.NODE_ENV,
     isProd,
+    showPlaceholders: e.SHOW_PLACEHOLDERS === 'auto' ? !isProd : e.SHOW_PLACEHOLDERS === 'true',
     host: e.HOST,
     port: e.PORT,
     publicUrl,

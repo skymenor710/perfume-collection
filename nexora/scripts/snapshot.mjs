@@ -31,11 +31,11 @@ async function replaceAsync(str, re, fn) {
 
 let html = await (await fetch(base + '/')).text();
 
-// Images de projets : une seule variante (WebP 800 px) par image, sans srcset.
+// Images de projets : une seule variante (WebP 1200 px, nette aussi dans la visionneuse) par image, sans srcset.
 html = html.replace(/<source type="image\/avif"[^>]*>/g, '');
 html = html.replace(/\s(?:data-)?srcset="[^"]*"/g, '');
 html = await replaceAsync(html, /(src|data-src)="(\/media\/[0-9a-f-]+\/)(\d+)\.webp"/g, async (_m, attr, prefix, w) => {
-  const target = Math.min(800, Number(w) || 800);
+  const target = 1200;
   return `${attr}="${await dataUri(`${prefix}${target}.webp`).catch(() => dataUri(`${prefix}${w}.webp`))}"`;
 });
 // Marque, polices, icônes : chemins absolus du site (HTML et CSS intégré).

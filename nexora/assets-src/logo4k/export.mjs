@@ -48,15 +48,21 @@ for (const w of widths) {
 }
 
 // Masques vectoriels (bande vin = néon) et silhouettes monochromes.
-const svgPath = (d, viewBox, fill, extra = '') =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}"${extra}><path fill="${fill}" fill-rule="evenodd" d="${round(d)}"/></svg>`;
+const svgPath = (d, viewBox, fill, extra = '', rule = 'evenodd') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}"${extra}><path fill="${fill}" fill-rule="${rule}" d="${round(d)}"/></svg>`;
 writeFileSync(`${SITE}symbol-wine.svg`, svgPath(paths.wine, vb, '#fff', ' preserveAspectRatio="none"'));
 writeFileSync(`${DELIV}nexora-symbole-silhouette.svg`, svgPath(paths.silhouette, vb, WHITE));
 
 // ---------------------------------------------------------------- logotype
+// Logotype redessiné en géométrie exacte (wordmark.py). Livrables et verrouillages : repère du bandeau.
 const wm = paths.wordmark;
-const wordmarkSvg = (fill) => svgPath(wm.d, `0 0 ${wm.width} ${wm.height}`, fill);
-writeFileSync(`${SITE}wordmark.svg`, wordmarkSvg(WHITE));
+const wordmarkSvg = (fill) => svgPath(wm.d, `0 0 ${wm.width} ${wm.height}`, fill, '', 'nonzero');
+// Site : grille de dessin (capitale 19, graisse 3) avec 1 unité de marge ; affiché à 133 × 22 px dans l'en-tête,
+// soit 1 unité = 1 px : fûts et barres alignés sur les pixels, aucun bord flou.
+const geo = JSON.parse(readFileSync(`${OUT}wordmark-geometry.json`, 'utf8'));
+const wmW = Math.ceil(geo.width) + 2;
+writeFileSync(`${SITE}wordmark.svg`, svgPath(geo.d, `-1 -1 ${wmW} 22`, WHITE, ` width="${wmW}" height="22"`, 'nonzero'));
+console.log('logotype du site', wmW, '× 22');
 writeFileSync(`${DELIV}nexora-logotype.svg`, wordmarkSvg(WHITE));
 writeFileSync(`${DELIV}nexora-logotype-noir.svg`, wordmarkSvg(BLACK));
 

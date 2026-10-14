@@ -232,6 +232,16 @@ em {
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
+/* Positions arrondies au pixel entier : le logotype (dessiné sur la grille des pixels) reste parfaitement net. */
+@supports (width: round(1.5px, 1px)) {
+  :root {
+    --gutter: round(clamp(20px, 6.1vw, 88px), 1px);
+  }
+  .site-header__inner,
+  .site-footer__inner {
+    margin-inline: max(0px, round(down, calc((100% - var(--container)) / 2), 1px));
+  }
+}
 .container--wide {
   /* Les cartes de projets débordent légèrement de la colonne de texte, comme sur la maquette. */
   padding-inline: clamp(20px, 3.8vw, 55px);
@@ -360,6 +370,8 @@ em {
   gap: 24px;
 }
 .site-header__brand {
+  /* + 1 px : compense le filet bas de l'en-tête, le logo tombe sur un pixel entier. */
+  margin-bottom: 1px;
   display: inline-flex;
   text-decoration: none;
   border-radius: 6px;
@@ -372,16 +384,19 @@ em {
 }
 .logo__symbol {
   width: 46px;
-  height: auto;
+  height: 48px;
+  object-fit: contain;
 }
 .logo__text {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
+/* Logotype : 133 × 22 px exactement (1 unité de dessin = 1 px ; 2 px sur écran Retina) — jamais redimensionné. */
 .logo__wordmark {
-  width: 146px;
-  height: auto;
+  width: 133px;
+  height: 22px;
+  flex: none;
 }
 .logo__tagline {
   font-size: 0.9375rem;
@@ -1329,12 +1344,7 @@ html.js-motion .contact.is-drawn .landscape__trail-line {
   text-decoration: none;
   border-radius: 6px;
 }
-.site-footer__brand .logo__wordmark {
-  width: 116px;
-}
-.site-footer__brand .logo__symbol {
-  width: 46px;
-}
+
 .site-footer__nav {
   min-width: 0;
   display: grid;
@@ -2040,9 +2050,7 @@ html.js-motion .services__grid > li:nth-child(4) {
   }
   .logo__symbol {
     width: 38px;
-  }
-  .logo__wordmark {
-    width: 122px;
+    height: 40px;
   }
   .logo {
     gap: 12px;

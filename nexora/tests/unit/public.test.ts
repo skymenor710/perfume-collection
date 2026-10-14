@@ -152,9 +152,11 @@ describe('site public', () => {
     }
     for (const svg of ['symbol-wine.svg', 'wordmark.svg']) {
       const text = readFileSync(path.join(dir, svg), 'utf8');
-      expect(text).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="[\d. ]+"/);
+      expect(text).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="[-\d. ]+"/);
       expect(text).not.toMatch(/<script|on\w+=/i);
     }
+    // Logotype : grille de dessin alignée sur les pixels (affiché à 133 × 22 px = 1 unité par pixel).
+    expect(readFileSync(path.join(dir, 'wordmark.svg'), 'utf8')).toContain('viewBox="-1 -1 133 22" width="133" height="22"');
   });
 
   it('404 neutre, robots.txt et sitemap', async () => {

@@ -195,7 +195,10 @@ Le logo du site est **reconstruit en haute définition** à partir des fichiers 
   lissées, puis le tout est vectorisé en courbes de Bézier (potrace). Bords nets à toute taille, sans escalier ni liseré.
 * **Rendu** : celui du **symbole du bandeau** (bande vin plus lumineuse, panneaux « verre » avec un liseré doux) : le
   bandeau est recalé sur le fichier HD (même dessin, IoU 0,94) et son éclairage est transféré (gain basse fréquence).
-* **Logotype NEXORA** : tracé depuis le bandeau, lettres reconstruites de la même façon (le O est une ellipse exacte).
+* **Logotype NEXORA** : redessiné en **géométrie exacte** d’après des mesures prises sur le bandeau (fûts et barres
+  rectangulaires, diagonales et ellipses du O ajustées par moindres carrés — `assets-src/logo4k/wordmark.py`), sur une
+  grille où la capitale fait 19 unités et la graisse 3 (rapport du bandeau). Sur le site il s’affiche à 133 × 22 px,
+  soit 1 unité = 1 pixel (2 sur écran Retina) et à une position arrondie au pixel : bords nets, sans liseré flou.
 
 | Fichier (`brand/`) | Contenu |
 |---|---|
@@ -206,7 +209,7 @@ Le logo du site est **reconstruit en haute définition** à partir des fichiers 
 
 Sur le site : symbole en AVIF + WebP de 96 à 1600 px (choisis selon l’écran), logotype en SVG, reflet néon découpé par
 le tracé vectoriel de la bande vin, icônes et image de partage régénérées depuis le 4K.
-Chaîne : `assets-src/logo4k/` (`trace.py` → `rasterize.mjs` → `compose.py` → `export.mjs`), lancée par `npm run brand:logo`.
+Chaîne : `assets-src/logo4k/` (`trace.py` → `wordmark.py` → `rasterize.mjs` → `compose.py` → `export.mjs`), lancée par `npm run brand:logo`.
 
 Voir aussi : [docs/RAPPORT.md](docs/RAPPORT.md) (tests, sécurité, performance) et
 [docs/A-COMPLETER.md](docs/A-COMPLETER.md) (informations et accès encore nécessaires).

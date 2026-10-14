@@ -17,7 +17,7 @@ export const Logo = ({ tagline, size = 'md' }: { tagline?: string; size?: 'md' |
   <span class={`logo logo--${size}`}>
     <img class="logo__symbol" src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" decoding="async" />
     <span class="logo__text">
-      <img class="logo__wordmark" src="/brand/wordmark.svg" width="146" height="24" alt="Nexora" decoding="async" />
+      <img class="logo__wordmark" src="/brand/wordmark.svg" width="133" height="22" alt="Nexora" decoding="async" />
       {tagline ? <span class="logo__tagline">{tagline}</span> : null}
     </span>
   </span>

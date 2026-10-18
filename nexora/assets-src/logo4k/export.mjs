@@ -140,4 +140,6 @@ ico.writeUInt16LE(0, 0); ico.writeUInt16LE(1, 2); ico.writeUInt16LE(1, 4);
 ico.writeUInt8(32, 6); ico.writeUInt8(32, 7); ico.writeUInt8(0, 8); ico.writeUInt8(0, 9);
 ico.writeUInt16LE(1, 10); ico.writeUInt16LE(32, 12); ico.writeUInt32LE(png32.length, 14); ico.writeUInt32LE(22, 18);
 writeFileSync(`${SITE}favicon.ico`, Buffer.concat([ico, png32]));
+// Copie à la racine : servie telle quelle par un CDN (Netlify) sans passer par l'application.
+writeFileSync('public/favicon.ico', Buffer.concat([ico, png32]));
 console.log('ok : brand/ (4K) et public/brand/ (site)');

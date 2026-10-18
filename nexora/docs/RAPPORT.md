@@ -1,20 +1,25 @@
 # Rapport de tests — site Nexora
 
-Date : 14 octobre 2026. Tous les résultats ci-dessous ont été **réellement exécutés** dans l’environnement de
-développement (conteneur Linux, Node 22.22, Chromium 141, PostgreSQL 16.15 local). Rien n’a été publié en production.
+Date : 18 octobre 2026 (après l’audit `docs/AUDITORIA.md` et les améliorations qui ont suivi). Tous les résultats
+ci-dessous ont été **réellement exécutés** dans l’environnement de développement (conteneur Linux, Node 22.22,
+Chromium 141, PostgreSQL 16.15 local). Rien n’a été publié en production.
 
 ## 1. Synthèse
 
 | Contrôle | Résultat |
 |---|---|
 | TypeScript strict (`npm run typecheck`) | ✅ 0 erreur |
-| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 55 / 55 |
-| Tests navigateur (`npm run test:e2e`, Playwright, build de production) | ✅ 12 / 12 sur **PostgreSQL 16.15** |
-| Audit des dépendances (`npm audit`) | ✅ 0 vulnérabilité (après passage de sharp 0.35.4 → 0.35.5, CVE librsvg) |
-| Revue de sécurité du code (revue dédiée + sondages manuels) | ✅ aucune vulnérabilité exploitable identifiée ; 1 durcissement appliqué |
+| Tests d’intégration (`npm test`, Vitest, PGlite en mémoire) | ✅ 58 / 58 |
+| Tests navigateur (`npm run test:e2e`, Playwright, build de production, **PostgreSQL 16.15**) | ✅ 19 / 19 — projet `desktop` 15 / 15, projet `mobile` (Pixel 7 émulé, tactile) 4 / 4 |
+| Accessibilité automatisée (axe-core 4.13, WCAG 2.0 / 2.1 / 2.2 A + AA + bonnes pratiques) | ✅ 0 violation — 5 pages × 3 largeurs (1440, 834, 390), plus états ouverts (détail, FAQ, galerie, visionneuse, menu mobile) dans les tests |
+| Paquet des fonctions Netlify (`npm run test:netlify`, empaqueté avec esbuild, PostgreSQL) | ✅ 16 / 16 contrôles |
+| Audit des dépendances de production (`npm audit --omit=dev`) | ✅ 0 vulnérabilité |
+| Audit complet (`npm audit`, outils de développement inclus) | ⚠️ 4 « moderate » dans drizzle-kit → @esbuild-kit → esbuild ≤ 0.24.2 (GHSA-67mh-4wv8-2f99, serveur de développement d’esbuild, jamais lancé par drizzle-kit) ; aucune correction sans casser drizzle-kit — accepté, à surveiller |
+| Liens internes et ancres | ✅ tous en 200, toutes les ancres existent |
 | Lighthouse 12.8.2, mobile | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
 | Lighthouse 12.8.2, ordinateur | Performance **100** · Accessibilité **100** · Bonnes pratiques **100** · SEO **100** |
-| Sauvegarde → restauration (PGlite + disque → PostgreSQL + autre disque) | ✅ 3 projets, 9 images, 81 fichiers vérifiés (SHA-256), image servie après restauration (mesuré avec les anciennes démonstrations) |
+| Latence des interactions (indicateur de laboratoire de l’INP, Event Timing API) | ✅ < 200 ms pour toutes les interactions testées (galerie, visionneuse, détail, FAQ, menu) ; mesures typiques 16–56 ms |
+| Sauvegarde → restauration (PGlite + disque → PostgreSQL + autre disque) | ✅ 3 projets, 9 images, 81 fichiers vérifiés (SHA-256), image servie après restauration (mesuré le 14/10 avec les anciennes démonstrations) |
 
 ## 2. Performance (laboratoire)
 
@@ -26,24 +31,33 @@ Conditions : build de production, `NODE_ENV=production`, serveur local, 3 projet
 
 | Profil | LCP | CLS | TBT | FCP | Speed Index |
 |---|---|---|---|---|---|
-| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,5 s | 0 | 70 ms | — | — |
-| Ordinateur (RTT 40 ms, 10 Mb/s) | 0,3 s | 0 | 0 ms | — | — |
+| Mobile (Moto G Power émulé, 4G lente : RTT 150 ms, 1,6 Mb/s, CPU ×4) | 1,4 s | 0 | 30 ms | 1,0 s | 1,0 s |
+| Ordinateur (RTT 40 ms, 10 Mb/s) | 0,4 s | 0 | 0 ms | 0,2 s | 0,3 s |
 
-(Mesures refaites après la refonte « acquisition » : services, méthode, études de cas, FAQ, formulaire visible. Les mesures précédentes étaient
-LCP 1,8–1,9 s mobile et 0,5 s ordinateur.)
+Poids total de la page : 134 Kio (mobile), 159 Kio (ordinateur). Avant les améliorations (audit du 18/10) : mobile
+LCP 1,5 s · TBT 0 ms · 152 Kio ; ordinateur LCP 0,34 s.
+
+Informations Lighthouse restantes (sans effet sur les scores) : « Forced reflow » (lecture de la position de défilement
+au démarrage, 38 ms sur processeur ralenti ×4), « Improve image delivery » (une capture servie en 640 px pour 344 px
+CSS × densité 1,75 = 602 px : variante supérieure la plus proche), « Network dependency tree » (HTML → un seul JS).
+
+INP : l’INP de terrain n’existe qu’avec des visiteurs réels (CrUX / Search Console après mise en ligne). En laboratoire,
+la durée de chaque interaction (de l’action à l’image suivante affichée) est mesurée par les tests navigateur ; elle
+doit rester sous 200 ms. Correction faite grâce à cette mesure : ouverture de la visionneuse 120–128 ms → 48 ms et
+navigation 72 ms → 32–40 ms, en retirant un flou d’arrière-plan invisible (fond à 96 % opaque).
 
 Objectifs demandés : Performance ≥ 90, Accessibilité ≥ 95, Bonnes pratiques ≥ 95, SEO ≥ 95, LCP ≤ 2,5 s, CLS ≤ 0,1 —
 **tous atteints** dans ces conditions. Limite : serveur local (temps de réponse quasi nul) ; en production, la latence
 réelle de l’hébergeur et de la base s’ajoute. Rapports complets : `reports/lighthouse/mobile.html`, `desktop.html`.
 
 Ce qui a été fait pour y arriver :
-- HTML rendu côté serveur, mis en cache par version de contenu ; JS client 9 Ko (3,3 Ko gzip), aucune bibliothèque.
+- HTML rendu côté serveur, mis en cache par version de contenu ; JS client 18 Ko (6,4 Ko gzip), aucune bibliothèque.
 - CSS du site intégré dans la page (supprime une requête bloquante), autorisé par empreinte SHA-256 dans la CSP.
 - Compression gzip des réponses texte ; cache navigateur d’un an pour les fichiers statiques et les images.
 - Police Figtree auto-hébergée (sous-ensemble latin, `font-display: swap`, préchargée, police de repli ajustée).
 - Images : AVIF + WebP en 480/640/800/1200/1600 px, `srcset`/`sizes`, dimensions explicites (CLS 0).
-- Carrousels : seule la 1re image de chaque carte est chargée ; les suivantes uniquement quand le visiteur utilise CE
-  carrousel (vérifié par test : 3 images au chargement, et un clic dans un carrousel ne charge rien dans les autres).
+- Galeries des réalisations : images `loading="lazy"` (la 3e carte ne charge rien tant qu’elle est loin de l’écran,
+  vérifié par test), `sizes` calculés sur la largeur réelle de la galerie, hauteur fixe 16:10 (CLS 0).
 - Animations en `transform` / `opacity` ; néon et animations mis en pause hors écran.
 
 ### Corrections faites à la suite des mesures
@@ -58,43 +72,22 @@ Ce qui a été fait pour y arriver :
 
 | Scénario | Vérifié |
 |---|---|
-| Largeurs 375, 390, 768, 1440, 1920 px | aucun débordement horizontal, aucune erreur console ni requête en échec, cartes strictement carrées, pas de chevauchement texte / bouton / symbole sur mobile |
-| Navigation | Accueil, Services, Méthode, Réalisations, FAQ, Contact : chaque section s’arrête sous l’en-tête fixe (84 px / 68 px) ; en-tête flouté au défilement ; menu compact sous 1100 px |
+| Largeurs 375, 390, 768, 1440, 1920 px | aucun débordement horizontal, aucune erreur console ni requête en échec, galeries strictement 16:10, pas de chevauchement texte / bouton / symbole sur mobile |
+| Navigation | Réalisations, Services, Processus, FAQ, Contact : chaque section s’arrête sous l’en-tête fixe (84 px / 68 px) ; logo → haut de page ; en-tête flouté au défilement ; menu compact sous 1100 px |
 | Menu mobile | ouverture, focus piégé, Échap, retour du focus, fermeture au clic + navigation |
-| Concepts et résultats clients | concepts : contexte, solution, **objectif de conversion**, mention « Concept / Démonstration », jamais de « résultat » ; projet client créé dans l’admin → section « Résultats clients » séparée (résultats vérifiables, témoignage, lien), avant les concepts ; le bouton du hero passe alors à « Voir des résultats clients » |
+| Réalisations | juste après le hero ; 3 cartes « Concept / Démonstration » ; détail replié (contexte, solution, objectif de conversion), jamais de « résultat » pour un concept ; 3e carte non chargée tant qu’elle est loin de l’écran ; jamais la variante 2400 px dans la page |
+| Galeries | indépendantes (bouger l’une ne bouge pas l’autre) ; suivante / précédente en boucle ; points (`aria-current`) ; ← → Début Fin, le focus suit la capture ; captures non affichées `inert` ; annonce « Capture 2 sur 4 : … » ; hauteur constante ; « Plein écran » s’ouvre sur la capture affichée ; glisser au doigt (mobile) ; mouvement réduit = déplacement instantané |
 | Néon | animation `neon-sweep` 8,5 s (passage + pause), découpée par le tracé vectoriel de la bande vin, en pause hors écran |
-| Visionneuse | couverture ou vignette → plein écran ; fenêtre basse et large (1920 × 871) : **image entière, jamais recadrée**, ≥ 1100 px de large, variante ≥ 1600 px ; ←/→ et boutons en boucle ; zoom au clic ; Échap ; focus rendu au bouton d’origine ; vignette au clavier ; **glisser au doigt** sur mobile |
-| Texte non éditable | clic dans un titre : aucun point d’insertion (`caret-color` transparent), curseur flèche, aucun focus ; les champs du formulaire gardent curseur et point d’insertion ; liens = main |
-| Parallaxe | transformation appliquée au défilement, défilement natif intact |
+| Visionneuse | fenêtre basse et large (1920 × 871) : **image entière, jamais recadrée**, ≥ 1100 px de large, variante ≥ 1600 px ; ←/→ et boutons en boucle ; zoom au clic ; Échap ; focus rendu ; capture choisie au clavier ; glisser au doigt |
+| Texte non éditable | clic dans un titre : aucun point d’insertion, curseur flèche, aucun focus ; les champs gardent curseur et point d’insertion |
 | Mouvement réduit | néon figé, aucune parallaxe, tout le contenu visible |
-| Formulaire et conversion | visible d’emblée ; sans agenda : « Demander un diagnostic » → formulaire ; avec agenda Cal.com : « Réserver… » → fenêtre de réservation, confirmation reçue depuis l’origine du service → `booking_completed` ; chaque service présélectionne son type, défile jusqu’au formulaire et focalise le champ ; événements `cta_primary`, `service_click`, `form_start`, `form_submit_success` vérifiés ; budget et délai facultatifs ; échec serveur simulé : données conservées ; succès seulement après HTTP 201 |
-| Persistance | demande visible dans l’admin |
-| Administration | redirection sans connexion, mauvais mot de passe, connexion, changement de statut, création de projet, envoi de 2 images, textes alternatifs, couverture, reflet immédiat sur le site (position 2, lien, alt, sans mention démo), suppression d’image (contrôles du carrousel masqués avec une seule image), modification des textes, déconnexion |
+| Formulaire et conversion | visible d’emblée ; « Demander un devis » (hero, en-tête) → formulaire ; « Voir nos réalisations » ; 5 services → type de projet présélectionné, défilement, focus ; événements `cta_primary`, `service_click` ×5, `form_start`, `form_submit_success` ; erreurs ; échec serveur simulé : données conservées ; succès seulement après HTTP 201 ; envoi réel aussi sur mobile |
+| Accessibilité (axe) | accueil, détail ouvert, FAQ ouverte, galerie déplacée, visionneuse ouverte, mentions légales, confidentialité, connexion admin ; mobile : accueil et menu ouvert — 0 violation |
+| Référencement | titre « Création de sites web », h1, description avec Romorantin-Lanthenay / Blois / Orléans, JSON-LD `ProfessionalService` (zones, 5 services, aucune adresse ni avis inventés), `lastmod` du plan du site, typographie française |
+| Administration | redirection sans connexion, mauvais mot de passe, connexion, demande reçue, statut, création d’un projet client + 2 images + textes alternatifs + couverture → en tête de « Nos réalisations » (badge, résultats, témoignage, lien, galerie de 2), suppression d’une image (plus de flèches ni de points), modification des textes, lien de rendez-vous → bloc Contact + fenêtre Cal.com + `booking_completed`, déconnexion |
 | Redémarrage | serveur arrêté puis relancé : projets, images, textes et demandes toujours présents |
 
-Captures (build de production) : `docs/screenshots/` — `home-{1920,1440,768,390,375}-{viewport,full}.webp`,
-visionneuse `lightbox-1920x871.webp`, `lightbox-390.webp` et
-administration `a-*.webp`. Comparaison visuelle avec les maquettes faite côte à côte (proportions du hero, taille des
-titres, cartes, section contact) et corrigée en deux passes (tailles de titres et de boutons, découpe du titre, espacements).
-
-Écarts assumés par rapport aux maquettes :
-- Cartes **carrées** (exigence), alors que la maquette les montre légèrement plus hautes que larges.
-- Le titre mobile de la section est « Des projets concrets. Des résultats visibles. » (texte demandé), pas « Nos réalisations. ».
-- Menu « Accueil / Réalisations / Contact » (demandé) au lieu de « Expertises » de la maquette.
-- Le hero de la maquette est un rendu 3D ; le site utilise le logo **reconstruit en 4K depuis les fichiers fournis**
-  (géométrie du symbole HD, rendu du bandeau — voir README § 7), mis en lumière par des calques (halo, reflet, néon). Le texte vin sur noir est éclairci (`#AD3158`,
-  `#CF5277`) pour respecter le contraste WCAG AA ; les fonds et boutons gardent `#751B35` / `#982B49`.
-- L’illustration de la section contact (montagne, chemin, porte) est dessinée en SVG (pas de photo générée).
-- Mobile : un seul bouton dans le hero, comme sur la maquette ; « Découvrir nos réalisations » reste accessible par
-  l’indicateur de défilement et le menu.
-
-Revue de finition indépendante (agent de revue design, sur captures DPR 2) — corrections appliquées : flèches des
-carrousels visibles au repos comme sur la maquette, points nus sur un dégradé discret, badge opaque, flèches et
-légende masquées pendant le zoom, zoom proposé seulement si l'image apporte réellement du détail (sources 1280 px),
-fond de visionneuse plus opaque, en-tête mobile de la visionneuse sur deux lignes, légende limitée à 2 lignes,
-panneau de contact qui s'arrête sous l'en-tête, lumières du hero un peu plus présentes (toujours diffuses).
-Non retenu : refaire le symbole d'après le rendu 3D de la maquette (le client a demandé le logo du bandeau) et
-supprimer le sur-titre « Aperçus de démonstration » (il signale honnêtement des démonstrations).
+Captures avant / après l’audit : `docs/audit/` (`avant-*.webp`, `apres-*.webp`, rapports axe bruts `*-axe-rapport.json`).
 
 ## 4. Sécurité
 
@@ -142,8 +135,9 @@ production (inexistante à ce jour) ; dépendances à auditer régulièrement (`
 
 ## 5. Accessibilité
 
-Lighthouse 100 (mobile et ordinateur). En plus : lien d’évitement, focus visible thémé, navigation complète au clavier
-(menu avec focus piégé, carrousels au clavier, annonce « Image 2 sur 3 » en zone `aria-live`), libellés de formulaire,
+Lighthouse 100 (mobile et ordinateur) et axe-core 0 violation (WCAG 2.2 AA). En plus : lien d’évitement, focus visible
+thémé, navigation complète au clavier (menu avec focus piégé, galeries au clavier, annonce « Capture 2 sur 4 » en zone
+`aria-live`, captures non affichées inertes), libellés de formulaire,
 erreurs reliées aux champs (`aria-describedby`, `aria-invalid`), cibles tactiles ≥ 24 px, contraste AA, `prefers-reduced-motion`.
 Un audit Lighthouse ne remplace pas un test avec un lecteur d’écran réel (VoiceOver / NVDA), recommandé avant lancement.
 
@@ -152,8 +146,9 @@ Un audit Lighthouse ne remplace pas un test avec un lecteur d’écran réel (Vo
 ```bash
 cd nexora
 npm ci && npm run typecheck && npm test && npm run build
-npm run test:e2e                                   # PGlite
+npm run test:e2e                                   # PGlite — projets desktop + mobile, axe, latence des interactions
 E2E_DATABASE_URL=postgres://… npm run test:e2e     # PostgreSQL (base dédiée : elle est vidée)
+NETLIFY_TEST_DATABASE_URL=postgres://… npm run test:netlify   # paquet des fonctions Netlify (base dédiée)
 node scripts/screenshots.mjs http://localhost:3000/ docs/screenshots 1920,1440,768,390,375
 npx lighthouse http://localhost:3000/ --preset=desktop   # et sans --preset pour le mobile
 ```

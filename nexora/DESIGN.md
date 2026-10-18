@@ -24,11 +24,13 @@ typography:
   néon découpé par le tracé vectoriel de la bande (`symbol-wine.svg`) ; logotype `wordmark.svg`.
 - **Lumières** : halos et traînées toujours diffus (flou), jamais de trait net ; les lueurs du hero s'éteignent avant
   son bord. Filets fins uniquement là où la maquette en a (en-tête, bandeau contact).
-- **Visionneuse** : captures des projets en plein écran (`<dialog>`), fond flouté, zoom ×2 au point cliqué, glisser.
+- **Visionneuse** : captures des projets en plein écran (`<dialog>`), fond quasi opaque (sans flou : invisible et coûteux), zoom ×2 au point cliqué, glisser.
 - **Lecture seule** : flèche et aucun point d'insertion hors des champs ; main sur liens et boutons.
 - **Mouvement** : un seul moment signature (le néon, 8,5 s, passage puis pause) ; parallaxe ≤ 90 px ; apparitions
   `cubic-bezier(.16,1,.3,1)` ; tout est statique avec `prefers-reduced-motion`.
 - **Boutons** : 66 px (hero), rayon 14 px ; primaire = dégradé vin, secondaire = contour vin, contact = blanc chaud.
-- **Cartes projets** : carrées, rayon 10 px, flèches rondes à 66 % de la hauteur, points blancs en bas, badge
-  « Démonstration » pour les exemples. Commandes (flèches, « Agrandir ») révélées au survol à la souris, toujours visibles au toucher.
+- **Réalisations** (juste après le hero) : une carte par projet, rayon 26 px, filet fin qui passe au vin au survol ;
+  galerie 16:10 à gauche (défilement natif aimanté, points 8 px dont l'actif s'allonge en vin, compteur « 01 / 04 »,
+  flèches rondes 44 px sous l'image — jamais par-dessus la capture), statut en badge, résumé d'une phrase, détail repliable.
+- **Services** : 5 cartes (3 + 2 sur une grille de 6 colonnes) ; **Processus** : 4 étapes numérotées « 01 → 04 ».
 - **Admin** : même palette, sobre et dense (mode « opérer »).

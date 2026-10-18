@@ -572,27 +572,22 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
     section: 'hero',
     title: 'Bannière d’accueil',
     intro:
-      'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin. Bouton principal : texte « avec agenda » si un lien de rendez-vous est renseigné (section Contact), sinon texte « sans agenda » et lien vers le formulaire. Bouton secondaire : « résultats clients » seulement si un projet client avec résultats est publié.',
+      'Le titre est composé de trois parties ; la partie centrale s’affiche en couleur vin. Le bouton principal mène toujours au formulaire de demande de devis ; le bouton secondaire mène à « Nos réalisations ».',
     fields: [
       { key: 'titleBefore', label: 'Titre — début', max: 80 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
       { key: 'titleAfter', label: 'Titre — fin', max: 80 },
-      { key: 'subtitle', label: 'Sous-titre', max: 240, multiline: true },
-      { key: 'audience', label: 'Public visé (positionnement)', max: 140, hint: 'Texte neutre par défaut : précisez secteurs, taille ou zone UNIQUEMENT s’ils correspondent à votre cible réelle.' },
-      { key: 'primaryCta', label: 'Bouton principal — avec agenda', max: 40 },
-      { key: 'primaryCtaFallback', label: 'Bouton principal — sans agenda (formulaire)', max: 40 },
-      { key: 'secondaryCta', label: 'Bouton secondaire — concepts', max: 40 },
-      { key: 'secondaryCtaResults', label: 'Bouton secondaire — résultats clients', max: 40 },
+      { key: 'subtitle', label: 'Sous-titre (bénéfice, une phrase)', max: 240, multiline: true },
+      { key: 'audience', label: 'Public visé et zone d’intervention', max: 180, hint: 'N’indiquez que des villes ou zones réellement desservies.' },
+      { key: 'ctaQuote', label: 'Bouton principal (formulaire de devis)', max: 40 },
+      { key: 'ctaWork', label: 'Bouton secondaire (réalisations)', max: 40 },
       { key: 'reassurance', label: 'Mention sous les boutons', max: 80 },
     ],
   },
   {
     section: 'header',
     title: 'En-tête',
-    fields: [
-      { key: 'cta', label: 'Bouton — avec agenda', max: 32 },
-      { key: 'ctaFallback', label: 'Bouton — sans agenda (formulaire)', max: 32 },
-    ],
+    fields: [{ key: 'ctaQuote', label: 'Bouton (formulaire de devis)', max: 32 }],
   },
   {
     section: 'proof',
@@ -609,17 +604,17 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
       { key: 'subtitle', label: 'Sous-titre', max: 200 },
       { key: 'cta', label: 'Lien sous chaque service', max: 40 },
-      ...repeat('s', 4, 'Service', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'bénéfice (une phrase)', max: 200, multiline: true }]),
+      ...repeat('s', 5, 'Service', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'bénéfice (une phrase)', max: 200, multiline: true }]),
     ],
   },
   {
     section: 'method',
-    title: 'Méthode',
+    title: 'Processus',
     fields: [
       { key: 'title', label: 'Titre — début', max: 60 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
       { key: 'subtitle', label: 'Sous-titre', max: 200 },
-      ...repeat('m', 3, 'Étape', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'texte', max: 300, multiline: true }]),
+      ...repeat('m', 4, 'Étape', [{ key: 'Title', label: 'titre', max: 50 }, { key: 'Text', label: 'texte', max: 300, multiline: true }]),
     ],
   },
   {
@@ -636,20 +631,17 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
   },
   {
     section: 'projects',
-    title: 'Concepts et résultats clients',
+    title: 'Nos réalisations',
     intro:
-      'Les textes de chaque projet se remplissent dans Projets. Un projet « concept » va dans « Nos concepts » ; un projet client (case décochée) va dans la section « Résultats clients », qui n’apparaît qu’à partir du premier projet client publié.',
+      'Les textes de chaque projet se remplissent dans Projets. Les projets clients (case « concept » décochée) s’affichent en premier avec le badge « Projet client » et leurs résultats ; les concepts suivent avec le badge « Concept / Démonstration ». Le sous-titre doit rester vrai dans les deux cas.',
     fields: [
-      { key: 'eyebrow', label: 'Sur-titre (facultatif)', max: 60 },
-      { key: 'titleLine1', label: 'Titre — ligne 1', max: 60 },
-      { key: 'titleLine2Before', label: 'Titre — ligne 2, début', max: 30 },
-      { key: 'titleLine2Highlight', label: 'Titre — ligne 2, partie en vin', max: 60 },
-      { key: 'subtitle', label: 'Sous-titre', max: 200, multiline: true },
+      { key: 'title', label: 'Titre — début', max: 60 },
+      { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
+      { key: 'subtitle', label: 'Sous-titre', max: 260, multiline: true },
+      { key: 'detailsLabel', label: 'Bouton du détail repliable (contexte, solution…)', max: 40 },
       { key: 'visitLabel', label: 'Bouton vers le site', max: 30 },
       { key: 'caseLabel', label: 'Bouton vers l’étude de cas', max: 30 },
-      { key: 'emptyText', label: 'Texte si aucun concept', max: 160 },
-      { key: 'resultsTitle', label: 'Résultats clients — titre', max: 60 },
-      { key: 'resultsSubtitle', label: 'Résultats clients — sous-titre', max: 200 },
+      { key: 'emptyText', label: 'Texte si aucun projet publié', max: 160 },
     ],
   },
   {
@@ -672,7 +664,7 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
     fields: [
       { key: 'title', label: 'Titre — début', max: 60 },
       { key: 'titleHighlight', label: 'Titre — partie en vin', max: 60 },
-      ...repeat('q', 6, 'Question', [{ key: 'Question', label: 'question', max: 140 }, { key: 'Answer', label: 'réponse', max: 700, multiline: true }]),
+      ...repeat('q', 7, 'Question', [{ key: 'Question', label: 'question', max: 140 }, { key: 'Answer', label: 'réponse', max: 700, multiline: true }]),
     ],
   },
   {
@@ -685,7 +677,7 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
       { key: 'responsePromise', label: 'Engagement de réponse', max: 80 },
       { key: 'formTitle', label: 'Titre du formulaire', max: 60 },
       { key: 'successMessage', label: 'Message après envoi', max: 240, multiline: true },
-      { key: 'bookingUrl', label: 'Lien de prise de rendez-vous (Cal.com, Calendly…)', max: 300, type: 'url', hint: 'https://… — Cal.com et Calendly s’ouvrent dans une fenêtre intégrée, les autres dans un nouvel onglet. Vide : « Demander un diagnostic » mène au formulaire.' },
+      { key: 'bookingUrl', label: 'Lien de prise de rendez-vous (Cal.com, Calendly…)', max: 300, type: 'url', hint: 'https://… — Proposé dans la section Contact. Cal.com et Calendly s’ouvrent dans une fenêtre intégrée, les autres dans un nouvel onglet. Vide : pas de bloc de rendez-vous.' },
       { key: 'bookingLabel', label: 'Bouton de prise de rendez-vous', max: 40 },
       { key: 'bookingText', label: 'Texte du bloc de prise de rendez-vous', max: 160 },
       { key: 'whatsappNumber', label: 'Numéro WhatsApp (facultatif)', max: 24, type: 'tel', hint: 'Format international : +33 6 12 34 56 78. Vide : pas de bouton WhatsApp.' },
@@ -701,6 +693,7 @@ const CONTENT_FORM: { section: keyof SiteContent; title: string; intro?: string;
     fields: [
       { key: 'title', label: 'Titre de la page (onglet, Google)', max: 70 },
       { key: 'description', label: 'Description (Google, partages)', max: 170, multiline: true },
+      { key: 'areaServed', label: 'Zones desservies (séparées par des virgules)', max: 200, hint: 'Données structurées (Google) et pied de page. Uniquement des zones réellement desservies ; l’adresse vient des informations légales.' },
     ],
   },
   {

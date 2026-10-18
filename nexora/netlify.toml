@@ -1,0 +1,39 @@
+# Déploiement Netlify — voir README.md § « Netlify ». Rien n'est publié tant que le site n'est pas relié à Netlify.
+# Variables d'environnement (Site configuration › Environment variables, portée « Builds » ET « Functions ») :
+#   NODE_ENV=production, PUBLIC_URL, SESSION_SECRET, DATABASE_URL (PostgreSQL : Neon / Netlify DB),
+#   STORAGE_DRIVER=s3 + S3_* (Cloudflare R2…), UPLOAD_MAX_MB=4, et facultativement MAIL_* / ANALYTICS_*.
+
+[build]
+  # Fichiers du navigateur (dist/client) puis migrations de la base (refusées si la base n'est pas PostgreSQL).
+  command = "npm run build && npm run db:migrate"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
+  # Modules natifs ou à fichiers annexes : copiés tels quels plutôt qu'intégrés au paquet.
+  external_node_modules = ["sharp", "pg", "@electric-sql/pglite"]
+  # Manifeste Vite et CSS : le CSS est intégré à chaque page (autorisé par son empreinte dans la CSP).
+  included_files = ["dist/client/.vite/manifest.json", "dist/client/assets/*.css"]
+
+# Fichiers statiques (servis par le CDN). Les pages HTML viennent de la fonction, avec leurs propres en-têtes de
+# sécurité (CSP, HSTS, X-Frame-Options… : src/server/lib/security.ts).
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/brand/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+    X-Content-Type-Options = "nosniff"

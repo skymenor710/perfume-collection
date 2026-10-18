@@ -2,6 +2,7 @@ import '../styles/site.css';
 import { initMotion } from './motion';
 import { initContactForm } from './contact-form';
 import { initLightbox } from './lightbox';
+import { initGalleries } from './gallery';
 import { initBooking } from './booking';
 import { initConsent } from './consent';
 import { initTrackedClicks } from './track';
@@ -91,6 +92,7 @@ function boot() {
   initHeader();
   initMobileMenu();
   initMotion();
+  initGalleries();
   initLightbox();
   initBooking();
   initTrackedClicks();

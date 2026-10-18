@@ -1,7 +1,7 @@
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { auditLog, contentVersion, projectImages, projects, siteSettings } from '../db/schema';
-import { mergeContent, type SiteContent } from './content';
+import { frTypo, mergeContent, type SiteContent } from './content';
 
 export type ProjectRow = typeof projects.$inferSelect;
 export type ImageRow = typeof projectImages.$inferSelect;
@@ -56,6 +56,23 @@ export async function getHomeProjects(db: Db): Promise<{ results: ProjectWithIma
   const concepts = ordered.filter((p) => p.isDemo).slice(0, 3);
   const all = await attachImages(db, [...results, ...concepts]);
   return { results: all.slice(0, results.length), concepts: all.slice(results.length) };
+}
+
+/** Projet prêt à afficher : typographie française sur les textes (liens inchangés). */
+export function displayProject(p: ProjectWithImages): ProjectWithImages {
+  return {
+    ...p,
+    name: frTypo(p.name),
+    category: frTypo(p.category),
+    description: frTypo(p.description),
+    challenge: frTypo(p.challenge),
+    solution: frTypo(p.solution),
+    principles: frTypo(p.principles),
+    results: frTypo(p.results),
+    testimonialQuote: frTypo(p.testimonialQuote),
+    testimonialAuthor: frTypo(p.testimonialAuthor),
+    images: p.images.map((i) => ({ ...i, alt: frTypo(i.alt) })),
+  };
 }
 
 /** Un projet client compte comme « résultat » seulement s'il a des résultats vérifiables renseignés. */

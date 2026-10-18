@@ -13,3 +13,4 @@ docs/*.png
 docs/nexora-apercu.html
 assets-src/logo4k/out/
 .impeccable/review/
+.netlify/

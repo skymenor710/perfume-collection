@@ -7,7 +7,8 @@ import { hashPassword, verifyPassword } from '../../src/server/lib/crypto';
 import { checkFormToken, issueFormToken } from '../../src/server/lib/contact';
 import { sniffImageType } from '../../src/server/lib/images';
 import { createMailer } from '../../src/server/lib/mail';
-import { contentSchema, defaultContent, mergeContent } from '../../src/server/lib/content';
+import { contentSchema, defaultContent, displayContent, frTypo, mergeContent } from '../../src/server/lib/content';
+import { serverlessProblems } from '../../src/server/serverless';
 import { createLogger } from '../../src/server/log';
 
 describe('stockage', () => {
@@ -97,7 +98,25 @@ describe('contenus', () => {
     const merged = mergeContent({ hero: { titleHighlight: 'autre', inconnu: 'x' }, pirate: { a: 1 } });
     expect(merged.hero.titleHighlight).toBe('autre');
     expect(merged.hero.titleBefore).toBe(defaultContent.hero.titleBefore);
-    expect(mergeContent({ hero: { primaryCta: '' } })).toEqual(defaultContent);
+    expect(mergeContent({ hero: { ctaQuote: '' } })).toEqual(defaultContent);
+  });
+
+  it('typographie française à l’affichage : espaces insécables, liens et adresses intacts', () => {
+    expect(frTypo('Une question ? Oui ! Voici : « ceci » ; fin')).toBe('Une question\u202F? Oui\u202F! Voici\u00A0: «\u00A0ceci\u00A0»\u202F; fin');
+    expect(frTypo('https://cal.com/nexora')).toBe('https://cal.com/nexora');
+    const shown = displayContent({ ...defaultContent, contact: { ...defaultContent.contact, bookingUrl: 'https://cal.com/x', text: 'Écrivez-nous : merci' } });
+    expect(shown.contact.text).toBe('Écrivez-nous\u00A0: merci');
+    expect(shown.contact.bookingUrl).toBe('https://cal.com/x');
+    expect(shown.faq.q1Question.endsWith('\u202F?')).toBe(true);
+  });
+});
+
+describe('serverless (Netlify)', () => {
+  it('refuse les réglages non persistants ou contournables', () => {
+    expect(serverlessProblems({ DATABASE_URL: 'pglite:./data/db', STORAGE_DRIVER: 'local' })).toHaveLength(2);
+    expect(serverlessProblems({})).toHaveLength(2);
+    expect(serverlessProblems({ DATABASE_URL: 'postgres://u:p@h/db', STORAGE_DRIVER: 's3', TRUST_PROXY: 'true' })).toHaveLength(1);
+    expect(serverlessProblems({ DATABASE_URL: 'postgresql://u:p@h/db?sslmode=require', STORAGE_DRIVER: 's3' })).toEqual([]);
   });
 });
 

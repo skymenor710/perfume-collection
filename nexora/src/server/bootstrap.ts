@@ -1,4 +1,5 @@
 import path from 'node:path';
+import pino from 'pino';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, type Config } from './config';
 import { applyMigrations, openDb, type DbHandle } from './db/client';
@@ -18,9 +19,10 @@ export interface Runtime {
 }
 
 /** Assemble les dépendances (utilisé par le serveur et les scripts en ligne de commande). */
-export async function bootstrap(options: { config?: Config; migrate?: boolean; clientDir?: string } = {}): Promise<Runtime> {
+export async function bootstrap(options: { config?: Config; migrate?: boolean; clientDir?: string; syncLog?: boolean } = {}): Promise<Runtime> {
   const config = options.config ?? loadConfig();
-  const log = createLogger(config.logLevel);
+  // Serverless : écriture synchrone du journal (une instance gelée ne perd pas ses dernières lignes).
+  const log = createLogger(config.logLevel, options.syncLog ? pino.destination({ dest: 1, sync: true }) : undefined);
   const handle = await openDb(config.databaseUrl);
   if (options.migrate ?? config.migrateOnStart) await applyMigrations(handle);
   const deps: Deps = {

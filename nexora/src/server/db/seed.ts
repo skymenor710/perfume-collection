@@ -18,6 +18,7 @@ const DEMOS = [
   {
     name: 'Entreprise de maçonnerie',
     category: 'Bâtiment · Site vitrine',
+    description: 'Site vitrine pour une entreprise du bâtiment aux sept corps d’état : une offre très large rendue lisible, pensée pour les demandes de devis.',
     challenge:
       'Concept de prospection pour une entreprise qui réalise sept corps d’état : rendre lisible une offre très large et transformer les visites en demandes de devis.',
     solution:
@@ -34,6 +35,7 @@ const DEMOS = [
   {
     name: 'Laboratoire in vitro',
     category: 'Biotechnologie · Site vitrine trilingue',
+    description: 'Site trilingue pour un laboratoire de culture in vitro : un procédé scientifique expliqué simplement à des exploitants et à des investisseurs.',
     challenge:
       'Concept pour un laboratoire de culture in vitro du palmier dattier, présent en France et aux Émirats arabes unis : expliquer un procédé scientifique à des exploitants et des investisseurs, en trois langues.',
     solution:
@@ -50,6 +52,7 @@ const DEMOS = [
   {
     name: 'EARKO',
     category: 'E-commerce · Page produit',
+    description: 'Page produit e-commerce pour des écouteurs ouverts : du bénéfice clé jusqu’à l’achat, sur une seule page.',
     challenge:
       'Concept de page produit pour des écouteurs ouverts : rendre un produit technique désirable et mener le visiteur jusqu’à l’achat sur une seule page.',
     solution:
@@ -72,7 +75,7 @@ export async function seedDemo(deps: Deps, seedDir: string) {
   for (const [i, demo] of DEMOS.entries()) {
     const [p] = await deps.db
       .insert(projects)
-      .values({ name: demo.name, category: demo.category, challenge: demo.challenge, solution: demo.solution, principles: demo.principles, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
+      .values({ name: demo.name, category: demo.category, description: demo.description, challenge: demo.challenge, solution: demo.solution, principles: demo.principles, isDemo: true, published: true, featuredPosition: i + 1, sortOrder: i + 1 })
       .returning({ id: projects.id });
     for (const [k, [file, alt]] of demo.images.entries()) {
       const buf = await readFile(path.join(seedDir, `${file}.webp`));

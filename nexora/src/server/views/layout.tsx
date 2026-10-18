@@ -1,6 +1,6 @@
 import type { Child } from 'hono/jsx';
 import { raw } from 'hono/html';
-import type { SiteContent } from '../lib/content';
+import { areaList, type SiteContent } from '../lib/content';
 import type { Assets } from '../lib/assets';
 import { ArrowUpRight, MenuIcon } from './icons';
 
@@ -23,60 +23,32 @@ export const Logo = ({ tagline, size = 'md' }: { tagline?: string; size?: 'md' |
   </span>
 );
 
+/** Navigation : le logo mène à l'accueil ; les liens suivent l'ordre de la page. */
 export const NAV = [
-  { href: '/#accueil', label: 'Accueil' },
-  { href: '/#services', label: 'Services' },
-  { href: '/#methode', label: 'Méthode' },
   { href: '/#realisations', label: 'Réalisations' },
+  { href: '/#services', label: 'Services' },
+  { href: '/#processus', label: 'Processus' },
   { href: '/#faq', label: 'FAQ' },
   { href: '/#contact', label: 'Contact' },
 ];
 
 /**
- * Appel à l'action « diagnostic », toujours cohérent avec ce qu'il fait :
- *  - lien de rendez-vous configuré (Admin › Contenus › Contact) → « Réserver… », ouvre la réservation (fenêtre intégrée
- *    pour Cal.com / Calendly via src/client/booking.ts, sinon nouvel onglet) ;
- *  - sinon → « Demander… », mène au formulaire de contact. Jamais « Réserver » sans réservation réelle.
+ * Lien de prise de rendez-vous (Admin › Contenus › Contact) : proposé dans la section Contact uniquement s'il est
+ * configuré (fenêtre intégrée pour Cal.com / Calendly via src/client/booking.ts, sinon nouvel onglet). Les boutons
+ * « Demander un devis » mènent toujours au formulaire : jamais « Réserver » sans réservation réelle.
  */
 export function bookingLink(content: SiteContent) {
   const url = content.contact.bookingUrl;
   return url ? { href: url, external: true } : { href: '/#contact', external: false };
 }
 
-export const BookingCta = ({
-  content,
-  label,
-  fallback,
-  class: cls,
-  size = 18,
-  menu,
-  track,
-}: {
-  content: SiteContent;
-  label: string;
-  fallback: string;
-  class: string;
-  size?: number;
-  menu?: boolean;
-  track?: string;
-}) => {
-  const l = bookingLink(content);
-  return (
-    <a
-      class={cls}
-      href={l.href}
-      target={l.external ? '_blank' : undefined}
-      rel={l.external ? 'noopener' : undefined}
-      data-booking={l.external ? '' : undefined}
-      data-menu-link={menu ? '' : undefined}
-      data-track={track}
-    >
-      <span>{l.external ? label : fallback}</span>
-      {l.external ? <span class="sr-only"> (nouvel onglet)</span> : null}
-      <ArrowUpRight size={size} />
-    </a>
-  );
-};
+/** Bouton « Demander un devis » de l'en-tête et du menu mobile : toujours vers le formulaire. */
+const QuoteCta = ({ label, class: cls, size = 18, menu }: { label: string; class: string; size?: number; menu?: boolean }) => (
+  <a class={cls} href="/#contact" data-menu-link={menu ? '' : undefined} data-track="cta_header">
+    <span>{label}</span>
+    <ArrowUpRight size={size} />
+  </a>
+);
 
 export const Header = ({ content }: { content: SiteContent }) => (
   <header class="site-header" data-header>
@@ -94,7 +66,7 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <BookingCta content={content} label={content.header.cta} fallback={content.header.ctaFallback} class="btn btn--outline btn--sm site-header__cta" size={16} track="cta_header" />
+        <QuoteCta label={content.header.ctaQuote} class="btn btn--outline btn--sm site-header__cta" size={16} />
       </nav>
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only" data-menu-label>
@@ -114,7 +86,7 @@ export const Header = ({ content }: { content: SiteContent }) => (
             </li>
           ))}
         </ul>
-        <BookingCta content={content} label={content.header.cta} fallback={content.header.ctaFallback} class="btn btn--primary mobile-menu__cta" menu track="cta_header" />
+        <QuoteCta label={content.header.ctaQuote} class="btn btn--primary mobile-menu__cta" menu />
       </nav>
     </div>
   </header>
@@ -124,9 +96,12 @@ export const Header = ({ content }: { content: SiteContent }) => (
 export const Footer = ({ content, consent }: { content: SiteContent; consent?: boolean }) => (
   <footer class="site-footer">
     <div class="container site-footer__inner">
-      <a class="site-footer__brand" href="/#accueil">
-        <Logo tagline={content.footer.tagline} />
-      </a>
+      <div class="site-footer__id">
+        <a class="site-footer__brand" href="/#accueil">
+          <Logo tagline={content.footer.tagline} />
+        </a>
+        {areaList(content).length ? <p class="site-footer__area">{areaList(content).join(' · ')}</p> : null}
+      </div>
       <nav class="site-footer__nav" aria-label="Pied de page">
         <ul class="site-footer__links">
           {NAV.map((l) => (

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess, execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -35,6 +35,9 @@ function run(args: string[], input?: string) {
 }
 
 export async function prepare() {
+  // Chaque fichier de tests repart d'un état connu (base et images).
+  rmSync(path.join(work, 'uploads'), { recursive: true, force: true });
+  if (env.DATABASE_URL!.startsWith('pglite:')) rmSync(path.join(work, 'db'), { recursive: true, force: true });
   if (env.DATABASE_URL!.startsWith('postgres')) {
     // Base PostgreSQL dédiée aux tests : remise à zéro complète.
     const { default: pg } = await import('pg');

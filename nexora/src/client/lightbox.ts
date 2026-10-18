@@ -1,6 +1,6 @@
 /**
  * Visionneuse plein écran des captures de projets.
- *  - Ouverture : clic / toucher sur la capture principale ou une vignette d'une étude de cas, ou « Voir les captures ».
+ *  - Ouverture : clic / toucher sur une capture de la galerie d'une réalisation, ou bouton « Plein écran ».
  *  - <dialog> natif (showModal) : fond inerte, focus piégé, Échap pour fermer ; le focus revient au bouton d'origine.
  *  - Navigation : flèches à l'écran, ← → au clavier, glisser horizontal au doigt ; compteur « 2 / 4 ».
  *  - Zoom ×2 : clic sur l'image (au point cliqué) ou bouton loupe ; image agrandie déplaçable à la souris / au doigt.
@@ -207,14 +207,15 @@ export function initLightbox() {
     opener?.focus({ preventScroll: true, focusVisible: closedByKeyboard } as FocusOptions);
   });
 
-  // ---------------------------------------------------------------- ouverture depuis les études de cas
+  // ---------------------------------------------------------------- ouverture depuis les cartes de réalisations
   document.querySelectorAll<HTMLElement>('[data-gallery]').forEach((g) => {
     g.querySelectorAll<HTMLElement>('[data-shot-open]').forEach((btn) =>
       btn.addEventListener('click', () => open(g, Number(btn.dataset.shotOpen) || 0, btn)),
     );
-    g.closest('.case')
+    // « Plein écran » : s'ouvre sur la capture affichée dans la galerie de la carte.
+    g.closest('[data-work]')
       ?.querySelector<HTMLElement>('[data-lightbox-open]')
-      ?.addEventListener('click', (e) => open(g, 0, e.currentTarget as HTMLElement));
+      ?.addEventListener('click', (e) => open(g, Number(g.dataset.index) || 0, e.currentTarget as HTMLElement));
   });
 
   // ---------------------------------------------------------------- commandes de la visionneuse

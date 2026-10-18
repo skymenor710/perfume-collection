@@ -12,7 +12,8 @@ const PendingNotice = ({ content }: { content: SiteContent }) =>
     </p>
   ) : null;
 
-export const LegalNotice = ({ content, publicUrl }: { content: SiteContent; publicUrl: string }) => {
+/** `analytics` : nom de l'outil de mesure d'audience s'il est configuré (chargé seulement après consentement). */
+export const LegalNotice = ({ content, publicUrl, analytics }: { content: SiteContent; publicUrl: string; analytics?: string | null }) => {
   const l = content.legal;
   return (
     <>
@@ -76,15 +77,17 @@ export const LegalNotice = ({ content, publicUrl }: { content: SiteContent; publ
             protégé par le droit de la propriété intellectuelle. Toute reproduction sans autorisation préalable est interdite.
           </p>
           <p>
-            Les projets signalés « Démonstration » sont des maquettes conçues par Nexora (prospection ou projets internes) : ils ne
+            Les projets signalés « Concept / Démonstration » sont des sites conçus par Nexora (prospection ou projets internes) : ils ne
             représentent pas des clients. Les noms et coordonnées des entreprises concernées sont masqués.
           </p>
 
           <h2>Données personnelles et cookies</h2>
           <p>
             Le traitement des informations envoyées via le formulaire de contact est décrit dans notre{' '}
-            <a href="/politique-de-confidentialite">politique de confidentialité</a>. Le site n’utilise aucun cookie publicitaire ni
-            outil de mesure d’audience.
+            <a href="/politique-de-confidentialite">politique de confidentialité</a>.{' '}
+            {analytics
+              ? `Le site n’utilise aucun cookie publicitaire. La mesure d’audience (${analytics}) n’est activée qu’après votre accord, modifiable à tout moment depuis le pied de page.`
+              : 'Le site n’utilise aucun cookie publicitaire ni outil de mesure d’audience.'}
           </p>
         </div>
       </main>

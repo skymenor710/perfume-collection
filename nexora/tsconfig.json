@@ -16,5 +16,5 @@
     "jsxImportSource": "hono/jsx",
     "types": ["node"]
   },
-  "include": ["src", "scripts", "tests", "*.ts"]
+  "include": ["src", "scripts", "tests", "netlify", "*.ts"]
 }

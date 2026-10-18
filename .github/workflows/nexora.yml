@@ -50,3 +50,7 @@ jobs:
       - run: npm run test:e2e
         env:
           E2E_DATABASE_URL: postgres://nexora:ci-only-password@localhost:5432/nexora_e2e
+      # Paquet des fonctions Netlify (empaqueté comme sur Netlify, exercé localement ; aucun déploiement).
+      - run: npm run test:netlify
+        env:
+          NETLIFY_TEST_DATABASE_URL: postgres://nexora:ci-only-password@localhost:5432/nexora_e2e

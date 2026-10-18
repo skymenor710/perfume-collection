@@ -231,19 +231,19 @@ export function adminRoutes(deps: Deps, cache: PageCache) {
     const demo = all.filter((p) => p.isDemo && p.published);
     if (demo.length) {
       warnings.push({
-        title: `${demo.length} projet(s) de démonstration publié(s)`,
-        detail: 'Remplacez-les par vos vrais projets, puis dépubliez ou supprimez les démonstrations.',
+        title: `${demo.length} concept(s) publié(s)`,
+        detail: 'Affichés avec le badge « Concept / Démonstration ». Ajoutez vos projets clients dès que possible : ils passent en premier dans « Nos réalisations ».',
         href: '/admin/projets',
         linkLabel: 'Gérer les projets',
       });
     }
     // Conversion : contenus à remplir avec des données RÉELLES (sections masquées sur le site tant qu'elles sont vides).
     const todo: string[] = [];
-    if (!content.contact.bookingUrl) todo.push('lien de prise de rendez-vous (les boutons affichent « Demander un diagnostic » et mènent au formulaire)');
+    if (!content.contact.bookingUrl) todo.push('lien de prise de rendez-vous (facultatif : sans lien, la section Contact propose seulement le formulaire)');
     if (!content.team.name.trim() || !content.team.text.trim()) todo.push('section « Derrière Nexora » (masquée)');
     if (!rows(content.proof, 'item', 4, ['Value', 'Label'] as const).some((r) => r.Value && r.Label)) todo.push('chiffres de preuve sociale (bande masquée)');
     if (!rows(content.testimonials, 't', 3, ['Quote', 'Author'] as const).some((r) => r.Quote && r.Author)) todo.push('témoignages clients (section masquée)');
-    if (!all.some((p) => p.published && !p.isDemo)) todo.push('projets clients avec résultats vérifiables (section « Résultats clients » masquée)');
+    if (!all.some((p) => p.published && !p.isDemo)) todo.push('projets clients avec résultats vérifiables (aucun « Projet client » dans « Nos réalisations »)');
     else if (all.some((p) => p.published && !p.isDemo && !p.results.trim())) todo.push('résultats vérifiables des projets clients');
     if (todo.length) {
       warnings.push({ title: 'Contenus de conversion à compléter', detail: `${todo.join(' ; ')}.`, href: '/admin/contenus', linkLabel: 'Compléter' });

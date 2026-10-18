@@ -126,7 +126,7 @@ export function contactPayload(overrides: Record<string, string> = {}) {
     company: 'Atelier Martin',
     email: 'camille@example.fr',
     phone: '+33 6 12 34 56 78',
-    projectType: 'Site vitrine',
+    projectType: 'Création de site vitrine',
     message: 'Bonjour, nous souhaitons refaire notre site vitrine.',
     website: '',
     token: issueFormTokenForTest(SECRET, Date.now() - 5000),

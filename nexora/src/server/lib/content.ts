@@ -14,9 +14,9 @@ const optionalHttpsUrl = z.union([z.literal(''), z.string().trim().max(300).url(
 /** Numéro WhatsApp au format international (ex. : +33 6 12 34 56 78). */
 const optionalWhatsapp = z.union([z.literal(''), z.string().trim().max(24).regex(/^\+[0-9 ]{8,22}$/)]);
 
-/** Champs numérotés (services 1–4, étapes 1–3…) : la mise en page reste fixe, seuls les textes changent. */
-type Upto<N extends number> = N extends 3 ? 1 | 2 | 3 : N extends 4 ? 1 | 2 | 3 | 4 : 1 | 2 | 3 | 4 | 5 | 6;
-function numbered<P extends string, N extends 3 | 4 | 6, K extends string>(prefix: P, count: N, fields: Record<K, number>) {
+/** Champs numérotés (services 1–5, étapes 1–4…) : la mise en page reste fixe, seuls les textes changent. */
+type Upto<N extends number, A extends number[] = [1]> = A['length'] extends N ? A[number] : Upto<N, [...A, [...A, 0]['length']]>;
+function numbered<P extends string, N extends number, K extends string>(prefix: P, count: N, fields: Record<K, number>) {
   const shape: Record<string, z.ZodString> = {};
   for (let i = 1; i <= count; i++) for (const [k, max] of Object.entries(fields) as [K, number][]) shape[`${prefix}${i}${k}`] = line(max);
   return shape as Record<`${P}${Upto<N>}${K}`, z.ZodString>;
@@ -28,39 +28,37 @@ export const contentSchema = z.object({
     titleHighlight: line(60),
     titleAfter: line(80),
     subtitle: line(240),
-    /** Public visé (positionnement) : texte neutre par défaut, à préciser avec la cible réelle. */
-    audience: line(140),
-    /** « Réserver… » uniquement si un lien de rendez-vous est configuré ; sinon « Demander… » (vers le formulaire). */
-    primaryCta: line(40).min(1),
-    primaryCtaFallback: line(40).min(1),
-    /** « Découvrir nos concepts » tant qu'aucun projet client avec résultats n'est publié. */
-    secondaryCta: line(40).min(1),
-    secondaryCtaResults: line(40).min(1),
+    /** Public visé et zone d'intervention (positionnement). */
+    audience: line(180),
+    /** Bouton principal : mène toujours au formulaire de demande de devis (jamais « Réserver » sans réservation). */
+    ctaQuote: line(40).min(1),
+    /** Bouton secondaire : mène à « Nos réalisations » (concepts et projets clients, chacun avec son statut). */
+    ctaWork: line(40).min(1),
     reassurance: line(80),
   }),
-  header: z.object({ cta: line(32).min(1), ctaFallback: line(32).min(1) }),
+  header: z.object({ ctaQuote: line(32).min(1) }),
   /** Preuve sociale : uniquement des données RÉELLES (chiffres vérifiables, avis publics…). Vide = section masquée. */
   proof: z.object({ title: line(80), ...numbered('item', 4, { Value: 16, Label: 80 }) }),
-  services: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), cta: line(40), ...numbered('s', 4, { Title: 50, Text: 200 }) }),
-  method: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), ...numbered('m', 3, { Title: 50, Text: 300 }) }),
+  services: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), cta: line(40), ...numbered('s', 5, { Title: 50, Text: 200 }) }),
+  method: z.object({ title: line(60), titleHighlight: line(60), subtitle: line(200), ...numbered('m', 4, { Title: 50, Text: 300 }) }),
   /** « Derrière Nexora » : personne RÉELLE uniquement (nom, fonction, texte ; photo envoyée dans l'admin). Vide = masqué. */
   team: z.object({ title: line(60), name: line(80), role: line(120), text: line(700), photoAlt: line(160) }),
+  /**
+   * « Nos réalisations » : projets clients (résultats vérifiables) puis concepts, chacun avec son statut affiché.
+   * Le sous-titre doit rester vrai dans les deux cas : il explique la différence entre les deux statuts.
+   */
   projects: z.object({
-    eyebrow: line(60),
-    titleLine1: line(60),
-    titleLine2Before: line(30),
-    titleLine2Highlight: line(60),
-    subtitle: line(200),
+    title: line(60),
+    titleHighlight: line(60),
+    subtitle: line(260),
     visitLabel: line(30).min(1),
     caseLabel: line(30).min(1),
+    detailsLabel: line(40).min(1),
     emptyText: line(160),
-    /** Section « Résultats clients » : projets clients publiés (jamais les concepts). */
-    resultsTitle: line(60),
-    resultsSubtitle: line(200),
   }),
   /** Témoignages : uniquement des citations RÉELLES, avec l'accord écrit de la personne. Vide = section masquée. */
   testimonials: z.object({ title: line(60), ...numbered('t', 3, { Quote: 400, Author: 80, Role: 120 }) }),
-  faq: z.object({ title: line(60), titleHighlight: line(60), ...numbered('q', 6, { Question: 140, Answer: 700 }) }),
+  faq: z.object({ title: line(60), titleHighlight: line(60), ...numbered('q', 7, { Question: 140, Answer: 700 }) }),
   contact: z.object({
     titleLine1: line(60),
     titleHighlight: line(60),
@@ -77,7 +75,11 @@ export const contentSchema = z.object({
     publicPhone: optionalPhone,
   }),
   footer: z.object({ tagline: line(60) }),
-  seo: z.object({ title: line(70).min(1), description: line(170).min(1) }),
+  /**
+   * Référencement. `areaServed` : villes ou zones réellement desservies, séparées par des virgules (données structurées
+   * et pied de page). Aucune adresse n'est publiée tant que l'adresse réelle n'est pas saisie dans « Informations légales ».
+   */
+  seo: z.object({ title: line(70).min(1), description: line(170).min(1), areaServed: line(200) }),
   legal: z.object({
     companyName: line(120),
     legalForm: line(80),
@@ -102,61 +104,57 @@ const empty = (prefix: string, count: number, keys: string[]) =>
 
 export const defaultContent: SiteContent = {
   hero: {
-    titleBefore: 'Des sites web pensés pour',
-    titleHighlight: 'générer des demandes,',
-    titleAfter: 'pas seulement des compliments.',
-    subtitle:
-      'Nous concevons des sites rapides et sur mesure pour les entreprises qui veulent transformer leur présence en ligne en opportunités commerciales.',
-    // Texte NEUTRE par défaut : à préciser (secteurs, taille, zone géographique) seulement avec la cible réelle.
-    audience: 'Sites vitrines, refontes, e-commerce et automatisations pour PME, indépendants et entreprises de services.',
-    primaryCta: 'Réserver un diagnostic de 20 min',
-    primaryCtaFallback: 'Demander un diagnostic',
-    secondaryCta: 'Découvrir nos concepts',
-    secondaryCtaResults: 'Voir des résultats clients',
-    reassurance: 'Sans engagement · Réponse sous 1 jour ouvré',
+    titleBefore: 'Création de sites web',
+    titleHighlight: 'premium',
+    titleAfter: 'pour les PME.',
+    subtitle: 'Des sites rapides et sur mesure, pensés pour transformer vos visiteurs en demandes de devis.',
+    // Zone d'intervention : à ajuster dans Admin › Contenus si elle change (aucune adresse n'est affichée).
+    audience: 'Sites vitrines, refontes et boutiques en ligne pour PME et indépendants — à Romorantin-Lanthenay, Blois, Orléans et partout en France à distance.',
+    ctaQuote: 'Demander un devis',
+    ctaWork: 'Voir nos réalisations',
+    reassurance: 'Devis gratuit et sans engagement · Réponse sous 1 jour ouvré',
   },
-  header: { cta: 'Réserver un diagnostic', ctaFallback: 'Demander un diagnostic' },
+  header: { ctaQuote: 'Demander un devis' },
   // À REMPLIR uniquement avec des données réelles (ex. : « 4,9/5 » + « note moyenne sur Google, 32 avis »).
   proof: { title: 'En quelques chiffres', ...empty('item', 4, ['Value', 'Label']) } as SiteContent['proof'],
   services: {
-    title: 'Ce que nous construisons',
-    titleHighlight: 'pour votre croissance.',
-    subtitle: 'Quatre façons de transformer votre présence en ligne en opportunités commerciales.',
-    cta: 'Parler de ce projet',
-    s1Title: 'Sites vitrines',
-    s1Text: 'Un site qui présente clairement votre offre et transforme les visites en demandes de devis ou de rendez-vous.',
-    s2Title: 'Refonte de site',
-    s2Text: 'Votre site actuel repensé, plus rapide et mieux structuré, pour que vos visiteurs trouvent l’essentiel et vous contactent.',
-    s3Title: 'E-commerce',
-    s3Text: 'Une boutique pensée pour vendre : parcours d’achat simple, fiches produits claires, paiement sans friction.',
-    s4Title: 'Automatisations et outils digitaux',
-    s4Text: 'Prises de rendez-vous, devis, relances et formulaires automatisés : moins de tâches manuelles, aucune demande oubliée.',
+    title: 'Nos',
+    titleHighlight: 'services.',
+    subtitle: 'De la création à la maintenance : tout ce qu’il faut pour un site qui vous ressemble et qui travaille pour vous.',
+    cta: 'Demander un devis',
+    s1Title: 'Création de sites web',
+    s1Text: 'Sites vitrines et boutiques en ligne sur mesure : un message clair, une navigation simple et des demandes faciles à envoyer.',
+    s2Title: 'Refonte de sites existants',
+    s2Text: 'Votre site actuel repensé : structure, contenus et design remis à plat pour que vos visiteurs trouvent l’essentiel.',
+    s3Title: 'Responsive design',
+    s3Text: 'Un affichage soigné sur téléphone, tablette et ordinateur, testé sur les écrans que vos clients utilisent vraiment.',
+    s4Title: 'Optimisation des performances',
+    s4Text: 'Pages plus légères et plus rapides, mesurées avec les outils de Google : une meilleure expérience et un meilleur référencement.',
+    s5Title: 'Maintenance et accompagnement',
+    s5Text: 'Mises à jour, sauvegardes, petites évolutions et conseils après la mise en ligne, selon le niveau de suivi que vous choisissez.',
   },
   method: {
-    title: 'Comment',
-    titleHighlight: 'nous travaillons.',
-    subtitle: 'Un cadre clair, du premier échange à la mise en ligne : vous savez à chaque étape ce qui est fait, quand et pourquoi.',
-    m1Title: 'Diagnostic et stratégie',
-    m1Text:
-      'Un échange de 20 minutes pour comprendre votre activité, vos clients et vos objectifs. Vous recevez ensuite une proposition écrite : périmètre, planning et budget.',
-    m2Title: 'Design et développement',
-    m2Text:
-      'Les maquettes sont validées avec vous avant toute ligne de code, puis le site est développé sur mesure. Vous suivez l’avancement et donnez votre avis au bon moment.',
-    m3Title: 'Lancement et optimisation',
-    m3Text:
-      'Mise en ligne, contrôle de la vitesse et du référencement, suivi des demandes reçues. Les ajustements s’appuient ensuite sur des données réelles.',
+    title: 'Notre',
+    titleHighlight: 'processus.',
+    subtitle: 'Quatre étapes claires, du premier échange à la mise en ligne : vous savez à chaque moment ce qui est fait, quand et pourquoi.',
+    m1Title: 'Découverte',
+    m1Text: 'Un premier échange pour comprendre votre activité, vos clients et vos objectifs. Vous recevez ensuite une proposition écrite : périmètre, planning et budget.',
+    m2Title: 'Conception',
+    m2Text: 'Arborescence, contenus et maquettes : la structure et le design sont validés avec vous avant toute ligne de code.',
+    m3Title: 'Développement',
+    m3Text: 'Le site est développé sur mesure, rapide et accessible. Vous suivez l’avancement et donnez votre avis au bon moment.',
+    m4Title: 'Mise en ligne',
+    m4Text: 'Contrôle de la vitesse, du référencement et des formulaires, puis mise en ligne. Nous restons disponibles pour les premiers ajustements.',
   },
   projects: {
-    eyebrow: '',
-    titleLine1: 'Nos concepts de sites',
-    titleLine2Before: '',
-    titleLine2Highlight: 'à forte conversion.',
-    subtitle: 'Découvrez notre approche : contexte, solution apportée et principes de conversion appliqués à chaque concept.',
-    visitLabel: 'Voir le projet',
+    title: 'Nos',
+    titleHighlight: 'réalisations.',
+    subtitle:
+      'Des sites conçus et développés par Nexora. Chaque projet indique son statut : « Projet client » (livré, avec ses résultats) ou « Concept » (réalisé sans commande client, pour montrer notre méthode).',
+    visitLabel: 'Voir le site',
     caseLabel: 'Lire l’étude de cas',
-    emptyText: 'Nos premiers concepts seront bientôt présentés ici.',
-    resultsTitle: 'Résultats clients',
-    resultsSubtitle: 'Des projets livrés, avec leurs résultats vérifiables et l’avis de nos clients.',
+    detailsLabel: 'Contexte, solution et objectif',
+    emptyText: 'Nos premières réalisations seront bientôt présentées ici.',
   },
   // « Derrière Nexora » : À REMPLIR avec la personne réelle (aucun nom, parcours ni photo inventés). Vide = masqué.
   team: { title: 'Derrière Nexora', name: '', role: '', text: '', photoAlt: '' },
@@ -167,10 +165,10 @@ export const defaultContent: SiteContent = {
     titleHighlight: 'fréquentes.',
     q1Question: 'Combien de temps faut-il pour réaliser un site ?',
     q1Answer:
-      'Cela dépend du périmètre : un site vitrine demande moins de temps qu’une boutique en ligne ou qu’une refonte avec reprise de contenus. Le calendrier est fixé par écrit dans la proposition, après le diagnostic, avec des étapes de validation datées.',
+      'Cela dépend du périmètre : un site vitrine demande moins de temps qu’une boutique en ligne ou qu’une refonte avec reprise de contenus. Le calendrier est fixé par écrit dans la proposition, après le premier échange, avec des étapes de validation datées.',
     q2Question: 'Quel budget faut-il prévoir ?',
     q2Answer:
-      'Chaque projet fait l’objet d’un devis détaillé après le diagnostic, selon le nombre de pages, les fonctionnalités et les contenus à produire. Le prix est fixé avant le démarrage ; toute évolution est chiffrée et validée avec vous avant d’être réalisée.',
+      'Chaque projet fait l’objet d’un devis détaillé et gratuit après le premier échange, selon le nombre de pages, les fonctionnalités et les contenus à produire. Le prix est fixé avant le démarrage ; toute évolution est chiffrée et validée avec vous avant d’être réalisée.',
     q3Question: 'Qui s’occupe de la maintenance après la mise en ligne ?',
     q3Answer:
       'Les modalités de maintenance — mises à jour, sauvegardes, surveillance, petites évolutions — sont précisées dans la proposition. Vous choisissez le niveau d’accompagnement adapté à votre activité.',
@@ -182,7 +180,10 @@ export const defaultContent: SiteContent = {
       'Le nom de domaine est enregistré à votre nom et vos contenus vous appartiennent. Les conditions de cession du site et de son code sont précisées par écrit dans la proposition, avant le démarrage.',
     q6Question: 'Comment se déroule la collaboration ?',
     q6Answer:
-      'Après le diagnostic, vous avez un interlocuteur dédié du début à la fin. Chaque étape — maquettes, développement, mise en ligne — se termine par votre validation. Les échanges se font en visioconférence, par téléphone ou par e-mail, selon ce qui vous convient.',
+      'Après le premier échange, vous avez un interlocuteur dédié du début à la fin. Chaque étape — conception, développement, mise en ligne — se termine par votre validation. Les échanges se font en visioconférence, par téléphone ou par e-mail, selon ce qui vous convient.',
+    q7Question: 'Travaillez-vous avec des entreprises de Romorantin-Lanthenay, Blois et Orléans ?',
+    q7Answer:
+      'Oui. Nexora accompagne les PME et indépendants de Romorantin-Lanthenay, de Blois, d’Orléans et de la région Centre-Val de Loire. Les échanges se font en visioconférence, par téléphone ou par e-mail : nous travaillons aussi avec des entreprises partout en France.',
   },
   contact: {
     titleLine1: 'Votre prochain site',
@@ -201,9 +202,10 @@ export const defaultContent: SiteContent = {
   },
   footer: { tagline: 'Création de sites web' },
   seo: {
-    title: 'Nexora — Sites web sur mesure qui génèrent des demandes',
+    title: 'Nexora — Création de sites web premium pour PME',
     description:
-      'Nexora conçoit des sites rapides et sur mesure — vitrines, refontes, e-commerce, automatisations — pour transformer votre présence en ligne en clients.',
+      'Création et refonte de sites web sur mesure, rapides et responsive pour PME et indépendants à Romorantin-Lanthenay, Blois, Orléans et partout en France.',
+    areaServed: 'Romorantin-Lanthenay, Blois, Orléans, Centre-Val de Loire',
   },
   // Informations légales : À COMPLÉTER avant publication (aucune donnée inventée).
   legal: {
@@ -267,12 +269,50 @@ export function mergeContent(stored: unknown): SiteContent {
 }
 
 export const PROJECT_TYPES = [
-  'Site vitrine',
-  'Refonte de site',
-  'Site e-commerce',
-  'Automatisation et outils digitaux',
+  'Création de site vitrine',
+  'Création de boutique en ligne',
+  'Refonte de site existant',
+  'Adaptation mobile (responsive)',
+  'Optimisation des performances',
+  'Maintenance et accompagnement',
   'Autre',
 ] as const;
+
+/** Type de projet présélectionné dans le formulaire depuis chaque service (dans l'ordre des services 1 à 5). */
+export const SERVICE_PROJECT_TYPES = [
+  'Création de site vitrine',
+  'Refonte de site existant',
+  'Adaptation mobile (responsive)',
+  'Optimisation des performances',
+  'Maintenance et accompagnement',
+] as const satisfies readonly (typeof PROJECT_TYPES)[number][];
+
+/** Zones desservies (Référencement › zones) sous forme de liste. */
+export function areaList(c: SiteContent) {
+  return c.seo.areaServed
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Typographie française : espace insécable avant : et », après « ; espace fine insécable avant ? ! ; — aucun signe ne
+ * se retrouve seul en début de ligne. Appliquée à l'affichage seulement (le texte saisi dans l'admin n'est pas modifié).
+ */
+export function frTypo(text: string) {
+  return text
+    .replace(/[ \u00A0\u202F]([?!;])/g, '\u202F$1')
+    .replace(/[ \u00A0\u202F]([:»])/g, '\u00A0$1')
+    .replace(/«[ \u00A0\u202F]/g, '«\u00A0');
+}
+
+/** Contenu prêt à afficher : typographie française sur tous les textes (adresses, liens et numéros inchangés). */
+export function displayContent(c: SiteContent): SiteContent {
+  const keep = /url|email|phone|number/i;
+  const out = structuredClone(c) as Record<string, Record<string, string>>;
+  for (const section of Object.values(out)) for (const k of Object.keys(section)) if (!keep.test(k)) section[k] = frTypo(section[k]);
+  return out as unknown as SiteContent;
+}
 
 /** Champs facultatifs de qualification du formulaire de contact (listes fermées : modifiables ici). */
 export const BUDGETS = ['Moins de 3 000 €', '3 000 à 6 000 €', '6 000 à 12 000 €', 'Plus de 12 000 €', 'Je ne sais pas encore'] as const;

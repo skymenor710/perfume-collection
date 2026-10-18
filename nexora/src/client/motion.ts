@@ -24,9 +24,10 @@ export function initMotion() {
   );
   if (hero) visibility.observe(hero);
 
+  let revealPending: () => void = () => {};
   if (!prefersReduced()) {
     root.classList.add('js-motion');
-    initReveal();
+    revealPending = initReveal();
   } else {
     document.querySelector('.contact')?.classList.add('is-drawn');
   }
@@ -41,6 +42,7 @@ export function initMotion() {
   let ticking = false;
   function update() {
     ticking = false;
+    revealPending();
     const y = window.scrollY;
     const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     if (progress) progress.style.transform = `scaleX(${(0.125 + 0.875 * Math.min(1, y / max)).toFixed(4)})`;
@@ -62,26 +64,40 @@ export function initMotion() {
   update();
 }
 
+/** Renvoie une vérification à appeler au défilement : révèle aussi ce qu'un saut d'ancre a dépassé sans l'afficher. */
 function initReveal() {
   const items = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
   const contact = document.querySelector<HTMLElement>('.contact');
+  const pending = new Set<HTMLElement>();
+  const reveal = (el: HTMLElement) => {
+    el.classList.remove('reveal-pending');
+    pending.delete(el);
+    io.unobserve(el);
+  };
   const io = new IntersectionObserver(
     (entries) => {
       for (const e of entries) {
         if (!e.isIntersecting) continue;
         const el = e.target as HTMLElement;
-        if (el === contact) el.classList.add('is-drawn');
-        else el.classList.remove('reveal-pending');
-        io.unobserve(el);
+        if (el === contact) {
+          el.classList.add('is-drawn');
+          io.unobserve(el);
+        } else reveal(el);
       }
     },
     { rootMargin: '0px 0px -12% 0px', threshold: 0.08 },
   );
+  // Impression : tout le contenu est visible.
+  window.addEventListener('beforeprint', () => {
+    for (const el of [...pending]) reveal(el);
+    contact?.classList.add('is-drawn');
+  });
   // Seuls les éléments encore SOUS la ligne de flottaison sont masqués : rien de déjà visible ne clignote.
   const vh = window.innerHeight;
   for (const el of items) {
     if (el.getBoundingClientRect().top > vh * 0.9) {
       el.classList.add('reveal-pending');
+      pending.add(el);
       io.observe(el);
     }
   }
@@ -89,4 +105,9 @@ function initReveal() {
     if (contact.getBoundingClientRect().top < vh * 0.75) contact.classList.add('is-drawn');
     else io.observe(contact);
   }
+  return () => {
+    if (!pending.size) return;
+    const limit = window.innerHeight * 0.88;
+    for (const el of [...pending]) if (el.getBoundingClientRect().top < limit) reveal(el);
+  };
 }

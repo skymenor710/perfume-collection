@@ -353,7 +353,7 @@ describe('contenus', () => {
   it('modifie les textes du site, publiés immédiatement (cache invalidé)', async () => {
     const c = await loggedIn();
     const before = await (await new Client(ctx).req('/')).text();
-    expect(before).toContain('générer des demandes,');
+    expect(before).toContain('<em class="accent">premium</em>');
     const token = await c.csrf('/admin/contenus');
     const res = await c.form('/admin/contenus', {
       _csrf: token,
@@ -366,7 +366,8 @@ describe('contenus', () => {
     const after = await (await new Client(ctx).req('/')).text();
     expect(after).toContain('attirer des clients,');
     expect(after).toContain('Refonte complète');
-    expect(after).toContain('Combien de temps pour un site vitrine ?');
+    // Affiché avec l'espace fine insécable de la typographie française.
+    expect(after).toContain('Combien de temps pour un site vitrine\u202F?');
     expect(await (await new Client(ctx).req('/mentions-legales')).text()).toContain('Nexora SAS');
   });
 
@@ -378,9 +379,9 @@ describe('contenus', () => {
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.bookingUrl': 'javascript:alert(1)' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.bookingUrl': 'http://cal.com/x' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.whatsappNumber': '0612345678' })).status).toBe(422);
-    expect((await c.form('/admin/contenus', { _csrf: token, 'hero.primaryCta': '' })).status).toBe(422);
+    expect((await c.form('/admin/contenus', { _csrf: token, 'hero.ctaQuote': '' })).status).toBe(422);
     expect((await c.form('/admin/contenus', { _csrf: token, 'contact.publicEmail': 'pas-un-email' })).status).toBe(422);
-    expect(await (await new Client(ctx).req('/')).text()).toContain('générer des demandes,');
+    expect(await (await new Client(ctx).req('/')).text()).toContain('<em class="accent">premium</em>');
     // Clés héritées ignorées (pas de pollution de prototype).
     expect((await c.form('/admin/contenus', { _csrf: token, '__proto__.toString': 'x', 'hero.constructor': 'x' })).status).toBe(303);
     expect(typeof ({} as Record<string, unknown>).toString).toBe('function');

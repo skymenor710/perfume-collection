@@ -49,13 +49,14 @@ export function securityHeaders(deps: Deps): MiddlewareHandler<AppEnv> {
 }
 
 /**
- * Adresse IP du client. X-Forwarded-For n'est lu que si TRUST_PROXY=true (derrière un proxy de confiance),
- * sinon n'importe qui pourrait choisir son IP et contourner la limitation de débit.
+ * Adresse IP du client. Ordre : IP fournie par la plateforme serverless (Netlify : context.ip, transmise par
+ * netlify/functions/site.mts) ; X-Forwarded-For seulement si TRUST_PROXY=true (derrière un proxy de confiance, sinon
+ * n'importe qui pourrait choisir son IP et contourner la limitation de débit) ; enfin l'adresse de la connexion.
  */
 export function clientIp(deps: Deps): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    let ip = '';
-    if (deps.config.trustProxy) {
+    let ip = typeof c.env?.clientIp === 'string' ? c.env.clientIp.trim() : '';
+    if (!ip && deps.config.trustProxy) {
       const xff = c.req.header('x-forwarded-for');
       if (xff) ip = xff.split(',')[0].trim();
       ip ||= c.req.header('x-real-ip') ?? '';

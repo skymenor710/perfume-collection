@@ -23,6 +23,8 @@ export interface SessionInfo {
 }
 
 export type AppEnv = {
+  /** Fonction serverless (Netlify) : IP du visiteur fournie par la plateforme (context.ip), jamais par un en-tête. */
+  Bindings: { clientIp?: string };
   Variables: {
     session: SessionInfo | null;
     clientIp: string;

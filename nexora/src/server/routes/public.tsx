@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { eq } from 'drizzle-orm';
 import type { AppEnv, Deps } from '../context';
-import { contactRequests, projectImages, projects } from '../db/schema';
-import { getContent, getContentVersion, getHomeProjects, getTeamPhoto } from '../lib/repo';
+import { contactRequests, contentVersion, projectImages, projects } from '../db/schema';
+import { displayProject, getContent, getContentVersion, getHomeProjects, getTeamPhoto } from '../lib/repo';
+import { areaList, displayContent, rows, type SiteContent } from '../lib/content';
 import { checkFormToken, contactSchema, fieldErrors, issueFormToken, looksLikeSpam } from '../lib/contact';
 import { hit } from '../lib/rate-limit';
 import { fingerprint, } from '../lib/security';
@@ -49,23 +50,58 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
     return html;
   }
 
+  /**
+   * Données structurées (schema.org) : prestataire de services avec ses services et sa zone d'intervention. Adresse,
+   * e-mail et téléphone n'apparaissent que s'ils sont réellement saisis dans l'admin : rien n'est inventé.
+   */
+  function organisationJsonLd(content: SiteContent) {
+    const url = `${config.publicUrl}/`;
+    const services = rows(content.services, 's', 5, ['Title', 'Text'] as const).filter((s) => s.Title);
+    const org: Record<string, unknown> = {
+      '@type': 'ProfessionalService',
+      '@id': `${url}#organisation`,
+      name: 'Nexora',
+      url,
+      logo: `${config.publicUrl}/brand/icon-512.png`,
+      image: `${config.publicUrl}/brand/og-image.jpg`,
+      description: content.seo.description,
+      knowsLanguage: 'fr',
+    };
+    const areas = areaList(content);
+    if (areas.length) org.areaServed = areas.map((name) => ({ '@type': 'Place', name }));
+    if (services.length) {
+      org.hasOfferCatalog = {
+        '@type': 'OfferCatalog',
+        name: 'Services',
+        itemListElement: services.map((s) => ({ '@type': 'Offer', itemOffered: { '@type': 'Service', name: s.Title, description: s.Text } })),
+      };
+    }
+    if (content.legal.address) org.address = content.legal.address;
+    if (content.contact.publicEmail) org.email = content.contact.publicEmail;
+    if (content.contact.publicPhone) org.telephone = content.contact.publicPhone;
+    return {
+      '@context': 'https://schema.org',
+      '@graph': [org, { '@type': 'WebSite', '@id': `${url}#site`, url, name: 'Nexora', inLanguage: 'fr-FR', publisher: { '@id': `${url}#organisation` } }],
+    };
+  }
+
   app.get('/', async (c) => {
     const html = await cached('home', async () => {
-      const [content, home, teamPhoto] = await Promise.all([getContent(db), getHomeProjects(db), getTeamPhoto(db)]);
+      const [stored, home, teamPhoto] = await Promise.all([getContent(db), getHomeProjects(db), getTeamPhoto(db)]);
+      const content = displayContent(stored);
       return renderHtml(
         <Document
           meta={{ title: content.seo.title, description: content.seo.description, canonical: `${config.publicUrl}/`, publicUrl: config.publicUrl }}
           assets={assets}
-          jsonLd={{
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            name: 'Nexora',
-            url: `${config.publicUrl}/`,
-            logo: `${config.publicUrl}/brand/icon-512.png`,
-            description: content.seo.description,
-          }}
+          jsonLd={organisationJsonLd(stored)}
         >
-          <HomePage content={content} results={home.results} concepts={home.concepts} teamPhoto={teamPhoto} analytics={config.analytics} />
+          <HomePage
+            content={content}
+            results={home.results.map(displayProject)}
+            concepts={home.concepts.map(displayProject)}
+            teamPhoto={teamPhoto}
+            analytics={config.analytics}
+          />
         </Document>,
       );
     });
@@ -75,13 +111,13 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
 
   app.get('/mentions-legales', async (c) => {
     const html = await cached('legal', async () => {
-      const content = await getContent(db);
+      const content = displayContent(await getContent(db));
       return renderHtml(
         <Document
           meta={{ title: 'Mentions légales — Nexora', description: 'Mentions légales du site Nexora.', canonical: `${config.publicUrl}/mentions-legales`, publicUrl: config.publicUrl }}
           assets={assets}
         >
-          <LegalNotice content={content} publicUrl={config.publicUrl} />
+          <LegalNotice content={content} publicUrl={config.publicUrl} analytics={config.analytics ? 'Plausible Analytics' : null} />
         </Document>,
       );
     });
@@ -91,7 +127,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
 
   app.get('/politique-de-confidentialite', async (c) => {
     const html = await cached('privacy', async () => {
-      const content = await getContent(db);
+      const content = displayContent(await getContent(db));
       return renderHtml(
         <Document
           meta={{
@@ -251,12 +287,15 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
   app.get('/robots.txt', (c) =>
     c.text(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /contact\n\nSitemap: ${config.publicUrl}/sitemap.xml\n`),
   );
-  app.get('/sitemap.xml', (c) => {
+  app.get('/sitemap.xml', async (c) => {
+    // Date de dernière modification : celle du contenu publié (textes ou projets), commune aux trois pages.
+    const rows = await db.select({ at: contentVersion.updatedAt }).from(contentVersion).limit(1);
+    const lastmod = rows[0]?.at ? `<lastmod>${rows[0].at.toISOString().slice(0, 10)}</lastmod>` : '';
     const urls = ['/', '/mentions-legales', '/politique-de-confidentialite'];
     c.header('Content-Type', 'application/xml; charset=utf-8');
     return c.body(
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-        .map((u) => `  <url><loc>${config.publicUrl}${u}</loc></url>`)
+        .map((u) => `  <url><loc>${config.publicUrl}${u}</loc>${lastmod}</url>`)
         .join('\n')}\n</urlset>\n`,
     );
   });

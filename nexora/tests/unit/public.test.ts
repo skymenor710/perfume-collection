@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { count, eq } from 'drizzle-orm';
-import { Client, contactPayload, setup, type TestCtx } from '../helpers';
+import { Client, ORIGIN, contactPayload, setup, type TestCtx } from '../helpers';
 import { contactRequests, projects } from '../../src/server/db/schema';
 import { seedDemo } from '../../src/server/db/seed';
 import { issueFormToken } from '../../src/server/lib/contact';
@@ -20,60 +20,66 @@ describe('site public', () => {
   });
   afterEach(async () => ctx.close());
 
-  it('page d’acquisition : promesse, services, méthode, 3 études de cas (concepts signalés), FAQ, formulaire visible', async () => {
+  it('page d’acquisition : promesse, réalisations, services, processus, FAQ, formulaire visible', async () => {
     await seedDemo(ctx.deps, SEED_DIR);
     const res = await new Client(ctx).req('/');
     expect(res.status).toBe(200);
     const html = await res.text();
-    // Hero orienté résultat, deux appels à l'action et réassurance.
-    expect(html).toContain('Des sites web pensés pour');
-    expect(html).toContain('générer des demandes,');
-    expect(html).toContain('pas seulement des compliments.');
-    // Sans agenda configuré : « Demander », jamais « Réserver » ; sans projet client : « concepts », jamais « résultats ».
-    expect(html).toContain('Demander un diagnostic');
+    // Hero : création de sites premium, deux appels à l'action et réassurance.
+    expect(html).toMatch(/<h1 class="hero__title" id="hero-title"><span>Création de sites web <\/span><em class="accent">premium<\/em><span> pour les PME\.<\/span><\/h1>/);
+    // « Demander un devis » mène toujours au formulaire : jamais « Réserver » sans agenda configuré.
+    expect(html).toMatch(/<a class="btn btn--primary btn--lg hero__cta-primary" href="#contact" data-track="cta_primary"><span>Demander un devis<\/span>/);
+    expect(html).toMatch(/href="#realisations" data-track="cta_secondary"><span>Voir nos réalisations<\/span>/);
     expect(html).not.toMatch(/Réserver/);
-    expect(html).toContain('Découvrir nos concepts');
-    expect(html).not.toContain('Voir des résultats clients');
-    expect(html).toContain('Sans engagement · Réponse sous 1 jour ouvré');
+    expect(html).toContain('Devis gratuit et sans engagement · Réponse sous 1 jour ouvré');
     expect(html).toContain('class="hero__audience"');
-    // Sections dans l'ordre demandé, et navigation correspondante.
-    const order = ['id="accueil"', 'id="services"', 'id="methode"', 'id="realisations"', 'id="faq"', 'id="contact"'].map((m) => html.indexOf(m));
+    // Le travail est montré juste après la promesse ; navigation correspondante.
+    const order = ['id="accueil"', 'id="realisations"', 'id="services"', 'id="processus"', 'id="faq"', 'id="contact"'].map((m) => html.indexOf(m));
     expect(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1]))).toBe(true);
-    for (const href of ['/#services', '/#methode', '/#realisations', '/#faq', '/#contact']) expect(html).toContain(`href="${href}"`);
+    for (const href of ['/#realisations', '/#services', '/#processus', '/#faq', '/#contact']) expect(html).toContain(`href="${href}"`);
     // Une seule balise h1 ; les sections ont un titre h2.
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
-    for (const t of ['Sites vitrines', 'Refonte de site', 'E-commerce', 'Automatisations et outils digitaux']) expect(html).toContain(t);
-    for (const t of ['Diagnostic et stratégie', 'Design et développement', 'Lancement et optimisation']) expect(html).toContain(t);
-    for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration']) expect(html.toLowerCase()).toContain(t.toLowerCase());
-    // Concepts : contexte, solution, objectif de conversion ; clairement identifiés ; aucun « résultat ».
-    expect(html).toContain('Nos concepts de sites');
-    expect(html).toContain('à forte conversion.');
-    expect(html.match(/class="case[ "]/g)?.length).toBe(3);
+    for (const t of ['Création de sites web', 'Refonte de sites existants', 'Responsive design', 'Optimisation des performances', 'Maintenance et accompagnement']) {
+      expect(html).toContain(`<h3 class="service__title">${t}</h3>`);
+    }
+    expect(html.match(/class="service"/g)?.length).toBe(5);
+    for (const t of ['Découverte', 'Conception', 'Développement', 'Mise en ligne']) expect(html).toContain(`</span>${t}</h3>`);
+    for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration', 'Romorantin-Lanthenay']) expect(html.toLowerCase()).toContain(t.toLowerCase());
+    // Réalisations : trois cartes, statut visible, détail (contexte, solution, objectif) ; aucun « résultat ».
+    expect(html).toContain('<h2 class="section-title" id="works-title">Nos <em class="accent">réalisations.</em></h2>');
+    expect(html.match(/<article class="work"/g)?.length).toBe(3);
     expect(html.match(/Concept \/ Démonstration/g)?.length).toBe(3);
     expect(html.match(/<dt>Contexte \/ défi<\/dt>/g)?.length).toBe(3);
     expect(html.match(/<dt>Solution apportée<\/dt>/g)?.length).toBe(3);
     expect(html.match(/<dt>Objectif de conversion<\/dt>/g)?.length).toBe(3);
-    expect(html).not.toMatch(/R[ée]sultats? mesur/i);
-    expect(html).not.toContain('Résultats clients');
+    expect(html).not.toMatch(/R[ée]sultats? (mesur|obtenus)/i);
     expect(html).not.toContain('badge-client');
-    // Captures : 4 vignettes par cas, chacune ouvre la visionneuse avec ses sources HD (jusqu'à 2400 px).
-    expect(html.match(/class="case__thumb"/g)?.length).toBe(12);
+    // Galeries indépendantes : 4 captures par carte, flèches, points indicateurs, sources HD pour la visionneuse.
+    expect(html.match(/aria-roledescription="carrousel"/g)?.length).toBe(3);
     expect(html.match(/data-shot="true"/g)?.length).toBe(12);
+    expect(html.match(/class="gallery__dot"/g)?.length).toBe(12);
+    expect(html.match(/data-carousel-next/g)?.length).toBe(3);
+    expect(html.match(/data-carousel-prev/g)?.length).toBe(3);
+    expect(html.match(/aria-live="polite" aria-atomic="true" data-carousel-status/g)?.length).toBe(3);
     expect(html).toMatch(/data-webp="[^"]*\/2400\.webp 2400w"/);
     expect(html.match(/<dialog class="lightbox"/g)?.length).toBe(1);
     expect(html.match(/data-gallery="/g)?.length).toBe(3);
     const imgs = [...html.matchAll(/<img src="\/media\/[^>]+>/g)].map((m) => m[0]);
-    expect(imgs.length).toBe(15);
+    expect(imgs.length).toBe(12);
     for (const img of imgs) {
-      expect(img).toMatch(/width="\d+"/);
+      expect(img).toMatch(/width="\d+" height="\d+"/);
       expect(img).toContain('loading="lazy"');
     }
     // Textes alternatifs : portés par les boutons (nom accessible) et repris en légende dans la visionneuse.
-    expect(html.match(/aria-label="Agrandir l’image \d sur 4 : Site /g)?.length).toBe(15);
+    expect(html.match(/aria-label="Agrandir la capture \d sur 4 : Site /g)?.length).toBe(12);
+    // Typographie française : espace insécable avant « ? » et « : » (jamais seuls en début de ligne).
+    expect(html).not.toMatch(/ \?<\/h3>/);
+    expect(html).toContain('Combien de temps faut-il pour réaliser un site\u202F?');
     // Formulaire visible d'emblée (pas de bouton pour le révéler), champs de qualification facultatifs.
     expect(html).not.toContain('data-contact-toggle');
     expect(html).toContain('id="cf-budget"');
     expect(html).toContain('id="cf-timeline"');
+    expect(html).toContain('<option value="Adaptation mobile (responsive)">');
     expect(html).toContain('Nous vous répondons sous 1 jour ouvré.');
     expect(html).toContain('href="/politique-de-confidentialite"');
     expect(html).toContain('href="/mentions-legales"');
@@ -81,6 +87,15 @@ describe('site public', () => {
     for (const absent of ['class="proof"', 'id="temoignages"', 'id="equipe"', 'data-placeholder', 'à compléter', 'Admin ›', 'EXEMPLE', 'data-consent']) {
       expect(html, absent).not.toContain(absent);
     }
+    // Données structurées : prestataire, services, zone d'intervention ; aucune adresse ni avis inventés.
+    const ld = JSON.parse(/<script type="application\/ld\+json">(.+?)<\/script>/.exec(html)![1]);
+    const org = ld['@graph'][0];
+    expect(org['@type']).toBe('ProfessionalService');
+    expect(org.areaServed.map((a: { name: string }) => a.name)).toEqual(['Romorantin-Lanthenay', 'Blois', 'Orléans', 'Centre-Val de Loire']);
+    expect(org.hasOfferCatalog.itemListElement).toHaveLength(5);
+    expect(org).not.toHaveProperty('address');
+    expect(org).not.toHaveProperty('aggregateRating');
+    expect(html).toContain('<p class="site-footer__area">Romorantin-Lanthenay · Blois · Orléans · Centre-Val de Loire</p>');
     // Symbole N 4K et logotype vectoriel.
     expect(html).toContain('/brand/symbol-1600.avif 1600w');
     expect(html).toContain('/brand/wordmark.svg');
@@ -89,7 +104,7 @@ describe('site public', () => {
     expect(html).not.toContain('__NX_FORM_TOKEN__');
   }, 180_000);
 
-  it('données réelles : chiffres, témoignages, équipe, agenda, WhatsApp, résultats clients — affichés seulement une fois saisis', async () => {
+  it('données réelles : chiffres, témoignages, équipe, agenda, WhatsApp, projets clients — affichés seulement une fois saisis', async () => {
     await seedDemo(ctx.deps, SEED_DIR);
     const content = structuredClone(defaultContent);
     content.proof.item1Value = '4,9/5';
@@ -122,25 +137,28 @@ describe('site public', () => {
     expect(html).toContain('Citation réelle.');
     expect(html).not.toContain('Citation sans auteur');
     expect(html).toContain('id="equipe"');
-    // Agenda configuré : « Réserver… » ouvre la réservation ; WhatsApp : lien wa.me ; bloc de rendez-vous près du formulaire.
-    expect(html).toContain('Réserver un diagnostic de 20 min');
-    expect(html).not.toContain('Demander un diagnostic');
-    expect(html).toMatch(/href="https:\/\/cal\.com\/nexora\/diagnostic" target="_blank" rel="noopener" data-booking=""/);
-    expect(html).toContain('<dialog class="booking"');
+    // Agenda configuré : proposé dans la section Contact (« Réserver un créneau… », fenêtre intégrée) ; les boutons
+    // « Demander un devis » restent liés au formulaire. WhatsApp : lien wa.me.
     expect(html).toContain('class="contact__booking"');
+    expect(html).toMatch(/href="https:\/\/cal\.com\/nexora\/diagnostic" target="_blank" rel="noopener" data-booking="[^"]*" data-track="booking_open"><span>Réserver un créneau de 20 min<\/span>/);
+    expect(html).toMatch(/hero__cta-primary" href="#contact"/);
+    expect(html).toContain('<dialog class="booking"');
     expect(html).toContain('href="https://wa.me/33612345678?text=');
-    // Résultats clients : section séparée, avant les concepts ; le bouton secondaire peut alors parler de résultats.
-    expect(html).toContain('Voir des résultats clients');
-    expect(html.indexOf('Résultats clients')).toBeLessThan(html.indexOf('Nos concepts de sites'));
-    expect(html).toContain('id="concepts"');
+    // Projet client en tête de « Nos réalisations », avant les concepts, avec ses résultats et son témoignage.
+    expect(html).toContain('Voir nos réalisations');
+    expect(html.indexOf('Client réel')).toBeLessThan(html.indexOf('Entreprise de maçonnerie'));
+    expect(html).toContain('<span class="work__result-label">Résultats obtenus</span>');
     expect(html).toContain('+20 % de demandes (mesuré).');
     expect(html).toContain('Très bon travail.');
-    expect(html).toContain('Projet client');
+    expect(html).toContain('<span class="badge-client">Projet client</span>');
     expect(html).not.toContain('Ne doit pas apparaître pour un projet client.');
     expect(html.match(/Concept \/ Démonstration/g)?.length).toBe(3);
+    expect(html).toContain('Visuel à venir');
   }, 180_000);
 
   it('mesure d’audience : bandeau de consentement et CSP seulement si un outil est configuré', async () => {
+    // Mentions légales cohérentes avec la configuration.
+    expect(await (await new Client(ctx).req('/mentions-legales')).text()).toContain('ni outil de mesure d’audience');
     let res = await new Client(ctx).req('/');
     expect(await res.text()).not.toContain('data-consent');
     expect(res.headers.get('content-security-policy')).not.toContain('plausible');
@@ -154,11 +172,14 @@ describe('site public', () => {
     expect(html).not.toMatch(/<script[^>]+plausible/);
     expect(res.headers.get('content-security-policy')).toContain("script-src 'self' https://plausible.io");
     expect(await (await new Client(ctx).req('/politique-de-confidentialite')).text()).toContain('Plausible Analytics');
+    const legal = await (await new Client(ctx).req('/mentions-legales')).text();
+    expect(legal).toContain('La mesure d’audience (Plausible Analytics) n’est activée qu’après votre accord');
+    expect(legal).not.toContain('ni outil de mesure d’audience');
   });
 
   it('gère 0 projet et les projets sans image', async () => {
     let html = await (await new Client(ctx).req('/')).text();
-    expect(html).toContain('Nos premiers concepts seront bientôt présentés ici.');
+    expect(html).toContain('Nos premières réalisations seront bientôt présentées ici.');
     await ctx.deps.db.insert(projects).values({ name: 'Projet vide', published: true, sortOrder: 1 });
     await bumpContentVersion(ctx.deps.db);
     html = await (await new Client(ctx).req('/')).text();
@@ -236,7 +257,7 @@ describe('formulaire de contact', () => {
     expect((await res.json()).message).toContain('bien été enregistrée');
     const rows = await ctx.deps.db.select().from(contactRequests);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ name: 'Camille Martin', email: 'camille@example.fr', status: 'new', projectType: 'Site vitrine', budget: null, timeline: null });
+    expect(rows[0]).toMatchObject({ name: 'Camille Martin', email: 'camille@example.fr', status: 'new', projectType: 'Création de site vitrine', budget: null, timeline: null });
     // E-mail non configuré : pas d'envoi simulé, l'absence est consignée.
     expect(rows[0].notifiedAt).toBeNull();
     expect(rows[0].notifyError).toBe('Notification e-mail non configurée');
@@ -301,6 +322,24 @@ describe('formulaire de contact', () => {
     expect((await postJson(new Client(ctx, '198.51.100.8'), contactPayload())).status).toBe(201);
   });
 
+  it('serverless (Netlify) : l’IP fournie par la plateforme prime sur X-Forwarded-For pour la limitation', async () => {
+    ctx = await setup();
+    const send = (platformIp: string, forwarded: string) =>
+      ctx.app.request(
+        '/contact',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json', origin: ORIGIN, 'x-forwarded-for': forwarded },
+          body: JSON.stringify(contactPayload()),
+        },
+        { clientIp: platformIp },
+      );
+    for (let i = 0; i < 5; i++) expect((await send('192.0.2.50', `198.51.100.${i}`)).status).toBe(201);
+    // Changer d'en-tête X-Forwarded-For ne contourne rien : même visiteur pour la plateforme.
+    expect((await send('192.0.2.50', '198.51.100.200')).status).toBe(429);
+    expect((await send('192.0.2.51', '198.51.100.200')).status).toBe(201);
+  });
+
   it('refuse un corps trop volumineux', async () => {
     ctx = await setup();
     const res = await postJson(new Client(ctx), contactPayload({ message: 'x'.repeat(40_000) }));
@@ -311,7 +350,7 @@ describe('formulaire de contact', () => {
     ctx = await setup({ mail: 'ok' });
     expect((await postJson(new Client(ctx), contactPayload())).status).toBe(201);
     expect(ctx.sent).toHaveLength(1);
-    expect(ctx.sent[0].subject).toContain('Site vitrine');
+    expect(ctx.sent[0].subject).toContain('Création de site vitrine');
     const [row] = await ctx.deps.db.select().from(contactRequests);
     expect(row.notifiedAt).not.toBeNull();
     await ctx.close();

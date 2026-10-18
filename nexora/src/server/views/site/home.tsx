@@ -1,52 +1,50 @@
 import type { SiteContent } from '../../lib/content';
-import { BUDGETS, PROJECT_TYPES, TIMELINES, rows, whatsappHref } from '../../lib/content';
-import { hasVerifiedResults, type ProjectWithImages, type TeamPhoto } from '../../lib/repo';
+import { BUDGETS, PROJECT_TYPES, SERVICE_PROJECT_TYPES, TIMELINES, rows, whatsappHref } from '../../lib/content';
+import type { ProjectWithImages, TeamPhoto } from '../../lib/repo';
 import { pickVariant } from '../../lib/images';
 import type { Config } from '../../config';
 import { ArrowUpRight, ChevronLeft, ChevronRight, CloseIcon, ExpandIcon, ExternalIcon, MouseIcon, CheckIcon, AlertIcon, ZoomIcon } from '../icons';
-import { BookingCta, Footer, Header, bookingLink } from '../layout';
+import { Footer, Header, bookingLink } from '../layout';
 import { DOOR, FAR, FRONT_L, FRONT_R, MID, RIDGE, TRAIL } from './landscape-paths';
 
 export const FORM_TOKEN_PLACEHOLDER = '__NX_FORM_TOKEN__';
 
 export interface HomeProps {
   content: SiteContent;
-  /** Projets CLIENTS publiés → « Résultats clients ». */
+  /** Projets CLIENTS publiés (badge « Projet client », résultats vérifiables). */
   results: ProjectWithImages[];
-  /** Concepts / démonstrations publiés → « Nos concepts ». */
+  /** Concepts / démonstrations publiés (badge « Concept / Démonstration », jamais de résultats). */
   concepts: ProjectWithImages[];
   teamPhoto?: TeamPhoto | null;
   analytics?: Config['analytics'];
 }
 
 /**
- * Page d'accueil orientée acquisition : promesse → preuve → offre → méthode → équipe → résultats clients → concepts →
- * témoignages → FAQ → contact. Tous les textes viennent de Admin › Contenus. Les sections de preuve (chiffres,
- * équipe, résultats clients, témoignages) n'existent sur la page QUE si des données réelles sont saisies : aucun
- * texte d'exemple, d'instruction ou d'emplacement « à compléter » n'est jamais montré aux visiteurs.
+ * Page d'accueil : promesse → (preuve) → réalisations → services → processus → (équipe) → (témoignages) → FAQ →
+ * contact. Le travail est montré tôt, juste après la promesse. Tous les textes viennent de Admin › Contenus. Les
+ * sections de preuve (chiffres, équipe, témoignages) n'existent QUE si des données réelles sont saisies : aucun texte
+ * d'exemple, d'instruction ou d'emplacement « à compléter » n'est jamais montré aux visiteurs.
  */
 export const HomePage = ({ content, results, concepts, teamPhoto = null, analytics = null }: HomeProps) => {
-  // Le bouton secondaire ne promet des « résultats clients » que s'il en existe vraiment.
-  const withResults = results.some(hasVerifiedResults);
-  const hasImages = [...results, ...concepts].some((p) => p.images.length > 0);
+  // Projets clients d'abord, puis concepts : chaque carte affiche son statut.
+  const works = [...results, ...concepts];
   return (
     <>
       <Header content={content} />
       <main id="contenu">
-        <Hero content={content} withResults={withResults} />
+        <Hero content={content} />
         <ProofBand content={content} />
+        <Realisations content={content} projects={works} />
         <Services content={content} />
         <Method content={content} />
         <Team content={content} photo={teamPhoto} />
-        {results.length ? <ClientResults content={content} projects={results} /> : null}
-        <Concepts content={content} projects={concepts} anchor={results.length ? 'concepts' : 'realisations'} />
         <Testimonials content={content} />
         <Faq content={content} />
         <Contact content={content} />
       </main>
       <Footer content={content} consent={!!analytics} />
-      {hasImages ? <Lightbox /> : null}
-      {content.contact.bookingUrl ? <BookingDialog label={content.hero.primaryCta} /> : null}
+      {works.some((p) => p.images.length > 0) ? <Lightbox /> : null}
+      {content.contact.bookingUrl ? <BookingDialog label={content.contact.bookingLabel} /> : null}
       {analytics ? <ConsentBanner provider={analytics.provider} domain={analytics.domain} script={analytics.scriptUrl} /> : null}
     </>
   );
@@ -60,7 +58,7 @@ const SectionTitle = ({ id, before, highlight }: { id: string; before: string; h
   </h2>
 );
 
-const Hero = ({ content, withResults }: { content: SiteContent; withResults: boolean }) => {
+const Hero = ({ content }: { content: SiteContent }) => {
   const h = content.hero;
   return (
     <section class="hero" id="accueil" aria-labelledby="hero-title" data-hero>
@@ -80,9 +78,13 @@ const Hero = ({ content, withResults }: { content: SiteContent; withResults: boo
           {h.subtitle ? <p class="hero__lead">{h.subtitle}</p> : null}
           {h.audience ? <p class="hero__audience">{h.audience}</p> : null}
           <div class="hero__actions">
-            <BookingCta content={content} label={h.primaryCta} fallback={h.primaryCtaFallback} class="btn btn--primary btn--lg hero__cta-primary" track="cta_primary" />
+            {/* Toujours le formulaire de devis : ce bouton ne promet jamais une réservation. */}
+            <a class="btn btn--primary btn--lg hero__cta-primary" href="#contact" data-track="cta_primary">
+              <span>{h.ctaQuote}</span>
+              <ArrowUpRight />
+            </a>
             <a class="btn btn--outline btn--lg hero__cta-secondary" href="#realisations" data-track="cta_secondary">
-              <span>{withResults ? h.secondaryCtaResults : h.secondaryCta}</span>
+              <span>{h.ctaWork}</span>
               <ArrowUpRight />
             </a>
           </div>
@@ -91,7 +93,7 @@ const Hero = ({ content, withResults }: { content: SiteContent; withResults: boo
         <SymbolVisual />
       </div>
       <div class="container hero__foot">
-        <a class="scroll-cue" href="#services" aria-label="Découvrir nos services">
+        <a class="scroll-cue" href="#realisations" aria-label="Voir nos réalisations">
           <MouseIcon />
         </a>
         <div class="scroll-line" aria-hidden="true">
@@ -173,11 +175,9 @@ const ProofBand = ({ content }: { content: SiteContent }) => {
   );
 };
 
-const SERVICE_TYPES = ['Site vitrine', 'Refonte de site', 'Site e-commerce', 'Automatisation et outils digitaux'] as const;
-
 const Services = ({ content }: { content: SiteContent }) => {
   const sv = content.services;
-  const items = rows(sv, 's', 4, ['Title', 'Text'] as const);
+  const items = rows(sv, 's', 5, ['Title', 'Text'] as const);
   return (
     <section class="services section" id="services" aria-labelledby="services-title">
       <div class="container">
@@ -185,7 +185,7 @@ const Services = ({ content }: { content: SiteContent }) => {
           <SectionTitle id="services-title" before={sv.title} highlight={sv.titleHighlight} />
           {sv.subtitle ? <p class="section-lead">{sv.subtitle}</p> : null}
         </header>
-        <ul class="services__grid" role="list">
+        <ul class={`services__grid services__grid--${items.filter((it) => it.Title).length}`} role="list">
           {items.map((it, i) =>
             it.Title ? (
               <li class="service" data-reveal>
@@ -195,7 +195,7 @@ const Services = ({ content }: { content: SiteContent }) => {
                 <h3 class="service__title">{it.Title}</h3>
                 {it.Text ? <p class="service__text">{it.Text}</p> : null}
                 {sv.cta ? (
-                  <a class="service__link" href="#formulaire-contact" data-project-type={SERVICE_TYPES[i]} data-track="service_click" data-track-service={SERVICE_TYPES[i]}>
+                  <a class="service__link" href="#formulaire-contact" data-project-type={SERVICE_PROJECT_TYPES[i]} data-track="service_click" data-track-service={SERVICE_PROJECT_TYPES[i]}>
                     {sv.cta}
                     <span class="sr-only"> : {it.Title}</span>
                     <ArrowUpRight size={16} />
@@ -212,19 +212,19 @@ const Services = ({ content }: { content: SiteContent }) => {
 
 const Method = ({ content }: { content: SiteContent }) => {
   const m = content.method;
-  const steps = rows(m, 'm', 3, ['Title', 'Text'] as const).filter((r) => r.Title);
+  const steps = rows(m, 'm', 4, ['Title', 'Text'] as const).filter((r) => r.Title);
   return (
-    <section class="method section" id="methode" aria-labelledby="method-title">
+    <section class="method section" id="processus" aria-labelledby="method-title">
       <div class="container">
         <header class="section-head" data-reveal>
           <SectionTitle id="method-title" before={m.title} highlight={m.titleHighlight} />
           {m.subtitle ? <p class="section-lead">{m.subtitle}</p> : null}
         </header>
-        <ol class="method__steps">
+        <ol class={`method__steps method__steps--${steps.length}`}>
           {steps.map((st, i) => (
             <li class="step" data-reveal>
               <span class="step__num" aria-hidden="true">
-                {i + 1}
+                {String(i + 1).padStart(2, '0')}
               </span>
               <h3 class="step__title">
                 <span class="sr-only">Étape {i + 1} : </span>
@@ -295,54 +295,23 @@ const Team = ({ content, photo }: { content: SiteContent; photo: TeamPhoto | nul
 };
 
 /**
- * « Résultats clients » : projets CLIENTS publiés uniquement (is_demo = false) — client, défi, solution, résultats
- * vérifiables, témoignage autorisé, lien. Un concept n'apparaît jamais ici.
+ * « Nos réalisations » : projets clients (résultats vérifiables, témoignage autorisé) puis concepts (objectif de
+ * conversion, jamais de résultats). Chaque carte affiche son statut ; le sous-titre explique la différence.
  */
-const ClientResults = ({ content, projects }: { content: SiteContent; projects: ProjectWithImages[] }) => {
+const Realisations = ({ content, projects }: { content: SiteContent; projects: ProjectWithImages[] }) => {
   const p = content.projects;
   return (
-    <section class="projects section" id="realisations" aria-labelledby="results-title">
+    <section class="projects section" id="realisations" aria-labelledby="works-title">
       <div class="container">
         <header class="section-head" data-reveal>
-          <h2 class="section-title" id="results-title">
-            {p.resultsTitle}
-          </h2>
-          {p.resultsSubtitle ? <p class="section-lead">{p.resultsSubtitle}</p> : null}
-        </header>
-        <ol class="cases" role="list">
-          {projects.map((project, i) => (
-            <li>
-              <CaseStudy project={project} index={i} prefix="client" visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
-};
-
-/** « Nos concepts » : concepts / démonstrations, avec l'objectif de conversion et les principes appliqués. */
-const Concepts = ({ content, projects, anchor }: { content: SiteContent; projects: ProjectWithImages[]; anchor: string }) => {
-  const p = content.projects;
-  return (
-    <section class="projects section" id={anchor} aria-labelledby="concepts-title">
-      <div class="container">
-        <header class="section-head" data-reveal>
-          {p.eyebrow ? <p class="eyebrow">{p.eyebrow}</p> : null}
-          <h2 class="section-title" id="concepts-title">
-            {p.titleLine1 ? <span class="section-title__line">{p.titleLine1}</span> : null}
-            <span class="section-title__line">
-              {p.titleLine2Before ? <>{p.titleLine2Before} </> : null}
-              {p.titleLine2Highlight ? <em class="accent">{p.titleLine2Highlight}</em> : null}
-            </span>
-          </h2>
+          <SectionTitle id="works-title" before={p.title} highlight={p.titleHighlight} />
           {p.subtitle ? <p class="section-lead">{p.subtitle}</p> : null}
         </header>
         {projects.length ? (
-          <ol class="cases" role="list">
+          <ol class="works" role="list">
             {projects.map((project, i) => (
               <li>
-                <CaseStudy project={project} index={i} prefix="concept" visitLabel={p.visitLabel} caseLabel={p.caseLabel} />
+                <WorkCard project={project} index={i} labels={p} />
               </li>
             ))}
           </ol>
@@ -365,145 +334,184 @@ const srcsets = (img: Img) => {
   return { avif: set('avif'), webp: set('webp'), src: `/media/${img.id}/${pickVariant(img.variants, 'webp', 1200).width}.webp` };
 };
 
+// Largeur affichée de la galerie (marges latérales de 6,1vw, cadre de la carte) : pleine largeur de la carte sous
+// 1024 px, colonne de gauche (≈ 59 %) au-delà, 695 px dès que le conteneur atteint sa largeur maximale (1440 px).
+const GALLERY_SIZES = '(max-width: 640px) calc(87.8vw - 18px), (max-width: 1024px) calc(87.8vw - 22px), (min-width: 1440px) 700px, calc(49.5vw - 18px)';
+
 /**
- * Étude de cas (concept ou projet client) : visuel (clic = visionneuse plein écran) + texte. Le contenu affiché dépend
- * du type, jamais l'inverse : un concept montre son objectif de conversion, un projet client ses résultats vérifiables
- * et le témoignage autorisé. Tout se remplit dans Admin › Projets, sans toucher au code.
+ * Galerie d'un projet, indépendante des autres : défilement horizontal natif aimanté (glisser au doigt ou au pavé
+ * tactile), flèches, ← → au clavier, points indicateurs (bouton par capture, état courant annoncé). Hauteur fixe
+ * 16:10 : aucun décalage de mise en page. Images différées (loading="lazy"). Clic sur une capture : visionneuse
+ * plein écran (src/client/lightbox.ts). Le pilotage est dans src/client/gallery.ts ; sans JavaScript, le
+ * défilement horizontal reste utilisable.
  */
-const CaseStudy = ({
-  project,
-  index,
-  prefix,
-  visitLabel,
-  caseLabel,
-}: {
-  project: ProjectWithImages;
-  index: number;
-  prefix: string;
-  visitLabel: string;
-  caseLabel: string;
-}) => {
+const Gallery = ({ project, id }: { project: ProjectWithImages; id: string }) => {
   const imgs = project.images;
-  const id = `${prefix}-${index + 1}`;
-  const cover = imgs[0];
-  const coverSet = cover ? srcsets(cover) : null;
-  const coverSizes = '(max-width: 1024px) calc(100vw - 40px), 56vw';
+  const n = imgs.length;
+  if (!n) {
+    return (
+      <div class="gallery gallery--empty">
+        <div class="gallery__empty">
+          <img src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" />
+          <span>Visuel à venir</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      class="gallery"
+      role="region"
+      aria-roledescription="carrousel"
+      aria-label={`Captures du projet ${project.name}`}
+      data-gallery={project.name}
+      data-carousel
+    >
+      <div class="gallery__viewport" id={`${id}-slides`} data-carousel-viewport>
+        <div class="gallery__track">
+          {imgs.map((img, k) => {
+            const set = srcsets(img);
+            return (
+              <div class="gallery__slide" role="group" aria-roledescription="diapositive" aria-label={`${k + 1} sur ${n}`} data-slide>
+                <button
+                  class="gallery__open"
+                  type="button"
+                  data-shot
+                  data-shot-open={String(k)}
+                  data-avif={set.avif}
+                  data-webp={set.webp}
+                  data-src={set.src}
+                  data-alt={img.alt}
+                  aria-label={`Agrandir la capture ${k + 1} sur ${n} : ${img.alt}`}
+                >
+                  <picture>
+                    <source type="image/avif" srcset={set.avif} sizes={GALLERY_SIZES} />
+                    <img src={set.src} srcset={set.webp} sizes={GALLERY_SIZES} width={img.width} height={img.height} alt="" loading="lazy" decoding="async" />
+                  </picture>
+                  <span class="gallery__zoom" aria-hidden="true">
+                    <ExpandIcon />
+                  </span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {n > 1 ? (
+        <div class="gallery__controls">
+          <div class="gallery__dots" role="group" aria-label="Choisir une capture">
+            {imgs.map((_, k) => (
+              <button class="gallery__dot" type="button" aria-controls={`${id}-slides`} aria-label={`Capture ${k + 1} sur ${n}`} aria-current={k === 0 ? 'true' : undefined} data-carousel-dot={String(k)}>
+                <span aria-hidden="true"></span>
+              </button>
+            ))}
+          </div>
+          <p class="gallery__count" aria-hidden="true">
+            <span data-carousel-index>01</span> / {String(n).padStart(2, '0')}
+          </p>
+          <div class="gallery__arrows">
+            <button class="gallery__arrow" type="button" aria-controls={`${id}-slides`} aria-label="Capture précédente" data-carousel-prev>
+              <ChevronLeft />
+            </button>
+            <button class="gallery__arrow" type="button" aria-controls={`${id}-slides`} aria-label="Capture suivante" data-carousel-next>
+              <ChevronRight />
+            </button>
+          </div>
+          <p class="sr-only" aria-live="polite" aria-atomic="true" data-carousel-status></p>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+/**
+ * Carte d'une réalisation : galerie + statut, nom, résumé court ; le détail (contexte, solution, objectif de
+ * conversion ou résultats) est repliable. Le contenu affiché dépend du type, jamais l'inverse : un concept montre son
+ * objectif de conversion, un projet client ses résultats vérifiables et le témoignage autorisé.
+ */
+const WorkCard = ({ project, index, labels }: { project: ProjectWithImages; index: number; labels: SiteContent['projects'] }) => {
+  const id = `work-${index + 1}`;
   const isClient = !project.isDemo;
   const results = isClient ? project.results.trim() : '';
   const principles = project.isDemo ? project.principles.trim() : '';
   const quote = isClient ? project.testimonialQuote.trim() : '';
+  // Résumé : description courte, sinon le contexte (qui n'est alors pas répété dans le détail).
+  const summary = project.description.trim() || project.challenge.trim();
+  const challenge = project.description.trim() ? project.challenge.trim() : '';
+  const hasDetails = !!(challenge || project.solution.trim() || principles || results || quote);
+  const imgs = project.images;
   return (
-    <article class={`case${index % 2 ? ' case--flip' : ''}`} aria-labelledby={`${id}-title`} data-reveal>
-      <div class="case__media" data-gallery={imgs.length ? project.name : undefined}>
-        {cover && coverSet ? (
-          <button
-            class="case__cover"
-            type="button"
-            data-shot-open="0"
-            aria-label={`Agrandir l’image 1 sur ${imgs.length} : ${cover.alt}`}
-            {...(imgs.length === 1 ? { 'data-shot': '', 'data-avif': coverSet.avif, 'data-webp': coverSet.webp, 'data-src': coverSet.src, 'data-alt': cover.alt } : {})}
-          >
-            <picture>
-              <source type="image/avif" srcset={coverSet.avif} sizes={coverSizes} />
-              <img src={coverSet.src} srcset={coverSet.webp} sizes={coverSizes} width={cover.width} height={cover.height} alt="" loading="lazy" decoding="async" />
-            </picture>
-            <span class="case__zoom" aria-hidden="true">
-              <ExpandIcon />
-            </span>
-          </button>
-        ) : (
-          <div class="case__empty">
-            <img src="/brand/symbol-96.webp" srcset="/brand/symbol-192.webp 2x" width="46" height="48" alt="" />
-            <span>Visuel à venir</span>
-          </div>
-        )}
-        {imgs.length > 1 ? (
-          <ul class="case__thumbs" role="list" aria-label={`Captures du projet ${project.name}`}>
-            {imgs.map((img, k) => {
-              const set = srcsets(img);
-              const thumb = pickVariant(img.variants, 'webp', 480);
-              return (
-                <li>
-                  <button
-                    class="case__thumb"
-                    type="button"
-                    data-shot
-                    data-shot-open={String(k)}
-                    data-avif={set.avif}
-                    data-webp={set.webp}
-                    data-src={set.src}
-                    data-alt={img.alt}
-                    aria-label={`Agrandir l’image ${k + 1} sur ${imgs.length} : ${img.alt}`}
-                  >
-                    <img src={`/media/${img.id}/${thumb.width}.webp`} width={thumb.width} height={thumb.height} alt="" loading="lazy" decoding="async" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-      </div>
-      <div class="case__body">
-        <p class="case__meta">
+    <article class="work" aria-labelledby={`${id}-title`} data-work data-reveal>
+      <Gallery project={project} id={id} />
+      <div class="work__body">
+        <p class="work__meta">
           {isClient ? <span class="badge-client">Projet client</span> : <span class="badge-demo">Concept / Démonstration</span>}
-          {project.category ? <span class="case__category">{project.category}</span> : null}
+          {project.category ? <span class="work__category">{project.category}</span> : null}
         </p>
-        <h3 class="case__title" id={`${id}-title`}>
+        <h3 class="work__title" id={`${id}-title`}>
           {project.name}
         </h3>
-        {project.description ? <p class="case__desc">{project.description}</p> : null}
-        <dl class="case__facts">
-          {project.challenge ? (
-            <div>
-              <dt>Contexte / défi</dt>
-              <dd>{project.challenge}</dd>
-            </div>
-          ) : null}
-          {project.solution ? (
-            <div>
-              <dt>Solution apportée</dt>
-              <dd>{project.solution}</dd>
-            </div>
-          ) : null}
-          {principles ? (
-            <div>
-              <dt>Objectif de conversion</dt>
-              <dd>{principles}</dd>
-            </div>
-          ) : null}
-          {results ? (
-            <div class="case__results">
-              <dt>Résultats obtenus</dt>
-              <dd>{results}</dd>
-            </div>
-          ) : null}
-        </dl>
-        {quote ? (
-          <figure class="case__quote">
-            <blockquote>
-              <p>“{quote}”</p>
-            </blockquote>
-            {project.testimonialAuthor ? <figcaption>{project.testimonialAuthor}</figcaption> : null}
-          </figure>
+        {summary ? <p class="work__summary">{summary}</p> : null}
+        {results ? (
+          <p class="work__result">
+            <span class="work__result-label">Résultats obtenus</span>
+            {results}
+          </p>
         ) : null}
-        <div class="case__actions">
+        {hasDetails ? (
+          <details class="work__details">
+            <summary>
+              <span>{labels.detailsLabel}</span>
+              <span class="work__details-icon" aria-hidden="true"></span>
+            </summary>
+            <dl class="work__facts">
+              {challenge ? (
+                <div>
+                  <dt>Contexte / défi</dt>
+                  <dd>{challenge}</dd>
+                </div>
+              ) : null}
+              {project.solution ? (
+                <div>
+                  <dt>Solution apportée</dt>
+                  <dd>{project.solution}</dd>
+                </div>
+              ) : null}
+              {principles ? (
+                <div>
+                  <dt>Objectif de conversion</dt>
+                  <dd>{principles}</dd>
+                </div>
+              ) : null}
+            </dl>
+            {quote ? (
+              <figure class="case__quote">
+                <blockquote>
+                  <p>“{quote}”</p>
+                </blockquote>
+                {project.testimonialAuthor ? <figcaption>{project.testimonialAuthor}</figcaption> : null}
+              </figure>
+            ) : null}
+          </details>
+        ) : null}
+        <div class="work__actions">
           {project.caseUrl ? (
             <a class="btn btn--primary btn--sm" href={project.caseUrl} target="_blank" rel="noopener noreferrer">
-              <span>{caseLabel}</span>
+              <span>{labels.caseLabel}</span>
               <span class="sr-only"> : {project.name} (nouvel onglet)</span>
               <ArrowUpRight size={16} />
             </a>
           ) : null}
           {project.url ? (
             <a class="btn btn--outline btn--sm" href={project.url} target="_blank" rel="noopener noreferrer nofollow">
-              <span>{visitLabel}</span>
+              <span>{labels.visitLabel}</span>
               <span class="sr-only"> : {project.name} (nouvel onglet)</span>
               <ExternalIcon />
             </a>
           ) : null}
           {imgs.length ? (
             <button class="btn btn--ghost btn--sm" type="button" data-lightbox-open aria-label={`Voir les ${imgs.length} captures du projet ${project.name} en plein écran`}>
-              <span>{imgs.length > 1 ? `Voir les ${imgs.length} captures` : 'Voir la capture'}</span>
+              <span>Plein écran</span>
               <ExpandIcon />
             </button>
           ) : null}
@@ -551,7 +559,7 @@ const Testimonials = ({ content }: { content: SiteContent }) => {
 
 const Faq = ({ content }: { content: SiteContent }) => {
   const f = content.faq;
-  const items = rows(f, 'q', 6, ['Question', 'Answer'] as const).filter((r) => r.Question && r.Answer);
+  const items = rows(f, 'q', 7, ['Question', 'Answer'] as const).filter((r) => r.Question && r.Answer);
   if (!items.length) return null;
   return (
     <section class="faq section" id="faq" aria-labelledby="faq-title">
@@ -660,7 +668,7 @@ const Contact = ({ content }: { content: SiteContent }) => {
       <div class="container contact__inner">
         <div class="contact__intro" data-reveal>
           <h2 class="contact__title" id="contact-title">
-            {c.titleLine1 ? <span class="section-title__line">{c.titleLine1}</span> : null}
+            {c.titleLine1 ? <span class="section-title__line">{c.titleLine1} </span> : null}
             {c.titleHighlight ? <em class="accent section-title__line">{c.titleHighlight}</em> : null}
           </h2>
           {c.text ? <p class="contact__lead">{c.text}</p> : null}
@@ -672,7 +680,7 @@ const Contact = ({ content }: { content: SiteContent }) => {
           ) : null}
           {booking.external ? (
             <div class="contact__booking">
-              <p class="contact__alt-title">Vous préférez échanger de vive voix ?</p>
+              <p class="contact__alt-title">Vous préférez échanger de vive voix ?</p>
               {c.bookingText ? <p class="contact__booking-text">{c.bookingText}</p> : null}
               <a class="btn btn--light btn--sm" href={booking.href} target="_blank" rel="noopener" data-booking data-track="booking_open">
                 <span>{c.bookingLabel}</span>
@@ -683,7 +691,7 @@ const Contact = ({ content }: { content: SiteContent }) => {
           ) : null}
           {wa || c.publicEmail || c.publicPhone ? (
             <div class="contact__alt">
-              {!booking.external ? <p class="contact__alt-title">Vous préférez échanger directement ?</p> : null}
+              {!booking.external ? <p class="contact__alt-title">Vous préférez échanger directement ?</p> : null}
               {wa ? (
                 <div class="contact__alt-actions">
                   <a class="btn btn--outline btn--sm" href={wa} target="_blank" rel="noopener" data-track="whatsapp_click">

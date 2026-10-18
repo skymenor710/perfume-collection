@@ -1,7 +1,8 @@
 # Déploiement Netlify — voir README.md § « Netlify ». Rien n'est publié tant que le site n'est pas relié à Netlify.
 # Variables d'environnement (Site configuration › Environment variables, portée « Builds » ET « Functions ») :
 #   NODE_ENV=production, PUBLIC_URL, SESSION_SECRET, DATABASE_URL (PostgreSQL : Neon / Netlify DB),
-#   STORAGE_DRIVER=s3 + S3_* (Cloudflare R2…), UPLOAD_MAX_MB=4, et facultativement MAIL_* / ANALYTICS_*.
+#   STORAGE_DRIVER=s3 + S3_* (Cloudflare R2…), UPLOAD_MAX_MB=4, MAIL_* (Brevo ; valeurs dans README § 3 bis, la clé
+#   MAIL_API_KEY uniquement dans Netlify), et facultativement ANALYTICS_*.
 
 [build]
   # Fichiers du navigateur (dist/client) puis migrations de la base (refusées si la base n'est pas PostgreSQL).

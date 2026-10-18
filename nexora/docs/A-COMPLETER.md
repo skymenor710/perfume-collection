@@ -24,12 +24,12 @@ Facultatif : e-mail et téléphone à afficher publiquement dans la section cont
 
 | Besoin | Variable(s) | État |
 |---|---|---|
-| Nom de domaine + HTTPS | `PUBLIC_URL` | à fournir |
+| Nom de domaine + HTTPS | `PUBLIC_URL` | domaine `nexora-creation.fr` (OVHcloud) ; prévu : `https://www.nexora-creation.fr` (DNS : README § 3 bis, étape 7) |
 | Hébergement : Netlify (préparé : `netlify.toml`, README § 3 bis) **ou** hébergeur Node (processus permanent) | — | à choisir ; aucun compte relié, aucun déploiement fait |
 | PostgreSQL de production (Neon / Netlify DB sur Netlify) | `DATABASE_URL` | à fournir — **obligatoire sur Netlify** |
 | Stockage des images (S3/R2) ou volume persistant | `STORAGE_DRIVER`, `S3_*` | à fournir — **S3/R2 obligatoire sur Netlify** |
 | Secret de session | `SESSION_SECRET` | à générer sur le serveur (commande dans `.env.example`) |
-| Notification e-mail | `MAIL_PROVIDER` (`brevo` ou `resend`), `MAIL_API_KEY`, `MAIL_FROM` (expéditeur vérifié sur le domaine), `MAIL_TO` | **non configurée** : aucune clé disponible ; les envois n’ont pas pu être testés contre le vrai fournisseur (seulement contre un fournisseur simulé dans les tests) |
+| Notification e-mail | `MAIL_PROVIDER=brevo`, `MAIL_FROM=Nexora <site@nexora-creation.fr>`, `MAIL_TO=nexora.services1@hotmail.com`, `MAIL_API_KEY` | valeurs de production fixées (README § 3 bis, étapes 5–6) ; **reste à faire** : compte Brevo, authentification du domaine (DNS OVHcloud), clé API saisie uniquement dans Netlify. Envoi réel non testé (seulement contre un fournisseur simulé dans les tests) |
 | Premier administrateur | `npm run admin:create -- --email …` | à créer sur le serveur |
 | Sauvegardes planifiées | tâche cron de l’hébergeur + stockage chiffré | à mettre en place |
 

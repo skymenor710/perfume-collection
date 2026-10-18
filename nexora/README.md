@@ -158,15 +158,61 @@ toutes les routes) et les fichiers statiques de `dist/client` sont servis par le
 | Ménage (sessions, compteurs) | fonction planifiée `netlify/functions/menage.mts` (`@hourly`) |
 | Migrations | pendant le build (`npm run build && npm run db:migrate`), refusées si la base n’est pas PostgreSQL |
 
-Étapes (à faire par vous, avec votre compte — rien n’a été publié ni souscrit) :
-1. Créer une base PostgreSQL (Neon) et un bucket R2 (ou S3) avec une clé d’accès limitée à ce bucket.
-2. Netlify → *Add new site* → importer le dépôt, **Base directory** : `nexora` (le reste vient de `netlify.toml`).
-3. *Site configuration → Environment variables* (portées **Builds** et **Functions**) : `NODE_ENV=production`,
-   `PUBLIC_URL=https://…` (adresse définitive), `SESSION_SECRET` (48 caractères aléatoires), `DATABASE_URL`,
-   `STORAGE_DRIVER=s3` + `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`, `UPLOAD_MAX_MB=4`,
-   et si besoin `MAIL_*`, `ANALYTICS_*`.
-4. Déployer, puis créer l’administrateur depuis votre poste avec la base de production :
-   `DATABASE_URL=… SESSION_SECRET=… STORAGE_DRIVER=s3 S3_…=… npm run admin:create -- --email vous@exemple.fr`.
+Étapes (à faire par vous, avec votre compte — rien n’a été publié ni souscrit). Domaine : `nexora-creation.fr`
+(OVHcloud). Aucune clé ni aucun mot de passe ne va dans le dépôt : uniquement dans Netlify (ou un `.env` local non
+versionné).
+
+1. **Services** : une base PostgreSQL (Neon) — chaîne de connexion avec `?sslmode=require` (sans `sslmode`, la
+   connexion n’est pas chiffrée) — et un bucket Cloudflare R2 (ou S3) avec une clé d’accès limitée à ce bucket.
+2. **Branche** : le site est sur `claude/nexora-site` (absent de `main`). Fusionner dans `main` (pull request), ou
+   choisir `claude/nexora-site` comme branche de production à l’étape 3.
+3. **Projet Netlify** : *Add new project* → *Import an existing project* → GitHub → ce dépôt ; **Base directory** :
+   `nexora` ; branche de production (étape 2). Commande, dossier publié et fonctions viennent de `netlify.toml`.
+4. **Contextes** : *Project configuration → Build & deploy → Continuous deployment → Branches and deploy contexts* :
+   déployer uniquement la branche de production, sans Deploy Previews ni Branch deploys. Chaque build applique les
+   migrations sur la base de `DATABASE_URL` : un aperçu ne doit jamais migrer la base de production.
+5. **Variables** : *Project configuration → Environment variables → Add a variable*, toutes portées et contextes ;
+   cocher *Contains secret values* (si l’option est proposée) pour les lignes « secret ».
+
+   ```
+   NODE_ENV=production
+   PUBLIC_URL=https://www.nexora-creation.fr                   # = domaine principal choisi à l’étape 7
+   SESSION_SECRET=<48 caractères aléatoires>                   # secret — commande dans .env.example
+   DATABASE_URL=postgres://…?sslmode=require                   # secret
+   STORAGE_DRIVER=s3
+   S3_ENDPOINT=https://<id-compte>.r2.cloudflarestorage.com
+   S3_REGION=auto
+   S3_BUCKET=<nom du bucket>
+   S3_ACCESS_KEY_ID=…                                          # secret
+   S3_SECRET_ACCESS_KEY=…                                      # secret
+   UPLOAD_MAX_MB=4
+   MAIL_PROVIDER=brevo
+   MAIL_API_KEY=<clé API Brevo>                                # secret — jamais dans le dépôt
+   MAIL_FROM=Nexora <site@nexora-creation.fr>
+   MAIL_TO=nexora.services1@hotmail.com
+   ```
+
+   Ne pas définir `TRUST_PROXY` (refusé sur Netlify : l’IP vient de la plateforme) ; `MIGRATE_ON_START` est sans effet
+   (migrations pendant le build).
+6. **E-mail (Brevo)** :
+   * *Senders, Domains & Dedicated IPs → Domains → Add a domain* : `nexora-creation.fr`. Dans la zone DNS OVHcloud
+     (*Web Cloud → Noms de domaine → nexora-creation.fr → Zone DNS → Ajouter une entrée*), copier exactement les
+     enregistrements affichés par Brevo (code de vérification, DKIM, DMARC), puis *Authenticate*. Un SPF déjà présent
+     (`v=spf1 …`) se complète, il ne se double pas. Sans cette authentification, Hotmail classe les messages en
+     courrier indésirable.
+   * *Senders* : ajouter `site@nexora-creation.fr` (nom « Nexora »).
+   * *SMTP & API → API Keys* : créer une clé, la coller seulement dans `MAIL_API_KEY` sur Netlify.
+   * *Security → Authorised IPs* : ne pas bloquer les IP inconnues pour l’API (les fonctions Netlify n’ont pas d’IP fixe).
+7. **Domaine** : *Domain management → Add a domain* : `www.nexora-creation.fr` (domaine principal, recommandé par
+   Netlify avec un DNS externe) et `nexora-creation.fr` (redirigé). Zone DNS OVHcloud : `CNAME` `www` →
+   `<projet>.netlify.app.` (nom exact affiché par Netlify) et `A` `@` → `75.2.60.5` ; supprimer les anciens `A`/`AAAA`
+   de `@` et de `www` (page d’attente OVH). Le certificat HTTPS est émis par Netlify une fois le DNS vérifié.
+8. **Déployer** (*Deploys → Trigger deploy*), puis créer l’administrateur depuis votre poste, avec les valeurs de
+   production : `DATABASE_URL=… SESSION_SECRET=… STORAGE_DRIVER=s3 S3_…=… npm run admin:create -- --email vous@exemple.fr`.
+9. **Vérifier** : envoyer le formulaire du site ; dans `/admin` → *Demandes* → la demande indique « Envoyée le … » ou
+   l’erreur exacte ; le message arrive sur `nexora.services1@hotmail.com` (au premier envoi, regarder *Courrier
+   indésirable* et ajouter l’expéditeur aux expéditeurs approuvés). « Répondre » écrit directement au visiteur.
+   En cas d’erreur : journaux de la fonction `site` (*Logs → Functions*).
 
 Limites connues de Netlify : requête de 6 Mo au plus (envoyer les images **une par une**, `UPLOAD_MAX_MB=4`) et 10 s
 d’exécution par défaut (26 s sur les offres payantes) — une très grande image peut dépasser ce délai lors de la

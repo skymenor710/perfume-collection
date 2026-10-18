@@ -173,7 +173,7 @@ d’exécution par défaut (26 s sur les offres payantes) — une très grande i
 génération des variantes AVIF ; en cas d’échec, réduire la capture à 2880 px de large.
 
 Vérification locale du paquet de fonctions (empaqueté comme sur Netlify, base PostgreSQL de test) :
-`NETLIFY_TEST_DATABASE_URL=postgres://… npm run test:netlify` — 16 contrôles (configuration refusée, pages, en-têtes,
+`NETLIFY_TEST_DATABASE_URL=postgres://… npm run test:netlify` — 17 contrôles (configuration refusée, pages, en-têtes,
 formulaire enregistré, limitation par IP de la plateforme, X-Forwarded-For falsifié ignoré, fonction planifiée).
 Ce test ne remplace pas un premier déploiement réel, qui n’a pas été fait.
 

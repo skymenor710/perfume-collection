@@ -93,7 +93,7 @@ Un passage réussi est un test de fumée, pas une mesure de fiabilité. Traces b
 | Lint typé | absent | 0 erreur (1 corrigée) |
 | Tests Vitest | 58/58 | 58/58 |
 | e2e Playwright (PostgreSQL 16) | 19/19 | 19/19 |
-| Paquet Netlify | OK | 17/17 vérifications |
+| Paquet Netlify | 16/16 | 17/17 (les 5 premiers envois sont désormais vérifiés) |
 | Fichiers > 350 lignes (hors CSS et tests) | 3 | 0 |
 | `npm audit --omit=dev` | 0 | 0 |
 

@@ -68,8 +68,9 @@ Secrets : uniquement dans les variables d'environnement lues par `config.ts` ; j
 
 - Schéma : `src/server/db/schema.ts` (projets, images, demandes de contact, administrateurs, sessions, limitation de
   débit, réglages du site, version de contenu, journal d'audit). Types inférés par Drizzle.
-- Connexion : `src/server/db/client.ts` — `pg` (pool borné à 8, `sslmode=verify-full` forcé) ou PGlite (dossier ou
-  mémoire). Un seul point d'entrée, ouvert au démarrage par `bootstrap.ts`.
+- Connexion : `src/server/db/client.ts` — `pg` (pool borné à 8 ; `sslmode=require`, `prefer` ou `verify-ca` relevé
+  en `verify-full` ; **sans `sslmode` dans `DATABASE_URL`, la connexion n'est pas chiffrée** : toujours l'indiquer en
+  production) ou PGlite (dossier ou mémoire). Un seul point d'entrée, ouvert au démarrage par `bootstrap.ts`.
 - Migrations : `npm run db:generate` (drizzle-kit, après revue du SQL produit), `npm run db:migrate` (ou
   `MIGRATE_ON_START=true` sur un serveur Node). Sur Netlify : pendant le build, refusées si la base n'est pas PostgreSQL.
   Aucune migration pendant une requête.

@@ -14,3 +14,5 @@ docs/nexora-apercu.html
 assets-src/logo4k/out/
 .impeccable/review/
 .netlify/
+.claude/settings.local.json
+graphify-out/

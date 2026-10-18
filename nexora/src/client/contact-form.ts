@@ -107,7 +107,7 @@ export function initContactForm() {
   });
 
   let sending = false;
-  form.addEventListener('submit', async (ev) => {
+  const send = async (ev: SubmitEvent) => {
     ev.preventDefault();
     if (sending) return;
     const data = new FormData(form);
@@ -155,5 +155,7 @@ export function initContactForm() {
       submit.removeAttribute('aria-busy');
       submitLabel.textContent = original;
     }
-  });
+  };
+  // Le gestionnaire d'événement ne renvoie rien : l'envoi asynchrone gère lui-même toutes ses erreurs.
+  form.addEventListener('submit', (ev) => void send(ev));
 }

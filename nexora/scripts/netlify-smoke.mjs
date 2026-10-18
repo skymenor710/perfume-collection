@@ -62,8 +62,9 @@ const sent = await post('203.0.113.20');
 ok('POST /contact → 201', sent.status === 201, `${sent.status} ${await sent.text()}`);
 
 // 4. Limitation par IP fournie par la plateforme : 5 envois / 15 min pour une IP, une autre IP n'est pas bloquée
-let last;
-for (let i = 0; i < 5; i++) last = await post('203.0.113.30');
+const allowed = [];
+for (let i = 0; i < 5; i++) allowed.push((await post('203.0.113.30')).status);
+ok('5 envois même IP → acceptés', allowed.every((s) => s === 201), allowed.join(','));
 const blocked = await post('203.0.113.30');
 ok('6e envoi même IP → 429', blocked.status === 429, String(blocked.status));
 const other = await post('203.0.113.31');

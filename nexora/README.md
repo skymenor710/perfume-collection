@@ -12,6 +12,12 @@ Projet **indépendant** du reste de ce dépôt : tout se passe dans le dossier `
 | Fichiers | disque persistant **ou** stockage compatible S3 (Cloudflare R2, Scaleway, OVH, AWS) |
 | E-mail | notification des demandes via Brevo ou Resend (facultatif) |
 
+**Documentation** : produit et périmètre → [`PRODUCT.md`](PRODUCT.md) · code et décisions →
+[`docs/architecture.md`](docs/architecture.md) · interface et accessibilité → [`DESIGN.md`](DESIGN.md) · commandes et
+contrôles → [`docs/quality.md`](docs/quality.md) · instructions des agents → [`AGENTS.md`](AGENTS.md) ·
+outillage et preuves → [`docs/setup.md`](docs/setup.md) · informations manquantes →
+[`docs/A-COMPLETER.md`](docs/A-COMPLETER.md) · tests → [`docs/RAPPORT.md`](docs/RAPPORT.md).
+
 ---
 
 ## 1. Lancer le projet en local
@@ -206,6 +212,8 @@ npm run restore -- backups/nexora-… --force   # vide d’abord la base cible
 | `npm run admin:create` | crée / réinitialise un administrateur |
 | `npm run backup` / `npm run restore` | sauvegarde / restauration |
 | `npm run typecheck` | vérification TypeScript |
+| `npm run lint` / `npm run lint:typed` / `npm run lint:rules` | ESLint rapide, ESLint avec types (promesses), auto-test des règles locales — voir `docs/quality.md` |
+| `npm run check` | tout le contrôle local : types, lint, tests, build (ne publie rien, ne migre rien) |
 | `npm test` | tests d’intégration (Vitest, PGlite en mémoire) |
 | `npm run test:e2e` | tests navigateur (Playwright) sur le build : projets `desktop` et `mobile` (Pixel 7 émulé), accessibilité axe (WCAG 2.2 AA), latence des interactions ; `E2E_DATABASE_URL=postgres://…` pour PostgreSQL |
 | `npm run test:netlify` | paquet des fonctions Netlify, empaqueté et exercé localement (`NETLIFY_TEST_DATABASE_URL=postgres://…`) |
@@ -223,8 +231,8 @@ src/server/
   db/                schéma Drizzle, connexion, données de démonstration
   lib/               auth (sessions, CSRF), sécurité (CSP…), stockage, images, e-mail, contenus, limitation de débit
   routes/public.tsx  pages publiques, formulaire de contact, images (/media), robots, sitemap
-  routes/admin.tsx   administration
-  views/             gabarits JSX (site + admin)
+  routes/admin.tsx   administration : session, CSRF, connexion ; routes/admin/ — une zone par module
+  views/             gabarits JSX : site/ (accueil découpé par section), admin/ (une zone par module)
   main.ts            serveur Node (processus permanent)
   serverless.ts      même application en fonction serverless (Netlify)
 netlify/functions/   site.mts (toutes les routes) et menage.mts (fonction planifiée) — voir § 3 bis

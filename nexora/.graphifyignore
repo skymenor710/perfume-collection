@@ -1,0 +1,34 @@
+# Source : vibe-coding-toolkit de66fe3, templates/project/.graphifyignore.example — adapté à Nexora.
+.git/
+node_modules/
+out/
+dist/
+build/
+coverage/
+graphify-out/
+.agents/
+.claude/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+auth.json
+credentials.json
+*.log
+*.tsbuildinfo
+package-lock.json
+# Nexora : sorties de build, tests, données locales, fichiers générés ou binaires
+data/
+test-results/
+playwright-report/
+reports/
+.netlify/
+.impeccable/
+assets-src/logo4k/out/
+public/brand/
+brand/
+seed/
+docs/audit/
+docs/screenshots/

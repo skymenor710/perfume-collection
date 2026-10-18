@@ -20,7 +20,7 @@ conservé), **non applicable**, **bloqué** (cause et action indiquées).
 | --- | --- | --- | --- |
 | `AGENTS.md` + `CLAUDE.md` (`@AGENTS.md`) | validé | `nexora/` | un nouveau processus `claude -p` retrouve la section « Règles du projet », la mémoire et le prompt de sécurité |
 | Neuf documents | validé | `nexora/` | README, PRODUCT, AGENTS, CLAUDE, `docs/architecture.md`, `docs/quality.md`, `docs/setup.md` ; `docs/design.md` → `DESIGN.md` (canonique, lu par le plugin `impeccable`) ; `docs/onboarding.md` → `README.md` § 1. Liens vérifiés |
-| Superpowers 7.0.0, Ponytail 5.3.2, Caveman 4.0.1 | validé | `.claude/settings.json` (portée projet) | `claude plugin list` ; nouveau processus : 15 / 6 / 21 compétences découvertes |
+| Superpowers 7.0.0, Ponytail 5.3.2, Caveman 4.0.1 | validé | `.claude/settings.json` (portée projet) | `claude plugin list` ; nouveau processus : 15 / 6 / 21 compétences découvertes ; Ponytail et Caveman épinglés sur `v5.3.2` (`16352ac`) et `v4.0.1` (`d262ab3`), commits installés vérifiés |
 | Context7 (MCP distant, anonyme) | validé | `.mcp.json` | vraie requête : identifiant `/honojs/hono` résolu, puis une question documentaire ; approbation locale requise (voir mémoire) |
 | RTK 1.0.1 | validé (temporaire) | machine | `rtk git status` : 247 octets contre 557 ; `rtk gain` mesuré ; pas de hook global (voir décisions) |
 | Graphify 0.9.92 | validé (temporaire) | machine + `.graphifyignore` | extraction de code seule (rien n'est envoyé) : 711 nœuds, 1 914 arêtes après découpage ; `graphify path 'adminRoutes()' 'registerProjects()'` → 1 saut ; `graphify-out/` non versionné |
@@ -47,6 +47,8 @@ conservé), **non applicable**, **bloqué** (cause et action indiquées).
 | ESLint 9.39.5 (pas 10) | prompt 08 du toolkit (`eslint@^9`, plugins dont les dépendances pairs exigent la même majeure) ; racine du dépôt en 9 | `typescript-eslint` et `import-x` déclarent ESLint 10 |
 | Pas de Biome | un seul outil de lint ; ESLint porte les règles locales et les frontières | — |
 | Plugins en portée projet | le conteneur est éphémère : seuls les fichiers versionnés survivent | machine personnelle : portée utilisateur possible |
+| Ponytail et Caveman épinglés (`ref` = étiquette de version) | revue du diff : leurs hooks s'exécutent à chaque session, et une session neuve installait la branche `main` du moment ; le client n'accepte pas d'épingler un catalogue sur un commit | nouvelle version relue |
+| Deux compétences modifiées localement | URL de règles épinglée ; outils pré-autorisés réduits à la lecture (`.claude/skills/SOURCES.md`) | mise à jour amont |
 | Pas de hook RTK global | il modifierait les réglages utilisateur gérés par la plateforme | machine personnelle (commande ci-dessous) |
 | Context7 approuvé localement | `enabledMcpjsonServers` versionné est sans effet ; `.claude/settings.local.json` (non versionné) fonctionne | une version du client change ce comportement |
 | `max-lines` en erreur après découpage | 3 fichiers de 798 à 1 020 lignes découpés, HTML rendu identique | — |
@@ -84,6 +86,18 @@ Edit, Write et `node`/`ls`/`cat`.
 
 Un passage réussi est un test de fumée, pas une mesure de fiabilité. Traces brutes conservées hors du dépôt.
 
+## Revues
+
+Trois revues indépendantes en lecture seule, rapports privés hors du dépôt (aucun code envoyé à un service tiers ;
+sans secret). Constats sur ce qui a été ajouté ici : traités dans le même changement. Constats sur l'application
+existante : non modifiés (hors du périmètre de la mise en place), listés dans § En attente avec leur correction minimale.
+
+| Revue | Résultat | Traitement |
+| --- | --- | --- |
+| Différentielle (`differential-review`) du diff complet | découpage sans changement de comportement (24 routes protégées et middlewares identiques, ordre des 31 enregistrements identique, déclarations des vues identiques) ; formulaire de contact inchangé en comportement | plugins tiers épinglés ; règle d'`AGENTS.md` contre les modifications de `~/.claude/settings.json` proposées par un plugin ; deux compétences restreintes ; test de protection de toutes les routes d'admin énumérées (échoue si une zone est enregistrée avant la session — vérifié) ; IP tirée au hasard dans le test Netlify (relance sur la même base) |
+| Sécurité (prompt 13) | 0 critique, 0 élevé, 2 moyens, 4 faibles, 1 info, 1 hypothèse ; points sains : injection SQL, XSS, CSRF, redirection ouverte, traversée de chemin, envois, images non publiées, sessions | `backups/` ignoré par Git ; le reste concerne l'application (§ En attente) |
+| PostgreSQL (`supabase-postgres-best-practices`) | 0 élevé, 0 moyen, 11 faibles, 6 info ; limitation de débit et version de contenu atomiques, migrations sûres, aucun index manquant à cette échelle | documentation corrigée (connexion sans `sslmode` non chiffrée) ; le reste dans § En attente |
+
 ## Avant / après
 
 | Contrôle | Avant (`3c62e0f`) | Après |
@@ -91,7 +105,7 @@ Un passage réussi est un test de fumée, pas une mesure de fiabilité. Traces b
 | Types | OK | OK |
 | Lint | absent | 0 erreur, 134 avertissements |
 | Lint typé | absent | 0 erreur (1 corrigée) |
-| Tests Vitest | 58/58 | 58/58 |
+| Tests Vitest | 58/58 | 61/61 (3 tests de protection des routes d'admin) |
 | e2e Playwright (PostgreSQL 16) | 19/19 | 19/19 |
 | Paquet Netlify | 16/16 | 17/17 (les 5 premiers envois sont désormais vérifiés) |
 | Fichiers > 350 lignes (hors CSS et tests) | 3 | 0 |
@@ -123,6 +137,11 @@ Relais pour un travail inachevé sur plusieurs sessions (fichier temporaire, jam
 | RTK et Graphify absents des prochaines sessions cloud | conteneur éphémère | réinstaller par session, ou sur la machine personnelle (ci-dessous) |
 | Context7 à approuver dans chaque environnement | approbation locale du client | au premier lancement interactif dans `nexora/`, accepter le serveur |
 | 99 assertions non nulles, 32 avertissements de complexité | existant | plan dans `docs/quality.md` |
+| Sécurité, moyen : verrouillage de l'admin par quiconque connaît son e-mail (8 échecs / 15 min, `routes/admin.tsx`) | compromis voulu et testé contre la devinette de mot de passe | décider : verrouiller par couple e-mail + IP, avec une limite par e-mail bien plus haute |
+| Sécurité, moyen : `TRUST_PROXY=true` prend la 1re adresse de `X-Forwarded-For` (`lib/security.ts`) — contournable derrière un proxy qui ajoute à l'en-tête | dépend de l'hébergeur (Netlify non concerné) | avant un hébergement Node : prendre l'adresse la plus à droite ou un nombre de proxys configuré |
+| Sécurité, faible : jeton du formulaire sans expiration ; erreurs SQL journalisées avec leurs paramètres ; sauvegardes lisibles par tous ; outils tiers des agents | existant | corrections minimales dans le rapport de sécurité ; à traiter sur demande |
+| Sécurité, hypothèse : Netlify sans `NODE_ENV=production` ni `SESSION_SECRET` → secret par instance | réglages Netlify non vérifiés | refuser le démarrage serverless sans `SESSION_SECRET` |
+| PostgreSQL, faible : pas de `statement_timeout` ; `audit()` avant l'invalidation du cache ; sauvegarde hors transaction ; migrations dans tous les contextes Netlify | existant | correctifs de quelques lignes décrits dans le rapport ; `DATABASE_URL` réservé au contexte Production avant le 1er déploiement Netlify |
 | 4 vulnérabilités « moderate » (dév.) | chaîne `drizzle-kit` → `esbuild` | prochaine version de `drizzle-kit` |
 | 3 cas d'évaluation non lancés | interaction humaine ou cas dédié | les lancer après un changement de harnais qui les concerne |
 

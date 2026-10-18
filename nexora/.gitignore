@@ -16,3 +16,5 @@ assets-src/logo4k/out/
 .netlify/
 .claude/settings.local.json
 graphify-out/
+# Sauvegardes (hachages de mots de passe, demandes de contact) : jamais dans Git.
+backups/

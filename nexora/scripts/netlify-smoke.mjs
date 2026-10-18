@@ -61,16 +61,18 @@ const post = (ip) => handler(new Request('https://nexora.example/contact', { met
 const sent = await post('203.0.113.20');
 ok('POST /contact → 201', sent.status === 201, `${sent.status} ${await sent.text()}`);
 
-// 4. Limitation par IP fournie par la plateforme : 5 envois / 15 min pour une IP, une autre IP n'est pas bloquée
+// 4. Limitation par IP fournie par la plateforme : 5 envois / 15 min pour une IP, une autre IP n'est pas bloquée.
+// IP tirée à chaque lancement : un second lancement sur la même base ne trouve pas son compteur déjà plein.
+const limited = `203.0.113.${40 + Math.floor(Math.random() * 200)}`;
 const allowed = [];
-for (let i = 0; i < 5; i++) allowed.push((await post('203.0.113.30')).status);
+for (let i = 0; i < 5; i++) allowed.push((await post(limited)).status);
 ok('5 envois même IP → acceptés', allowed.every((s) => s === 201), allowed.join(','));
-const blocked = await post('203.0.113.30');
+const blocked = await post(limited);
 ok('6e envoi même IP → 429', blocked.status === 429, String(blocked.status));
 const other = await post('203.0.113.31');
 ok('autre IP → acceptée', other.status === 201, String(other.status));
 // En-tête X-Forwarded-For falsifié ignoré (TRUST_PROXY désactivé) : même IP plateforme → toujours bloquée
-const spoof = await handler(new Request('https://nexora.example/contact', { method: 'POST', headers: { origin: 'https://nexora.example', accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': '198.51.100.7' }, body }), { ip: '203.0.113.30' });
+const spoof = await handler(new Request('https://nexora.example/contact', { method: 'POST', headers: { origin: 'https://nexora.example', accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': '198.51.100.7' }, body }), { ip: limited });
 ok('X-Forwarded-For falsifié ignoré', spoof.status === 429, String(spoof.status));
 
 // 5. Fonction planifiée : ménage sans erreur, configuration de planification

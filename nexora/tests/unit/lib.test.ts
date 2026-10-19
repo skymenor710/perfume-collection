@@ -115,10 +115,13 @@ describe('contenus', () => {
 
 describe('serverless (Netlify)', () => {
   it('refuse les réglages non persistants ou contournables', () => {
-    expect(serverlessProblems({ DATABASE_URL: 'pglite:./data/db', STORAGE_DRIVER: 'local' })).toHaveLength(2);
-    expect(serverlessProblems({})).toHaveLength(2);
-    expect(serverlessProblems({ DATABASE_URL: 'postgres://u:p@h/db', STORAGE_DRIVER: 's3', TRUST_PROXY: 'true' })).toHaveLength(1);
-    expect(serverlessProblems({ DATABASE_URL: 'postgresql://u:p@h/db?sslmode=require', STORAGE_DRIVER: 's3' })).toEqual([]);
+    const secret = { SESSION_SECRET: 's'.repeat(48) };
+    expect(serverlessProblems({ ...secret, DATABASE_URL: 'pglite:./data/db', STORAGE_DRIVER: 'local' })).toHaveLength(2);
+    expect(serverlessProblems({})).toHaveLength(3);
+    expect(serverlessProblems({ ...secret, DATABASE_URL: 'postgres://u:p@h/db', STORAGE_DRIVER: 's3', TRUST_PROXY: 'true' })).toHaveLength(1);
+    // Secret absent ou trop court : chaque instance aurait le sien.
+    expect(serverlessProblems({ SESSION_SECRET: 'court', DATABASE_URL: 'postgres://u:p@h/db', STORAGE_DRIVER: 's3' })).toHaveLength(1);
+    expect(serverlessProblems({ ...secret, DATABASE_URL: 'postgresql://u:p@h/db?sslmode=require', STORAGE_DRIVER: 's3' })).toEqual([]);
   });
 });
 

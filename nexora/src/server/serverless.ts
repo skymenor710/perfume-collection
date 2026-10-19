@@ -25,6 +25,9 @@ export function serverlessProblems(env: NodeJS.ProcessEnv = process.env) {
   if (env.STORAGE_DRIVER !== 's3') {
     problems.push('STORAGE_DRIVER=s3 est obligatoire (Cloudflare R2, Scaleway Object Storage…) : le disque d’une fonction est éphémère.');
   }
+  if ((env.SESSION_SECRET ?? '').length < 32) {
+    problems.push('SESSION_SECRET (32 caractères minimum) est obligatoire : sans lui, chaque instance tire son propre secret (sessions, jetons du formulaire et limitation de débit incohérents).');
+  }
   if (env.TRUST_PROXY === 'true') {
     problems.push('TRUST_PROXY doit rester désactivé : l’IP du visiteur est fournie par la plateforme (context.ip).');
   }

@@ -10,6 +10,7 @@ import { adminRoutes } from './routes/admin';
 import { Document } from './views/layout';
 import { ErrorPage } from './views/site/error';
 import { renderHtml } from './views/render';
+import { errorSummary } from './log';
 
 export function createApp(deps: Deps) {
   const app = new Hono<AppEnv>();
@@ -68,7 +69,7 @@ export function createApp(deps: Deps) {
   app.notFound((c) => c.html(page('Page introuvable', 'La page demandée n’existe pas ou a été déplacée.'), 404));
   app.onError((err, c) => {
     // Détail technique dans le journal seulement ; message neutre pour le visiteur.
-    deps.log.error({ err: { name: err.name, message: err.message, stack: err.stack }, path: c.req.path }, 'erreur serveur');
+    deps.log.error({ err: errorSummary(err), path: c.req.path }, 'erreur serveur');
     if ((c.req.header('accept') ?? '').includes('application/json')) return c.json({ message: 'Erreur interne. Réessayez dans un instant.' }, 500);
     return c.html(page('Une erreur est survenue', 'Réessayez dans un instant. Si le problème persiste, contactez-nous.'), 500);
   });

@@ -64,19 +64,31 @@ assets-src/          fichiers d'origine et scripts de production du logo 4K et d
 Secrets : uniquement dans les variables d'environnement lues par `config.ts` ; jamais envoyés au navigateur
 (la seule valeur publique est `PUBLIC_URL`).
 
+Limitation de la connexion admin (`routes/admin.tsx`) : 20 essais / 15 min par IP ; 8 échecs / 15 min par compte pour
+un appareil inconnu, mais un appareil où l'administrateur s'est déjà connecté (cookie `__Host-nx_dev`, 180 jours) n'est
+limité que par ses propres échecs (couple e-mail + IP) — un tiers qui connaît l'e-mail ne peut donc pas bloquer
+l'administrateur. Jeton du formulaire de contact : 2,5 s minimum, 48 h maximum. Journal : erreurs SQL sans leurs
+paramètres (`errorSummary`, `src/server/log.ts`).
+
 ## Données et migrations
 
 - Schéma : `src/server/db/schema.ts` (projets, images, demandes de contact, administrateurs, sessions, limitation de
   débit, réglages du site, version de contenu, journal d'audit). Types inférés par Drizzle.
-- Connexion : `src/server/db/client.ts` — `pg` (pool borné à 8 ; `sslmode=require`, `prefer` ou `verify-ca` relevé
-  en `verify-full` ; **sans `sslmode` dans `DATABASE_URL`, la connexion n'est pas chiffrée** : toujours l'indiquer en
-  production) ou PGlite (dossier ou mémoire). Un seul point d'entrée, ouvert au démarrage par `bootstrap.ts`.
+- Connexion : `src/server/db/client.ts` — `pg` (pool borné à 8, `keepAlive` ; `sslmode=require`, `prefer` ou
+  `verify-ca` relevé en `verify-full` ; sans `sslmode`, un hôte distant est joint en `verify-full`, un hôte local ou
+  sans domaine reste en clair ; `sslmode=disable` explicite respecté) ou PGlite (dossier ou mémoire). Les erreurs des
+  connexions inactives sont journalisées. Un seul point d'entrée, ouvert au démarrage par `bootstrap.ts`.
 - Migrations : `npm run db:generate` (drizzle-kit, après revue du SQL produit), `npm run db:migrate` (ou
-  `MIGRATE_ON_START=true` sur un serveur Node). Sur Netlify : pendant le build, refusées si la base n'est pas PostgreSQL.
+  `MIGRATE_ON_START=true` sur un serveur Node). Sur Netlify : pendant le build du contexte `production` uniquement
+  (aperçus et branches : ignorées), refusées si la base n'est pas PostgreSQL ou si `SESSION_SECRET` manque.
   Aucune migration pendant une requête.
 - Cache : HTML de l'accueil mis en cache par « version de contenu » (une ligne en base, incrémentée à chaque
   modification de l'admin), donc cohérent entre plusieurs instances.
 - **PGlite : un seul processus par dossier.** Deux serveurs ouverts sur le même `data/db` corrompent la base locale.
+- Notifications : `src/server/lib/notify.ts` — e-mail envoyé APRÈS l'enregistrement de la demande ; échec noté sur la
+  demande et renvoyé par la tâche horaire (24 h au plus). Sauvegarde : instantané en lecture seule (`repeatable read`),
+  fichiers `0600`.
+- Version déployée : `/version.txt` (commit écrit pendant le build Netlify par `scripts/build-info.mjs`).
 
 ## Décisions
 

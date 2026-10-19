@@ -3,6 +3,21 @@
 Rien de ce qui suit n’a été inventé ni simulé. Le site fonctionne sans ces éléments (les demandes sont enregistrées et
 visibles dans `/admin`), mais ils sont nécessaires avant l’ouverture au public.
 
+## En production (constaté le 19/10/2026 sur https://nexora-creation.fr)
+
+- [ ] **Mentions légales et politique de confidentialité affichent « À compléter »** pour tous les champs ci-dessous :
+  obligation légale, à saisir dans l’admin avant toute prospection. Hébergeur (vérifié sur les conditions de Netlify) :
+  `Netlify, Inc.` — `101 2nd Street, San Francisco, CA 94105, États-Unis`.
+- [ ] **Section « Nos réalisations » vide** (« Nos premières réalisations seront bientôt présentées ici ») : publier
+  les projets dans `/admin → Projets` (ou lancer `npm run db:seed` avec les variables de production pour les 3
+  concepts du portfolio).
+- [ ] **Supprimer la demande « Test technique (audit Nexora) »** (`/admin → Demandes`), envoyée le 19/10/2026 pour
+  vérifier le formulaire, et vérifier sa notification dans la boîte `nexora.services1@hotmail.com` (dossier courrier
+  indésirable compris).
+- [ ] DNS OVHcloud (facultatif) : supprimer l’ancien enregistrement TXT `1|www.nexora-creation.fr` (reste d’une
+  redirection OVH, sans effet) ; après quelques semaines de rapports DMARC sans anomalie, passer `_dmarc` de `p=none` à
+  `p=quarantine` ; un enregistrement CAA `0 issue "letsencrypt.org"` limite l’émission de certificats.
+
 ## Informations légales (à saisir dans /admin → Contenus du site → Informations légales)
 
 Obligatoires (mentions légales, LCEN art. 6 ; politique de confidentialité, RGPD) — affichées « À compléter » tant
@@ -24,13 +39,13 @@ Facultatif : e-mail et téléphone à afficher publiquement dans la section cont
 
 | Besoin | Variable(s) | État |
 |---|---|---|
-| Nom de domaine + HTTPS | `PUBLIC_URL` | domaine `nexora-creation.fr` (OVHcloud) ; prévu : `https://www.nexora-creation.fr` (DNS : README § 3 bis, étape 7) |
-| Hébergement : Netlify (préparé : `netlify.toml`, README § 3 bis) **ou** hébergeur Node (processus permanent) | — | à choisir ; aucun compte relié, aucun déploiement fait |
-| PostgreSQL de production (Neon / Netlify DB sur Netlify) | `DATABASE_URL` | à fournir — **obligatoire sur Netlify** |
-| Stockage des images (S3/R2) ou volume persistant | `STORAGE_DRIVER`, `S3_*` | à fournir — **S3/R2 obligatoire sur Netlify** |
-| Secret de session | `SESSION_SECRET` | à générer sur le serveur (commande dans `.env.example`) |
-| Notification e-mail | `MAIL_PROVIDER=brevo`, `MAIL_FROM=Nexora <site@nexora-creation.fr>`, `MAIL_TO=nexora.services1@hotmail.com`, `MAIL_API_KEY` | valeurs de production fixées (README § 3 bis, étapes 5–6) ; **reste à faire** : compte Brevo, authentification du domaine (DNS OVHcloud), clé API saisie uniquement dans Netlify. Envoi réel non testé (seulement contre un fournisseur simulé dans les tests) |
-| Premier administrateur | `npm run admin:create -- --email …` | à créer sur le serveur |
+| Nom de domaine + HTTPS | `PUBLIC_URL` | **en service** : `https://nexora-creation.fr` (domaine principal ; `www` et l’adresse `netlify.app` redirigent), certificat Let’s Encrypt |
+| Hébergement | — | **Netlify, en production** (`netlify.toml`, README § 3 bis) |
+| PostgreSQL de production (Neon) | `DATABASE_URL` | **en service** (le formulaire enregistre ; vérifié le 19/10/2026) |
+| Stockage des images (Cloudflare R2) | `STORAGE_DRIVER=s3`, `S3_*` | **configuré** (la fonction refuse de démarrer sans) ; aucune image publiée pour l’instant |
+| Secret de session | `SESSION_SECRET` | obligatoire : le build Netlify échoue sans lui (contrôle ajouté le 19/10/2026) |
+| Notification e-mail | `MAIL_PROVIDER=brevo`, `MAIL_FROM=Nexora <site@nexora-creation.fr>`, `MAIL_TO=nexora.services1@hotmail.com`, `MAIL_API_KEY` | domaine authentifié chez Brevo (DNS : code de vérification, DKIM `brevo1`/`brevo2`, DMARC — vérifiés le 19/10/2026). Réception à confirmer dans la boîte de destination (demande de test du 19/10/2026) ; une notification en échec est renvoyée toutes les heures pendant 24 h |
+| Premier administrateur | `npm run admin:create -- --email …` | page de connexion en service ; compte non vérifiable depuis l’extérieur |
 | Sauvegardes planifiées | tâche cron de l’hébergeur + stockage chiffré | à mettre en place |
 
 ## Contenus de conversion — données RÉELLES uniquement

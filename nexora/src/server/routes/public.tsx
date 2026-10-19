@@ -7,6 +7,7 @@ import { displayProject, getContent, getContentVersion, getHomeProjects, getTeam
 import { areaList, displayContent, rows, type SiteContent } from '../lib/content';
 import { checkFormToken, contactSchema, fieldErrors, issueFormToken, looksLikeSpam } from '../lib/contact';
 import { hit } from '../lib/rate-limit';
+import { notifyRequest } from '../lib/notify';
 import { fingerprint, } from '../lib/security';
 import { sameOrigin } from '../lib/auth';
 import { Document } from '../views/layout';
@@ -34,6 +35,16 @@ export class PageCache {
   clear() {
     this.entries.clear();
   }
+}
+
+/**
+ * En-têtes de cache d'une image de /media. Publiée : cache borné (navigateurs et caches partagés 1 jour, CDN Netlify
+ * 1 heure) pour qu'une image retirée de la publication cesse vite d'être servie. Non publiée (admin) : jamais en cache.
+ */
+function mediaCache(published: boolean): Record<string, string> {
+  return published
+    ? { 'Cache-Control': 'public, max-age=86400', 'Netlify-CDN-Cache-Control': 'public, max-age=3600' }
+    : { 'Cache-Control': 'private, no-store' };
 }
 
 export function publicRoutes(deps: Deps, cache: PageCache) {
@@ -191,7 +202,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
     const input = parsed.data;
     if (looksLikeSpam(input)) return fail(422, 'Votre message contient trop de liens.', { message: 'Votre message contient trop de liens (3 maximum).' });
 
-    let id: string;
+    let row: typeof contactRequests.$inferSelect;
     try {
       const rows = await db
         .insert(contactRequests)
@@ -206,45 +217,14 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
           message: input.message,
           privacyAckAt: new Date(),
         })
-        .returning({ id: contactRequests.id });
-      id = rows[0].id;
+        .returning();
+      row = rows[0];
     } catch (e) {
       deps.log.error({ err: (e as Error).name }, 'contact: enregistrement impossible');
       return fail(500, 'L’enregistrement a échoué. Vos informations sont conservées : réessayez dans un instant.');
     }
-    deps.log.info({ requestId: id }, 'contact: demande enregistrée');
-
-    // Notification e-mail APRÈS l'enregistrement : un échec d'envoi n'annule jamais la demande.
-    if (deps.mailer.configured) {
-      try {
-        await deps.mailer.send({
-          subject: `Nouvelle demande de contact — ${input.projectType}`,
-          replyTo: input.email,
-          text: [
-            'Nouvelle demande reçue sur le site Nexora.',
-            '',
-            `Nom : ${input.name}`,
-            `Entreprise : ${input.company || '—'}`,
-            `E-mail : ${input.email}`,
-            `Téléphone : ${input.phone || '—'}`,
-            `Type de projet : ${input.projectType}`,
-            `Budget estimatif : ${input.budget || '—'}`,
-            `Délai souhaité : ${input.timeline || '—'}`,
-            '',
-            input.message,
-            '',
-            `Consulter dans l'administration : ${config.publicUrl}/admin/demandes/${id}`,
-          ].join('\n'),
-        });
-        await db.update(contactRequests).set({ notifiedAt: new Date() }).where(eq(contactRequests.id, id));
-      } catch (e) {
-        const msg = (e as Error).message.slice(0, 200);
-        deps.log.warn({ requestId: id, error: msg }, 'contact: notification e-mail non envoyée');
-        await db.update(contactRequests).set({ notifyError: msg }).where(eq(contactRequests.id, id));
-      }
-    } else {
-      await db.update(contactRequests).set({ notifyError: 'Notification e-mail non configurée' }).where(eq(contactRequests.id, id));
-    }
+    deps.log.info({ requestId: row.id }, 'contact: demande enregistrée');
+    await notifyRequest(deps, row);
 
     const content = await getContent(db);
     if (wantsJson) return c.json({ message: content.contact.successMessage }, 201);
@@ -279,7 +259,7 @@ export function publicRoutes(deps: Deps, cache: PageCache) {
     const body = await deps.storage.get(variant.key);
     if (!body) return c.notFound();
     c.header('Content-Type', `image/${variant.format}`);
-    c.header('Cache-Control', row.published ? 'public, max-age=31536000, immutable' : 'private, no-store');
+    for (const [name, value] of Object.entries(mediaCache(row.published))) c.header(name, value);
     c.header('Content-Disposition', 'inline');
     return c.body(new Uint8Array(body));
   });

@@ -47,6 +47,8 @@ describe('jeton du formulaire', () => {
     const now = Date.now();
     expect(checkFormToken('s'.repeat(32), issueFormToken('s'.repeat(32), now - 10_000), now)).toBe('ok');
     expect(checkFormToken('s'.repeat(32), issueFormToken('s'.repeat(32), now - 500), now)).toBe('too-fast');
+    expect(checkFormToken('s'.repeat(32), issueFormToken('s'.repeat(32), now - 49 * 3600_000), now)).toBe('expired');
+    expect(checkFormToken('s'.repeat(32), issueFormToken('s'.repeat(32), now - 47 * 3600_000), now)).toBe('ok');
     expect(checkFormToken('s'.repeat(32), issueFormToken('autre'.repeat(8), now - 10_000), now)).toBe('invalid');
     expect(checkFormToken('s'.repeat(32), undefined, now)).toBe('missing');
     expect(checkFormToken('s'.repeat(32), 'abc.def', now)).toBe('invalid');

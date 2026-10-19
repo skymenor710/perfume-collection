@@ -43,8 +43,8 @@ export function registerContent(app: Hono<AppEnv>, deps: Deps, cache: PageCache)
       const previous = await getTeamPhoto(db);
       await setTeamPhoto(db, { id: img.id, width: img.width, height: img.height, storagePrefix: img.storagePrefix, variants: img.variants });
       if (previous) await deps.storage.deletePrefix(previous.storagePrefix).catch(() => {});
-      await audit(db, s.adminId, 'team.photo');
       await published();
+      await audit(db, s.adminId, 'team.photo');
       setFlash(c, { type: 'ok', lines: ['Photo enregistrée. Pensez à renseigner sa description (texte alternatif).'] });
     } catch (e) {
       setFlash(c, { type: 'error', lines: [e instanceof ImageRejected ? e.message : 'Traitement de la photo impossible.'] });
@@ -58,8 +58,8 @@ export function registerContent(app: Hono<AppEnv>, deps: Deps, cache: PageCache)
     if (previous) {
       await setTeamPhoto(db, null);
       await deps.storage.deletePrefix(previous.storagePrefix).catch(() => {});
-      await audit(db, s.adminId, 'team.photo.delete');
       await published();
+      await audit(db, s.adminId, 'team.photo.delete');
     }
     setFlash(c, { type: 'ok', lines: ['Photo supprimée.'] });
     return c.redirect('/admin/contenus#photo-equipe', 303);
@@ -98,8 +98,8 @@ export function registerContent(app: Hono<AppEnv>, deps: Deps, cache: PageCache)
       );
     }
     await saveContent(db, parsed.data);
-    await audit(db, s.adminId, 'content.update');
     await published();
+    await audit(db, s.adminId, 'content.update');
     setFlash(c, { type: 'ok', lines: ['Contenus enregistrés et publiés.'] });
     return c.redirect('/admin/contenus', 303);
   });

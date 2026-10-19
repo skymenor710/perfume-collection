@@ -11,6 +11,14 @@ if (process.env.NETLIFY === 'true') {
   }
 }
 
+// Aperçus et déploiements de branche (CONTEXT ≠ production) : jamais de migration. Ils partagent souvent la
+// DATABASE_URL de production ; un schéma en avance casserait le site publié. CONTEXT absent : exécution locale.
+const context = process.env.CONTEXT;
+if (process.env.NETLIFY === 'true' && context && context !== 'production') {
+  console.log(`Contexte Netlify « ${context} » : migrations non appliquées (production uniquement).`);
+  process.exit(0);
+}
+
 const rt = await bootstrap({ migrate: true });
 console.log('Migrations appliquées.');
 await rt.close();

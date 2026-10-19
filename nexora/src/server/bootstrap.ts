@@ -3,7 +3,7 @@ import pino from 'pino';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, type Config } from './config';
 import { applyMigrations, openDb, type DbHandle } from './db/client';
-import { createLogger } from './log';
+import { createLogger, errorSummary } from './log';
 import { createStorage } from './lib/storage';
 import { createMailer } from './lib/mail';
 import { loadAssets } from './lib/assets';
@@ -23,7 +23,7 @@ export async function bootstrap(options: { config?: Config; migrate?: boolean; c
   const config = options.config ?? loadConfig();
   // Serverless : écriture synchrone du journal (une instance gelée ne perd pas ses dernières lignes).
   const log = createLogger(config.logLevel, options.syncLog ? pino.destination({ dest: 1, sync: true }) : undefined);
-  const handle = await openDb(config.databaseUrl);
+  const handle = await openDb(config.databaseUrl, (err) => log.warn({ err: errorSummary(err) }, 'base : connexion inactive interrompue'));
   if (options.migrate ?? config.migrateOnStart) await applyMigrations(handle);
   const deps: Deps = {
     config,

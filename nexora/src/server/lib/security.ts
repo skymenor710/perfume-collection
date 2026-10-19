@@ -48,19 +48,21 @@ export function securityHeaders(deps: Deps): MiddlewareHandler<AppEnv> {
   };
 }
 
+/** Dernière adresse d'un en-tête X-Forwarded-For (celle qu'ajoute le proxy de confiance). */
+const lastForwarded = (header: string | undefined) =>
+  header?.split(',').map((s) => s.trim()).filter(Boolean).at(-1) ?? '';
+
 /**
  * Adresse IP du client. Ordre : IP fournie par la plateforme serverless (Netlify : context.ip, transmise par
  * netlify/functions/site.mts) ; X-Forwarded-For seulement si TRUST_PROXY=true (derrière un proxy de confiance, sinon
  * n'importe qui pourrait choisir son IP et contourner la limitation de débit) ; enfin l'adresse de la connexion.
+ * Dans X-Forwarded-For, seule la DERNIÈRE adresse est fiable : elle est ajoutée par le proxy de confiance, alors que
+ * les précédentes peuvent venir du visiteur (un proxy qui complète l'en-tête conserve la valeur envoyée par le client).
  */
 export function clientIp(deps: Deps): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     let ip = typeof c.env?.clientIp === 'string' ? c.env.clientIp.trim() : '';
-    if (!ip && deps.config.trustProxy) {
-      const xff = c.req.header('x-forwarded-for');
-      if (xff) ip = xff.split(',')[0].trim();
-      ip ||= c.req.header('x-real-ip') ?? '';
-    }
+    if (!ip && deps.config.trustProxy) ip = lastForwarded(c.req.header('x-forwarded-for')) || (c.req.header('x-real-ip') ?? '');
     if (!ip) {
       try {
         ip = getConnInfo(c).remote.address ?? '';

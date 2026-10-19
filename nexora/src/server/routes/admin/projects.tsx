@@ -126,8 +126,8 @@ export function registerProjects(app: Hono<AppEnv>, deps: Deps, cache: PageCache
       })
       .where(eq(projects.id, p.id));
     await setFeatured(p.id, v.featuredPosition ? Number(v.featuredPosition) : null);
-    await audit(db, s.adminId, 'project.update', p.id);
     await published();
+    await audit(db, s.adminId, 'project.update', p.id);
     const lines = ['Projet enregistré.'];
     if (v.published && p.images.length === 0) lines.push('Ce projet n’a pas encore d’image : un visuel neutre est affiché sur le site.');
     setFlash(c, { type: 'ok', lines });
@@ -141,8 +141,8 @@ export function registerProjects(app: Hono<AppEnv>, deps: Deps, cache: PageCache
     const body = await c.req.parseBody();
     const value = body.published === '1';
     await db.update(projects).set({ published: value, updatedAt: new Date() }).where(eq(projects.id, p.id));
-    await audit(db, s.adminId, value ? 'project.publish' : 'project.unpublish', p.id);
     await published();
+    await audit(db, s.adminId, value ? 'project.publish' : 'project.unpublish', p.id);
     setFlash(c, { type: 'ok', lines: [value ? `« ${p.name} » est publié.` : `« ${p.name} » est dépublié.`] });
     return c.redirect('/admin/projets', 303);
   });
@@ -155,8 +155,8 @@ export function registerProjects(app: Hono<AppEnv>, deps: Deps, cache: PageCache
     const pos = String(body.position ?? '');
     if (!['', '1', '2', '3'].includes(pos)) return c.text('Position invalide.', 400);
     await setFeatured(p.id, pos ? Number(pos) : null);
-    await audit(db, s.adminId, 'project.feature', p.id);
     await published();
+    await audit(db, s.adminId, 'project.feature', p.id);
     setFlash(c, { type: 'ok', lines: [pos ? `« ${p.name} » est en position ${pos} sur l’accueil.` : `« ${p.name} » n’est plus mis en avant.`] });
     return c.redirect('/admin/projets', 303);
   });
@@ -189,8 +189,8 @@ export function registerProjects(app: Hono<AppEnv>, deps: Deps, cache: PageCache
     await db.delete(projects).where(eq(projects.id, p.id));
     for (const img of p.images) await deps.storage.deletePrefix(img.storagePrefix).catch(() => {});
     await deps.storage.deletePrefix(`projects/${p.id}`).catch(() => {});
-    await audit(db, s.adminId, 'project.delete', p.id);
     await published();
+    await audit(db, s.adminId, 'project.delete', p.id);
     setFlash(c, { type: 'ok', lines: [`Projet « ${p.name} » supprimé.`] });
     return c.redirect('/admin/projets', 303);
   });

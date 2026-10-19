@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { AppEnv, Deps } from '../../context';
 import { projectImages, projects } from '../../db/schema';
 import { audit } from '../../lib/repo';
+import { errorSummary } from '../../log';
 import { ImageRejected, processAndStoreImage } from '../../lib/images';
 import type { PageCache } from '../public';
 import { MAX_FILES, UUID_RE, createHelpers, createPublished, setFlash } from './shared';
@@ -52,14 +53,14 @@ export function registerImages(app: Hono<AppEnv>, deps: Deps, cache: PageCache) 
         } catch (e) {
           if (e instanceof ImageRejected) ko.push(`${label} : ${e.message}`);
           else {
-            deps.log.error({ err: (e as Error).message }, 'upload: traitement impossible');
+            deps.log.error({ err: errorSummary(e) }, 'upload: traitement impossible');
             ko.push(`${label} : traitement impossible.`);
           }
         }
       }
       if (ok.length) {
-        await audit(db, s.adminId, 'image.upload', p.id);
         await published();
+        await audit(db, s.adminId, 'image.upload', p.id);
       }
       const lines: string[] = [];
       if (ok.length) lines.push(`${ok.length} image(s) ajoutée(s). Pensez à renseigner leur texte alternatif.`);
@@ -80,8 +81,8 @@ export function registerImages(app: Hono<AppEnv>, deps: Deps, cache: PageCache) 
         await db.update(projectImages).set({ alt: v.trim().slice(0, 200) }).where(eq(projectImages.id, img.id));
       }
     }
-    await audit(db, s.adminId, 'image.alt', p.id);
     await published();
+    await audit(db, s.adminId, 'image.alt', p.id);
     setFlash(c, { type: 'ok', lines: ['Textes alternatifs enregistrés.'] });
     return c.redirect(`/admin/projets/${p.id}`, 303);
   });
@@ -124,8 +125,8 @@ export function registerImages(app: Hono<AppEnv>, deps: Deps, cache: PageCache) 
       for (const [i, it] of list.entries()) await tx.update(projectImages).set({ sortOrder: i + 1 }).where(eq(projectImages.id, it.id));
       await tx.update(projects).set({ coverImageId: img.id, updatedAt: new Date() }).where(eq(projects.id, p.id));
     });
-    await audit(db, s.adminId, 'image.cover', p.id);
     await published();
+    await audit(db, s.adminId, 'image.cover', p.id);
     setFlash(c, { type: 'ok', lines: ['Image de couverture mise à jour.'] });
     return c.redirect(`/admin/projets/${p.id}`, 303);
   });
@@ -137,9 +138,9 @@ export function registerImages(app: Hono<AppEnv>, deps: Deps, cache: PageCache) 
     const { p, img } = found;
     await db.delete(projectImages).where(eq(projectImages.id, img.id));
     if (p.coverImageId === img.id) await db.update(projects).set({ coverImageId: null }).where(eq(projects.id, p.id));
-    await deps.storage.deletePrefix(img.storagePrefix).catch((e) => deps.log.warn({ err: (e as Error).message }, 'stockage: suppression incomplète'));
-    await audit(db, s.adminId, 'image.delete', p.id);
+    await deps.storage.deletePrefix(img.storagePrefix).catch((e) => deps.log.warn({ err: errorSummary(e) }, 'stockage: suppression incomplète'));
     await published();
+    await audit(db, s.adminId, 'image.delete', p.id);
     setFlash(c, { type: 'ok', lines: ['Image supprimée.'] });
     return c.redirect(`/admin/projets/${p.id}`, 303);
   });

@@ -33,8 +33,10 @@ export function issueFormToken(secret: string, now = Date.now()) {
   return `${ts}.${hmac(secret, `contact:${ts}`).slice(0, 22)}`;
 }
 
-export type TokenCheck = 'ok' | 'too-fast' | 'invalid' | 'missing';
+export type TokenCheck = 'ok' | 'too-fast' | 'expired' | 'invalid' | 'missing';
 export const MIN_FILL_MS = 2500;
+/** Au-delà, le jeton est refusé : une page restée ouverte deux jours se recharge (un jeton ne sert pas indéfiniment). */
+export const MAX_TOKEN_AGE_MS = 48 * 60 * 60 * 1000;
 
 export function checkFormToken(secret: string, token: unknown, now = Date.now()): TokenCheck {
   if (typeof token !== 'string' || !token) return 'missing';
@@ -43,6 +45,7 @@ export function checkFormToken(secret: string, token: unknown, now = Date.now())
   if (!safeEqual(sig, hmac(secret, `contact:${ts}`).slice(0, 22))) return 'invalid';
   const age = now - Number(ts);
   if (age < MIN_FILL_MS) return 'too-fast';
+  if (age > MAX_TOKEN_AGE_MS) return 'expired';
   return 'ok';
 }
 

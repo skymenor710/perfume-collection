@@ -5,6 +5,7 @@ import { bootstrap, type Runtime } from './bootstrap';
 import { createApp } from './app';
 import { purgeExpiredSessions } from './lib/auth';
 import { purgeOld } from './lib/rate-limit';
+import { retryNotifications } from './lib/notify';
 import type { AppEnv } from './context';
 
 /**
@@ -62,9 +63,10 @@ export function serverlessApp(): Promise<Instance> {
   return instance;
 }
 
-/** Ménage périodique (fonction planifiée) : sessions expirées et compteurs de limitation anciens. */
+/** Tâche horaire (fonction planifiée) : sessions expirées, compteurs de limitation anciens, notifications en échec. */
 export async function housekeeping() {
   const { runtime } = await serverlessApp();
   await purgeExpiredSessions(runtime.deps);
   await purgeOld(runtime.deps.db);
+  await retryNotifications(runtime.deps);
 }

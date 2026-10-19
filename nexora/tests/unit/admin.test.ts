@@ -263,11 +263,12 @@ describe('projets', () => {
     imgs = await ctx.deps.db.select().from(projectImages).where(eq(projectImages.id, first.id));
     expect(imgs[0].alt).toBe('Page d’accueil du site');
 
-    // Publication : images publiques avec cache long.
+    // Publication : images publiques en cache borné (1 jour, 1 h sur le CDN : un retrait de publication s'applique vite).
     await c.form(`/admin/projets/${id}/publication`, { _csrf: token, published: '1' });
     const pub = await new Client(ctx).req(`/media/${first.id}/480.webp`);
     expect(pub.status).toBe(200);
-    expect(pub.headers.get('cache-control')).toContain('immutable');
+    expect(pub.headers.get('cache-control')).toBe('public, max-age=86400');
+    expect(pub.headers.get('netlify-cdn-cache-control')).toBe('public, max-age=3600');
 
     // Suppression : ligne et fichiers.
     await c.form(`/admin/projets/${id}/images/${first.id}/supprimer`, { _csrf: token });

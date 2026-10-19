@@ -57,7 +57,7 @@ export function createMailer(mail: Config['mail'], fetchImpl: typeof fetch = fet
           }),
         });
       }
-      if (!res.ok) throw new Error(`Fournisseur e-mail : HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Fournisseur e-mail : HTTP ${res.status}${await providerCode(res)}`);
     },
   };
 }
@@ -65,4 +65,15 @@ export function createMailer(mail: Config['mail'], fetchImpl: typeof fetch = fet
 function parseAddress(value: string): { email: string; name?: string } {
   const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(value);
   return m ? { name: m[1] || undefined, email: m[2] } : { email: value.trim() };
+}
+
+/** Code d'erreur court renvoyé par le fournisseur (ex. « unauthorized ») pour le diagnostic dans l'admin. */
+async function providerCode(res: Response) {
+  try {
+    const body = (await res.json()) as { code?: unknown; name?: unknown };
+    const code = typeof body.code === 'string' ? body.code : typeof body.name === 'string' ? body.name : '';
+    return /^[\w.-]{1,60}$/.test(code) ? ` (${code})` : '';
+  } catch {
+    return '';
+  }
 }

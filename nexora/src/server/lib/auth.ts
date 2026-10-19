@@ -15,6 +15,10 @@ export function sessionCookieName(secure: boolean) {
 export function preCookieName(secure: boolean) {
   return secure ? '__Host-nx_pre' : 'nx_pre';
 }
+/** Appareil déjà connecté : échappe au verrouillage global du compte (voir la connexion dans routes/admin.tsx). */
+export function deviceCookieName(secure: boolean) {
+  return secure ? '__Host-nx_dev' : 'nx_dev';
+}
 
 export async function createSession(deps: Deps, c: Context, adminId: string) {
   const token = randomToken(32);

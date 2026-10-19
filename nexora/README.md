@@ -169,14 +169,15 @@ versionné).
 3. **Projet Netlify** : *Add new project* → *Import an existing project* → GitHub → ce dépôt ; **Base directory** :
    `nexora` ; branche de production (étape 2). Commande, dossier publié et fonctions viennent de `netlify.toml`.
 4. **Contextes** : *Project configuration → Build & deploy → Continuous deployment → Branches and deploy contexts* :
-   déployer uniquement la branche de production, sans Deploy Previews ni Branch deploys. Chaque build applique les
-   migrations sur la base de `DATABASE_URL` : un aperçu ne doit jamais migrer la base de production.
+   déployer uniquement la branche de production, sans Deploy Previews ni Branch deploys. Les migrations ne s'appliquent
+   qu'au build du contexte `production` (ignorées ailleurs) ; garder ce réglage limite tout de même les builds qui
+   partagent la base de production.
 5. **Variables** : *Project configuration → Environment variables → Add a variable*, toutes portées et contextes ;
    cocher *Contains secret values* (si l’option est proposée) pour les lignes « secret ».
 
    ```
    NODE_ENV=production
-   PUBLIC_URL=https://www.nexora-creation.fr                   # = domaine principal choisi à l’étape 7
+   PUBLIC_URL=https://nexora-creation.fr                       # = domaine principal (étape 7)
    SESSION_SECRET=<48 caractères aléatoires>                   # secret — commande dans .env.example
    DATABASE_URL=postgres://…?sslmode=require                   # secret
    STORAGE_DRIVER=s3
@@ -203,16 +204,18 @@ versionné).
    * *Senders* : ajouter `site@nexora-creation.fr` (nom « Nexora »).
    * *SMTP & API → API Keys* : créer une clé, la coller seulement dans `MAIL_API_KEY` sur Netlify.
    * *Security → Authorised IPs* : ne pas bloquer les IP inconnues pour l’API (les fonctions Netlify n’ont pas d’IP fixe).
-7. **Domaine** : *Domain management → Add a domain* : `www.nexora-creation.fr` (domaine principal, recommandé par
-   Netlify avec un DNS externe) et `nexora-creation.fr` (redirigé). Zone DNS OVHcloud : `CNAME` `www` →
-   `<projet>.netlify.app.` (nom exact affiché par Netlify) et `A` `@` → `75.2.60.5` ; supprimer les anciens `A`/`AAAA`
-   de `@` et de `www` (page d’attente OVH). Le certificat HTTPS est émis par Netlify une fois le DNS vérifié.
+7. **Domaine** (en service) : *Domain management* : `nexora-creation.fr` est le domaine principal ; `www.nexora-creation.fr`
+   et l’adresse technique `nexora-creation.netlify.app` (règle dans `netlify.toml`) redirigent vers lui. Zone DNS
+   OVHcloud : `A` `@` → `75.2.60.5` et `CNAME` `www` → `nexora-creation.netlify.app.` ; aucun `AAAA`. Certificat HTTPS
+   Let’s Encrypt émis et renouvelé par Netlify.
 8. **Déployer** (*Deploys → Trigger deploy*), puis créer l’administrateur depuis votre poste, avec les valeurs de
    production : `DATABASE_URL=… SESSION_SECRET=… STORAGE_DRIVER=s3 S3_…=… npm run admin:create -- --email vous@exemple.fr`.
 9. **Vérifier** : envoyer le formulaire du site ; dans `/admin` → *Demandes* → la demande indique « Envoyée le … » ou
    l’erreur exacte ; le message arrive sur `nexora.services1@hotmail.com` (au premier envoi, regarder *Courrier
    indésirable* et ajouter l’expéditeur aux expéditeurs approuvés). « Répondre » écrit directement au visiteur.
-   En cas d’erreur : journaux de la fonction `site` (*Logs → Functions*).
+   En cas d’erreur : journaux de la fonction `site` (*Logs → Functions*). Une notification en échec est renvoyée
+   automatiquement par la fonction planifiée `menage` (toutes les heures, pendant 24 h).
+   Commit réellement en ligne : `https://nexora-creation.fr/version.txt`.
 
 Limites connues de Netlify : requête de 6 Mo au plus (envoyer les images **une par une**, `UPLOAD_MAX_MB=4`) et 10 s
 d’exécution par défaut (26 s sur les offres payantes) — une très grande image peut dépasser ce délai lors de la

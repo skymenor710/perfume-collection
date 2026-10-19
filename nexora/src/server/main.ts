@@ -3,6 +3,7 @@ import { bootstrap } from './bootstrap';
 import { createApp } from './app';
 import { purgeExpiredSessions } from './lib/auth';
 import { purgeOld } from './lib/rate-limit';
+import { retryNotifications } from './lib/notify';
 
 const runtime = await bootstrap();
 const { deps } = runtime;
@@ -17,10 +18,11 @@ const server = serve({ fetch: app.fetch, port: config.port, hostname: config.hos
   log.info({ port: info.port, env: config.env, storage: config.storage.driver }, `Nexora : ${config.publicUrl}`);
 });
 
-// Ménage périodique : sessions expirées, compteurs de limitation anciens.
+// Tâche horaire : sessions expirées, compteurs de limitation anciens, notifications en échec.
 const housekeeping = setInterval(() => {
   purgeExpiredSessions(deps).catch(() => {});
   purgeOld(deps.db).catch(() => {});
+  retryNotifications(deps).catch(() => {});
 }, 60 * 60 * 1000);
 housekeeping.unref();
 

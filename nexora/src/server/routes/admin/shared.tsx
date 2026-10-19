@@ -13,6 +13,7 @@ import type { PageCache } from '../public';
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const LOGIN_IP_LIMIT = 20; // tentatives / 15 min / IP
 export const LOGIN_ACCOUNT_LIMIT = 8; // échecs / 15 min / compte
+export const LOGIN_KNOWN_DEVICE_LIMIT = 100; // échecs / 15 min / compte, plafond pour un appareil déjà connecté
 export const LOGIN_WINDOW = 15 * 60;
 export const MAX_FILES = 10;
 
@@ -103,7 +104,10 @@ export function createHelpers(deps: Deps) {
 export function createPublished(deps: Deps, cache: PageCache) {
   const { db } = deps;
 
-  /** Après toute modification visible publiquement : nouvelle version de contenu (toutes instances) + cache local vidé. */
+  /**
+   * Après toute modification visible publiquement : nouvelle version de contenu (toutes instances) + cache local vidé.
+   * À appeler AVANT `audit()` : si l'écriture du journal échoue, le site public n'affiche pas une version périmée.
+   */
   async function published() {
     await bumpContentVersion(db);
     cache.clear();

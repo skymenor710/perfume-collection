@@ -10,7 +10,43 @@
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function initGalleries() {
-  document.querySelectorAll<HTMLElement>('[data-carousel]').forEach(setup);
+  document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((root) => {
+    deferImages(root);
+    setup(root);
+  });
+}
+
+/**
+ * `loading="lazy"` deixa a distância de carregamento a critério do navegador; em telas grandes ele pode baixar
+ * galerias inteiras antes de elas aparecerem. Mantemos as fontes fora da rede até a própria galeria se aproximar.
+ * O markup dentro de <noscript> conserva as imagens para visitantes sem JavaScript.
+ */
+function deferImages(root: HTMLElement) {
+  const load = () => {
+    root.querySelectorAll<HTMLSourceElement>('source[data-srcset]').forEach((source) => {
+      source.srcset = source.dataset.srcset ?? '';
+      source.removeAttribute('data-srcset');
+    });
+    root.querySelectorAll<HTMLImageElement>('img[data-src]').forEach((img) => {
+      img.src = img.dataset.src ?? '';
+      img.srcset = img.dataset.srcset ?? '';
+      img.removeAttribute('data-src');
+      img.removeAttribute('data-srcset');
+    });
+  };
+  if (!('IntersectionObserver' in window)) {
+    load();
+    return;
+  }
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      load();
+      observer.unobserve(root);
+    },
+    { rootMargin: '200px 0px' },
+  );
+  observer.observe(root);
 }
 
 function setup(root: HTMLElement) {

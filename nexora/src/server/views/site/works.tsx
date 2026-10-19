@@ -51,7 +51,7 @@ const GALLERY_SIZES = '(max-width: 640px) calc(87.8vw - 18px), (max-width: 1024p
 /**
  * Galerie d'un projet, indépendante des autres : défilement horizontal natif aimanté (glisser au doigt ou au pavé
  * tactile), flèches, ← → au clavier, points indicateurs (bouton par capture, état courant annoncé). Hauteur fixe
- * 16:10 : aucun décalage de mise en page. Images différées (loading="lazy"). Clic sur une capture : visionneuse
+ * 16:10 : aucun décalage de mise en page. Images différées par l'observateur de la galerie (fallback sans JavaScript). Clic sur une capture : visionneuse
  * plein écran (src/client/lightbox.ts). Le pilotage est dans src/client/gallery.ts ; sans JavaScript, le
  * défilement horizontal reste utilisable.
  */
@@ -95,9 +95,15 @@ const Gallery = ({ project, id }: { project: ProjectWithImages; id: string }) =>
                   aria-label={`Agrandir la capture ${k + 1} sur ${n} : ${img.alt}`}
                 >
                   <picture>
-                    <source type="image/avif" srcset={set.avif} sizes={GALLERY_SIZES} />
-                    <img src={set.src} srcset={set.webp} sizes={GALLERY_SIZES} width={img.width} height={img.height} alt="" loading="lazy" decoding="async" />
+                    <source type="image/avif" data-srcset={set.avif} sizes={GALLERY_SIZES} />
+                    <img data-src={set.src} data-srcset={set.webp} sizes={GALLERY_SIZES} width={img.width} height={img.height} alt="" decoding="async" />
                   </picture>
+                  <noscript>
+                    <picture>
+                      <source type="image/avif" srcset={set.avif} sizes={GALLERY_SIZES} />
+                      <img src={set.src} srcset={set.webp} sizes={GALLERY_SIZES} width={img.width} height={img.height} alt="" loading="lazy" decoding="async" />
+                    </picture>
+                  </noscript>
                   <span class="gallery__zoom" aria-hidden="true">
                     <ExpandIcon />
                   </span>

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -27,6 +27,9 @@ export interface TestCtx {
 
 export async function setup(opts: { mail?: 'none' | 'ok' | 'fail'; env?: Record<string, string> } = {}): Promise<TestCtx> {
   const dir = mkdtempSync(path.join(tmpdir(), 'nexora-test-'));
+  // createApp enregistre les middlewares statiques dès son initialisation. Même si les tests unitaires ne servent pas
+  // ces fichiers, la racine doit exister pour que Hono ne transforme pas chaque requête en avertissement parasite.
+  mkdirSync(path.join(dir, 'client'), { recursive: true });
   const config = loadConfig({
     NODE_ENV: 'test',
     PUBLIC_URL: ORIGIN,

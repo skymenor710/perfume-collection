@@ -11,9 +11,9 @@ visibles dans `/admin`), mais ils sont nécessaires avant l’ouverture au publi
 - [ ] **Section « Nos réalisations » vide** (« Nos premières réalisations seront bientôt présentées ici ») : publier
   les projets dans `/admin → Projets` (ou lancer `npm run db:seed` avec les variables de production pour les 3
   concepts du portfolio).
-- [ ] **Supprimer la demande « Test technique (audit Nexora) »** (`/admin → Demandes`), envoyée le 19/10/2026 pour
-  vérifier le formulaire, et vérifier sa notification dans la boîte `nexora.services1@hotmail.com` (dossier courrier
-  indésirable compris).
+- [ ] **Supprimer les deux demandes « Test technique (audit Nexora…) »** (`/admin → Demandes`), envoyées le 19/10/2026
+  pour vérifier le formulaire, et vérifier leurs notifications dans la boîte `nexora.services1@hotmail.com` (dossier
+  courrier indésirable compris) ; dans l'admin, chaque demande indique « Envoyée le … » ou l'erreur du fournisseur.
 - [ ] DNS OVHcloud (facultatif) : supprimer l’ancien enregistrement TXT `1|www.nexora-creation.fr` (reste d’une
   redirection OVH, sans effet) ; après quelques semaines de rapports DMARC sans anomalie, passer `_dmarc` de `p=none` à
   `p=quarantine` ; un enregistrement CAA `0 issue "letsencrypt.org"` limite l’émission de certificats.

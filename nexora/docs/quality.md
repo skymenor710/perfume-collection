@@ -21,6 +21,23 @@ dans le conteneur Linux de développement (Node 22, 4 Go) ; les durées dépende
 La CI (`.github/workflows/nexora.yml`) exécute : audit de production, lint, types, lint typé, règles, tests, build, e2e
 et paquet Netlify sur un PostgreSQL 16 éphémère. Aucun secret, aucun déploiement.
 
+## Contrôle de la production
+
+Netlify publie automatiquement la branche de production à chaque push (build : `npm run build`, migrations en
+contexte `production`, `/version.txt`). Après chaque déploiement :
+
+- `https://nexora-creation.fr/version.txt` affiche le commit attendu (sinon le build a échoué : le site précédent reste
+  en ligne ; voir *Deploys* dans Netlify).
+- Pages (`/`, pages légales, `/admin/connexion`, 404), redirections (`http`, `www`, `nexora-creation.netlify.app` →
+  `https://nexora-creation.fr`), en-têtes de sécurité, aucun en-tête CORS.
+- Formulaire : autre origine → 403, jeton forgé → 400, champ invalide → 422, envoi valide → 201 (demande de test à
+  supprimer ensuite dans l'admin ; 5 envois par IP et par 15 min).
+- Lighthouse mobile et desktop ; axe (WCAG 2.2 AA) à 390 et 1440 px.
+
+Dernier contrôle : 19/10/2026, commit `9873e0b` — 30/30 vérifications ; Lighthouse 100 / 100 / 100 / 100 en mobile et
+en desktop (LCP mobile 1,3 s, CLS 0,03, 75 Ko transférés) ; axe : 0 violation sur 5 pages × 2 largeurs, aucune erreur
+console, aucun débordement horizontal.
+
 ## Règles ESLint
 
 Configuration : `eslint.config.mjs` (rapide) et `eslint.config.typed.mjs` (avec types). Profil adapté du Vibe Coding

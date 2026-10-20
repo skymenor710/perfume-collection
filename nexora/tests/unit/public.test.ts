@@ -373,12 +373,15 @@ describe('formulaire de contact', () => {
 });
 
 describe('configuration', () => {
-  it('exige SESSION_SECRET en production et un stockage S3 complet', () => {
+  it('exige SESSION_SECRET en production, valide le stockage S3 et rend Sentry optionnel', () => {
     expect(() => loadConfig({ NODE_ENV: 'production', PUBLIC_URL: 'https://nexora.fr' })).toThrow(/SESSION_SECRET/);
     expect(() => loadConfig({ NODE_ENV: 'development', STORAGE_DRIVER: 's3', S3_BUCKET: 'x' })).toThrow(/S3/);
     const c = loadConfig({ NODE_ENV: 'production', PUBLIC_URL: 'https://nexora.fr', SESSION_SECRET: 'x'.repeat(40) });
     expect(c.cookieSecure).toBe(true);
     expect(c.mail.configured).toBe(false);
     expect(c.mail.missing).toEqual(['MAIL_PROVIDER']);
+    expect(c.monitoring).toBeNull();
+    const monitored = loadConfig({ SENTRY_DSN: 'https://public@example.ingest.sentry.io/42', SENTRY_TRACES_SAMPLE_RATE: '0.25' });
+    expect(monitored.monitoring).toEqual({ dsn: 'https://public@example.ingest.sentry.io/42', tracesSampleRate: 0.25 });
   });
 });

@@ -46,6 +46,11 @@ const schema = z.object({
   ANALYTICS_PROVIDER: z.enum(['none', 'plausible']).default('none'),
   ANALYTICS_DOMAIN: z.string().trim().max(200).optional(),
   ANALYTICS_SCRIPT_URL: z.string().url().startsWith('https://').default('https://plausible.io/js/script.manual.js'),
+
+  // Observabilité serveur (facultative). La DSN est publique par conception, mais reste côté serveur ici : aucun
+  // script de suivi n'est ajouté au navigateur. Les données de requête sont désactivées à l'initialisation du SDK.
+  SENTRY_DSN: z.string().url().startsWith('https://').optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -54,6 +59,7 @@ export interface Config {
   env: Env['NODE_ENV'];
   isProd: boolean;
   analytics: { provider: 'plausible'; domain: string; scriptUrl: string; origin: string } | null;
+  monitoring: { dsn: string; tracesSampleRate: number } | null;
   host: string;
   port: number;
   publicUrl: string;
@@ -131,6 +137,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
       e.ANALYTICS_PROVIDER === 'plausible' && e.ANALYTICS_DOMAIN
         ? { provider: 'plausible', domain: e.ANALYTICS_DOMAIN, scriptUrl: e.ANALYTICS_SCRIPT_URL, origin: new URL(e.ANALYTICS_SCRIPT_URL).origin }
         : null,
+    monitoring: e.SENTRY_DSN ? { dsn: e.SENTRY_DSN, tracesSampleRate: e.SENTRY_TRACES_SAMPLE_RATE } : null,
     host: e.HOST,
     port: e.PORT,
     publicUrl,

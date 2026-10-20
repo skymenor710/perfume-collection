@@ -11,6 +11,7 @@ import { Document } from './views/layout';
 import { ErrorPage } from './views/site/error';
 import { renderHtml } from './views/render';
 import { errorSummary } from './log';
+import { captureException, flushMonitoring, traceRequest } from './lib/monitoring';
 
 export function createApp(deps: Deps) {
   const app = new Hono<AppEnv>();
@@ -18,6 +19,7 @@ export function createApp(deps: Deps) {
   const root = path.relative(process.cwd(), deps.assets.clientDir) || '.';
 
   app.use('*', securityHeaders(deps));
+  app.use('*', async (c, next) => traceRequest(c.req.method, c.req.path, next, () => c.res.status));
   // Compression gzip des réponses texte (HTML, CSS, JS, JSON, XML) ; les images sont déjà compressées.
   app.use('*', compress());
   app.use('*', clientIp(deps));
@@ -67,9 +69,11 @@ export function createApp(deps: Deps) {
     );
 
   app.notFound((c) => c.html(page('Page introuvable', 'La page demandée n’existe pas ou a été déplacée.'), 404));
-  app.onError((err, c) => {
+  app.onError(async (err, c) => {
     // Détail technique dans le journal seulement ; message neutre pour le visiteur.
     deps.log.error({ err: errorSummary(err), path: c.req.path }, 'erreur serveur');
+    captureException(err, { stage: 'request', method: c.req.method, path: c.req.path });
+    await flushMonitoring();
     if ((c.req.header('accept') ?? '').includes('application/json')) return c.json({ message: 'Erreur interne. Réessayez dans un instant.' }, 500);
     return c.html(page('Une erreur est survenue', 'Réessayez dans un instant. Si le problème persiste, contactez-nous.'), 500);
   });

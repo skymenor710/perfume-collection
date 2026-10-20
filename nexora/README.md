@@ -101,6 +101,10 @@ n’est jamais montré aux visiteurs.
 `ANALYTICS_PROVIDER=plausible` et `ANALYTICS_DOMAIN=…` ; un bandeau demande alors le consentement, aucun script n’est
 chargé avant « Accepter », le choix est modifiable en pied de page et la politique de confidentialité s’adapte.
 
+**Observabilité serveur** : en définissant `SENTRY_DSN` (et, si nécessaire, `SENTRY_TRACES_SAMPLE_RATE`, `0.1` par
+défaut), les erreurs et performances des fonctions Netlify sont visibles dans Sentry. Aucun script Sentry n’est chargé
+chez le visiteur ; les cookies, IP, en-têtes, corps de requête, paramètres d’URL et valeurs SQL sont exclus.
+
 **Pages légales** : `/mentions-legales` et `/politique-de-confidentialite` existent et sont liées depuis le pied de page
 et le formulaire ; leurs informations (raison sociale, SIRET, hébergeur…) se remplissent dans *Contenus du site →
 Informations légales* (affichées « À compléter » tant qu’elles sont vides).

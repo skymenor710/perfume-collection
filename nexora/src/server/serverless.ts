@@ -6,6 +6,7 @@ import { createApp } from './app';
 import { purgeExpiredSessions } from './lib/auth';
 import { purgeOld } from './lib/rate-limit';
 import { retryNotifications } from './lib/notify';
+import { captureException, flushMonitoring } from './lib/monitoring';
 import type { AppEnv } from './context';
 
 /**
@@ -60,6 +61,8 @@ export function serverlessApp(): Promise<Instance> {
     if (deps.config.uploadMaxBytes > 5 * 1024 * 1024) deps.log.warn('UPLOAD_MAX_MB > 5 : les requêtes des fonctions Netlify sont limitées à 6 Mo.');
     return { app: createApp(deps), runtime };
   })().catch((e) => {
+    captureException(e, { stage: 'startup' });
+    void flushMonitoring();
     instance = null; // nouvel essai à la requête suivante
     throw e;
   });

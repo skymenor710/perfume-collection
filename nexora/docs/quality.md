@@ -18,8 +18,9 @@ dans le conteneur Linux de développement (Node 22, 4 Go) ; les durées dépende
 | `npm run test:netlify` | le paquet des fonctions Netlify s'empaquette et répond : 17 vérifications (routes, contact, limitation, IP falsifiée, fonction planifiée) sur PostgreSQL | un vrai déploiement Netlify | < 1 min |
 | `npm audit --omit=dev` | aucune vulnérabilité connue dans les dépendances de production (0 au 18/10/2026) | dépendances de développement (voir § Dépendances) | — |
 
-La CI (`.github/workflows/nexora.yml`) exécute : audit de production, lint, types, lint typé, règles, tests, build, e2e
-et paquet Netlify sur un PostgreSQL 16 éphémère. Aucun secret, aucun déploiement.
+La CI (`.github/workflows/nexora.yml`) s'exécute sur chaque PR touchant Nexora, ainsi que sur les pushes vers `main` et
+la branche de production `claude/nexora-site`. Elle exécute : audit de production, lint, types, lint typé, règles,
+tests, build, e2e et paquet Netlify sur un PostgreSQL 16 éphémère. Aucun secret, aucun déploiement.
 
 ## Contrôle de la production
 

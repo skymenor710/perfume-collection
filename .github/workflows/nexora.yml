@@ -4,7 +4,7 @@ name: Nexora
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/nexora-site]
     paths: ['nexora/**', '.github/workflows/nexora.yml']
   pull_request:
     paths: ['nexora/**', '.github/workflows/nexora.yml']

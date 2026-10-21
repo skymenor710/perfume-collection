@@ -59,6 +59,9 @@ export function clientDirCandidates(options: {
     // Le bundle Netlify conserve dist/client auprès du module compilé, tandis que
     // process.cwd() varie selon le runtime de la fonction.
     path.resolve(functionRoot, 'dist/client'),
+    // En production, le module est sous netlify/functions/ et les fichiers publiés
+    // restent à la racine du projet empaqueté.
+    path.resolve(functionRoot, '../..', 'dist/client'),
     path.resolve(options.cwd ?? process.cwd(), 'dist/client'),
     lambdaTaskRoot ? path.resolve(lambdaTaskRoot, 'dist/client') : undefined,
   ].filter((d): d is string => !!d);

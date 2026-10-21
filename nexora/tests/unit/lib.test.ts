@@ -129,10 +129,11 @@ describe('serverless (Netlify)', () => {
 
   it('cherche d’abord les fichiers inclus près du module empaqueté', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'nx-function-'));
+    const functionRoot = path.join(root, 'netlify', 'functions');
     const client = path.join(root, 'dist', 'client');
     mkdirSync(client, { recursive: true });
     writeFileSync(path.join(client, 'manifest.json'), '{}');
-    expect(findClientDir({ functionRoot: root, cwd: tmpdir() })).toBe(client);
+    expect(findClientDir({ functionRoot, cwd: tmpdir() })).toBe(client);
     rmSync(root, { recursive: true, force: true });
   });
 

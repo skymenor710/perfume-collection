@@ -7,7 +7,9 @@
 [build]
   # Fichiers du navigateur (dist/client), migrations de la base (contexte production seulement ; refusées si la base
   # n'est pas PostgreSQL), puis /version.txt (commit déployé).
-  command = "npm run build && npm run db:migrate && node scripts/build-info.mjs"
+  # SEED_PORTFOLIO=true est utilisé une seule fois pour restaurer les trois projets clients si la base est vide.
+  # Le script est idempotent : il ne touche à rien dès qu'un projet existe.
+  command = "npm run build && npm run db:migrate && if [ \"$SEED_PORTFOLIO\" = \"true\" ]; then npm run db:seed; fi && node scripts/build-info.mjs"
   publish = "dist/client"
 
 [build.environment]

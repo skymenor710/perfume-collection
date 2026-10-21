@@ -42,9 +42,19 @@ export function findClientDir(options: {
   lambdaTaskRoot?: string;
   functionRoot?: string;
 } = {}) {
+  return clientDirCandidates(options).find((d) => existsSync(path.join(d, 'manifest.json')) || existsSync(path.join(d, '.vite', 'manifest.json')))
+    ?? path.resolve(options.cwd ?? process.cwd(), 'dist/client');
+}
+
+export function clientDirCandidates(options: {
+  clientDir?: string;
+  cwd?: string;
+  lambdaTaskRoot?: string;
+  functionRoot?: string;
+} = {}) {
   const functionRoot = options.functionRoot ?? path.dirname(fileURLToPath(import.meta.url));
   const lambdaTaskRoot = options.lambdaTaskRoot ?? process.env.LAMBDA_TASK_ROOT;
-  const candidates = [
+  return [
     options.clientDir ?? process.env.NEXORA_CLIENT_DIR,
     // Le bundle Netlify conserve dist/client auprès du module compilé, tandis que
     // process.cwd() varie selon le runtime de la fonction.
@@ -52,8 +62,6 @@ export function findClientDir(options: {
     path.resolve(options.cwd ?? process.cwd(), 'dist/client'),
     lambdaTaskRoot ? path.resolve(lambdaTaskRoot, 'dist/client') : undefined,
   ].filter((d): d is string => !!d);
-  return candidates.find((d) => existsSync(path.join(d, 'manifest.json')) || existsSync(path.join(d, '.vite', 'manifest.json')))
-    ?? path.resolve(options.cwd ?? process.cwd(), 'dist/client');
 }
 
 interface Instance {
@@ -66,9 +74,13 @@ export function serverlessApp(): Promise<Instance> {
   instance ??= (async () => {
     const problems = serverlessProblems();
     if (problems.length) throw new Error(problems.join(' '));
-    const runtime = await bootstrap({ clientDir: findClientDir(), migrate: false, syncLog: true });
+    const clientDir = findClientDir();
+    const runtime = await bootstrap({ clientDir, migrate: false, syncLog: true });
     const { deps } = runtime;
-    if (!deps.assets.built) throw new Error('Fichiers du navigateur introuvables (dist/client/manifest.json) : vérifier included_files.');
+    if (!deps.assets.built) {
+      const searched = clientDirCandidates().map((dir) => `${dir}:${existsSync(path.join(dir, 'manifest.json')) ? 'ok' : 'absent'}`).join(', ');
+      throw new Error(`Fichiers du navigateur introuvables (dist/client/manifest.json) : ${searched}`);
+    }
     for (const w of deps.config.warnings) deps.log.warn(w);
     if (deps.config.uploadMaxBytes > 5 * 1024 * 1024) deps.log.warn('UPLOAD_MAX_MB > 5 : les requêtes des fonctions Netlify sont limitées à 6 Mo.');
     return { app: createApp(deps), runtime };

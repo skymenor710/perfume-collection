@@ -8,7 +8,7 @@ import { checkFormToken, issueFormToken } from '../../src/server/lib/contact';
 import { sniffImageType } from '../../src/server/lib/images';
 import { createMailer } from '../../src/server/lib/mail';
 import { contentSchema, defaultContent, displayContent, frTypo, mergeContent } from '../../src/server/lib/content';
-import { serverlessProblems } from '../../src/server/serverless';
+import { findClientDir, serverlessProblems } from '../../src/server/serverless';
 import { createLogger } from '../../src/server/log';
 import { loadAssets } from '../../src/server/lib/assets';
 
@@ -125,6 +125,15 @@ describe('serverless (Netlify)', () => {
     }));
     expect(loadAssets(dir)).toMatchObject({ built: true, siteJs: '/assets/site.js', adminJs: '/assets/admin.js' });
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('cherche d’abord les fichiers inclus près du module empaqueté', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'nx-function-'));
+    const client = path.join(root, 'dist', 'client');
+    mkdirSync(client, { recursive: true });
+    writeFileSync(path.join(client, 'manifest.json'), '{}');
+    expect(findClientDir({ functionRoot: root, cwd: tmpdir() })).toBe(client);
+    rmSync(root, { recursive: true, force: true });
   });
 
   it('refuse les réglages non persistants ou contournables', () => {

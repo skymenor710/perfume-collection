@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type { Hono } from 'hono';
 import { bootstrap, type Runtime } from './bootstrap';
@@ -35,14 +36,24 @@ export function serverlessProblems(env: NodeJS.ProcessEnv = process.env) {
   return problems;
 }
 
-function findClientDir() {
+export function findClientDir(options: {
+  clientDir?: string;
+  cwd?: string;
+  lambdaTaskRoot?: string;
+  functionRoot?: string;
+} = {}) {
+  const functionRoot = options.functionRoot ?? path.dirname(fileURLToPath(import.meta.url));
+  const lambdaTaskRoot = options.lambdaTaskRoot ?? process.env.LAMBDA_TASK_ROOT;
   const candidates = [
-    process.env.NEXORA_CLIENT_DIR,
-    path.resolve(process.cwd(), 'dist/client'),
-    process.env.LAMBDA_TASK_ROOT ? path.resolve(process.env.LAMBDA_TASK_ROOT, 'dist/client') : undefined,
+    options.clientDir ?? process.env.NEXORA_CLIENT_DIR,
+    // Le bundle Netlify conserve dist/client auprès du module compilé, tandis que
+    // process.cwd() varie selon le runtime de la fonction.
+    path.resolve(functionRoot, 'dist/client'),
+    path.resolve(options.cwd ?? process.cwd(), 'dist/client'),
+    lambdaTaskRoot ? path.resolve(lambdaTaskRoot, 'dist/client') : undefined,
   ].filter((d): d is string => !!d);
   return candidates.find((d) => existsSync(path.join(d, 'manifest.json')) || existsSync(path.join(d, '.vite', 'manifest.json')))
-    ?? path.resolve(process.cwd(), 'dist/client');
+    ?? path.resolve(options.cwd ?? process.cwd(), 'dist/client');
 }
 
 interface Instance {

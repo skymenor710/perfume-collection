@@ -41,7 +41,8 @@ function findClientDir() {
     path.resolve(process.cwd(), 'dist/client'),
     process.env.LAMBDA_TASK_ROOT ? path.resolve(process.env.LAMBDA_TASK_ROOT, 'dist/client') : undefined,
   ].filter((d): d is string => !!d);
-  return candidates.find((d) => existsSync(path.join(d, '.vite', 'manifest.json'))) ?? path.resolve(process.cwd(), 'dist/client');
+  return candidates.find((d) => existsSync(path.join(d, 'manifest.json')) || existsSync(path.join(d, '.vite', 'manifest.json')))
+    ?? path.resolve(process.cwd(), 'dist/client');
 }
 
 interface Instance {
@@ -56,7 +57,7 @@ export function serverlessApp(): Promise<Instance> {
     if (problems.length) throw new Error(problems.join(' '));
     const runtime = await bootstrap({ clientDir: findClientDir(), migrate: false, syncLog: true });
     const { deps } = runtime;
-    if (!deps.assets.built) throw new Error('Fichiers du navigateur introuvables (dist/client/.vite/manifest.json) : vérifier included_files.');
+    if (!deps.assets.built) throw new Error('Fichiers du navigateur introuvables (dist/client/manifest.json) : vérifier included_files.');
     for (const w of deps.config.warnings) deps.log.warn(w);
     if (deps.config.uploadMaxBytes > 5 * 1024 * 1024) deps.log.warn('UPLOAD_MAX_MB > 5 : les requêtes des fonctions Netlify sont limitées à 6 Mo.');
     return { app: createApp(deps), runtime };

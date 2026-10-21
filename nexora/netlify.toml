@@ -18,7 +18,8 @@
   # Modules natifs ou à fichiers annexes : copiés tels quels plutôt qu'intégrés au paquet.
   external_node_modules = ["sharp", "pg", "@electric-sql/pglite"]
   # Manifeste Vite et CSS : le CSS est intégré à chaque page (autorisé par son empreinte dans la CSP).
-  included_files = ["dist/client/.vite/manifest.json", "dist/client/assets/*.css"]
+  # Le manifeste reste hors de `.vite/`, répertoire caché que le bundler peut omettre.
+  included_files = ["dist/client/manifest.json", "dist/client/assets/*.css"]
 
 # Une seule adresse publique : l'adresse technique Netlify renvoie vers le domaine (pas de site en double ; l'admin
 # n'y fonctionne de toute façon pas, l'origine ne correspondant pas à PUBLIC_URL).

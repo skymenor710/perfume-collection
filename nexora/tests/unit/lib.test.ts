@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { assertSafeKey, createStorage } from '../../src/server/lib/storage';
@@ -10,6 +10,7 @@ import { createMailer } from '../../src/server/lib/mail';
 import { contentSchema, defaultContent, displayContent, frTypo, mergeContent } from '../../src/server/lib/content';
 import { serverlessProblems } from '../../src/server/serverless';
 import { createLogger } from '../../src/server/log';
+import { loadAssets } from '../../src/server/lib/assets';
 
 describe('stockage', () => {
   it('refuse les clés dangereuses (traversée de répertoire)', () => {
@@ -114,6 +115,18 @@ describe('contenus', () => {
 });
 
 describe('serverless (Netlify)', () => {
+  it('charge le manifeste Vite placé à la racine du bundle de fonction', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'nx-assets-'));
+    mkdirSync(path.join(dir, 'assets'));
+    writeFileSync(path.join(dir, 'assets', 'site.css'), '.site { color: black; }');
+    writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({
+      'src/client/site.ts': { file: 'assets/site.js', css: ['assets/site.css'] },
+      'src/client/admin.ts': { file: 'assets/admin.js' },
+    }));
+    expect(loadAssets(dir)).toMatchObject({ built: true, siteJs: '/assets/site.js', adminJs: '/assets/admin.js' });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('refuse les réglages non persistants ou contournables', () => {
     const secret = { SESSION_SECRET: 's'.repeat(48) };
     expect(serverlessProblems({ ...secret, DATABASE_URL: 'pglite:./data/db', STORAGE_DRIVER: 'local' })).toHaveLength(2);

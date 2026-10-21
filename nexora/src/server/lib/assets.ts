@@ -24,8 +24,13 @@ interface ManifestEntry {
 }
 
 export function loadAssets(clientDir: string): Assets {
-  const manifestPath = path.join(clientDir, '.vite', 'manifest.json');
-  if (!existsSync(manifestPath)) {
+  // Vite produit le manifeste à la racine : Netlify l'embarque alors de façon fiable
+  // avec la fonction. Le second chemin facilite encore l'exécution de builds antérieurs.
+  const manifestPath = [
+    path.join(clientDir, 'manifest.json'),
+    path.join(clientDir, '.vite', 'manifest.json'),
+  ].find(existsSync);
+  if (!manifestPath) {
     return { clientDir, siteJs: '/assets/site.js', siteCss: [], adminJs: '/assets/admin.js', adminCss: [], built: false };
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, ManifestEntry>;

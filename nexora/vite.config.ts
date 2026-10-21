@@ -7,7 +7,9 @@ export default defineConfig({
   build: {
     outDir: 'dist/client',
     emptyOutDir: true,
-    manifest: true,
+    // À la racine pour que Netlify puisse l'inclure dans le paquet de la fonction
+    // (les répertoires cachés comme `.vite/` ne sont pas fiables dans ce bundle).
+    manifest: 'manifest.json',
     target: 'es2022',
     cssMinify: true,
     modulePreload: { polyfill: false },

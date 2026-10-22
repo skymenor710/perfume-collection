@@ -44,7 +44,7 @@ describe('site public', () => {
     }
     expect(html.match(/class="service"/g)?.length).toBe(5);
     for (const t of ['Découverte', 'Conception', 'Développement', 'Mise en ligne']) expect(html).toContain(`</span>${t}</h3>`);
-    for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration', 'Romorantin-Lanthenay']) expect(html.toLowerCase()).toContain(t.toLowerCase());
+    for (const t of ['délai', 'budget', 'maintenance', 'Google', 'appartient', 'collaboration', 'France']) expect(html.toLowerCase()).toContain(t.toLowerCase());
     // Réalisations : trois cartes, statut visible, détail (contexte, solution, objectif) ; aucun « résultat ».
     expect(html).toContain('<h2 class="section-title" id="works-title">Nos <em class="accent">réalisations.</em></h2>');
     expect(html.match(/<article class="work"/g)?.length).toBe(3);

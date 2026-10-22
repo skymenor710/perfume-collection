@@ -314,5 +314,5 @@ export function displayContent(c: SiteContent): SiteContent {
 }
 
 /** Champs facultatifs de qualification du formulaire de contact (listes fermées : modifiables ici). */
-export const BUDGETS = ['Moins de 3 000 €', '3 000 à 6 000 €', '6 000 à 12 000 €', 'Plus de 12 000 €', 'Je ne sais pas encore'] as const;
+export const BUDGETS = ['Moins de 1 000 €', '2 000 à 3 000 €', '3 000 à 6 000 €', '6 000 à 12 000 €', 'Plus de 12 000 €', 'Je ne sais pas encore'] as const;
 export const TIMELINES = ['Dès que possible', 'Dans 1 à 3 mois', 'Dans 3 à 6 mois', 'Pas de date précise'] as const;

@@ -109,7 +109,7 @@ export const defaultContent: SiteContent = {
     titleAfter: 'pour les PME.',
     subtitle: 'Des sites rapides et sur mesure, pensés pour transformer vos visiteurs en demandes de devis.',
     // Zone d'intervention : à ajuster dans Admin › Contenus si elle change (aucune adresse n'est affichée).
-    audience: 'Sites vitrines, refontes et boutiques en ligne pour PME et indépendants — à Romorantin-Lanthenay, Blois, Orléans et partout en France à distance.',
+    audience: 'Sites vitrines, refontes et boutiques en ligne pour PME et indépendants partout en France.',
     ctaQuote: 'Demander un devis',
     ctaWork: 'Voir nos réalisations',
     reassurance: 'Devis gratuit et sans engagement · Réponse sous 1 jour ouvré',
@@ -181,9 +181,9 @@ export const defaultContent: SiteContent = {
     q6Question: 'Comment se déroule la collaboration ?',
     q6Answer:
       'Après le premier échange, vous avez un interlocuteur dédié du début à la fin. Chaque étape — conception, développement, mise en ligne — se termine par votre validation. Les échanges se font en visioconférence, par téléphone ou par e-mail, selon ce qui vous convient.',
-    q7Question: 'Travaillez-vous avec des entreprises de Romorantin-Lanthenay, Blois et Orléans ?',
+    q7Question: 'Travaillez-vous avec des entreprises partout en France ?',
     q7Answer:
-      'Oui. Nexora accompagne les PME et indépendants de Romorantin-Lanthenay, de Blois, d’Orléans et de la région Centre-Val de Loire. Les échanges se font en visioconférence, par téléphone ou par e-mail : nous travaillons aussi avec des entreprises partout en France.',
+      'Oui. Nexora accompagne les PME et indépendants partout en France. Les échanges se font en visioconférence, par téléphone ou par e-mail, selon ce qui vous convient.',
   },
   contact: {
     titleLine1: 'Votre prochain site',
@@ -203,9 +203,8 @@ export const defaultContent: SiteContent = {
   footer: { tagline: 'Création de sites web' },
   seo: {
     title: 'Nexora — Création de sites web premium pour PME',
-    description:
-      'Création et refonte de sites web sur mesure, rapides et responsive pour PME et indépendants à Romorantin-Lanthenay, Blois, Orléans et partout en France.',
-    areaServed: 'Romorantin-Lanthenay, Blois, Orléans, Centre-Val de Loire',
+    description: 'Création et refonte de sites web sur mesure, rapides et responsive pour PME et indépendants partout en France.',
+    areaServed: 'France',
   },
   // Informations légales : À COMPLÉTER avant publication (aucune donnée inventée).
   legal: {
